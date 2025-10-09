@@ -8,14 +8,15 @@ Modifying your device's boot images carries significant risks, including but not
 
 **You are solely responsible for any consequences. Use at your own absolute risk.**
 
-This set of scripts automates the process of region code conversion for `vendor_boot.img` and re-signing the corresponding `vbmeta.img`. It also provides an option to patch the `vendor_boot.img` with **KernelSU Next** to enable root.
+This set of scripts automates the process of region code conversion for `vendor_boot.img` and re-signing the corresponding `vbmeta.img`. It also provides an option to patch the `init_boot.img` with **KernelSU Next** to enable root.
 
 ## Prerequisites
 
 Before you begin, you must provide the following files from your device's stock firmware:
 
-* `vendor_boot.img`
 * `vbmeta.img`
+* `vendor_boot.img`
+* `init_boot.img` (if you want to root)
 
 Place these two files in the main directory alongside the scripts. All other dependencies (like Python, `magiskboot`, and signing keys) will be downloaded automatically.
 
@@ -26,10 +27,11 @@ Place these two files in the main directory alongside the scripts. All other dep
 3.  **Run the Script:**
     * Simply run `convert.bat`.
     * If you want to **add root** during the process, run `convert_with_root.bat` instead.
-4.  **Flash the Images:** Once the script is finished, a new `vendor_boot.img` and a re-signed `vbmeta.img` will be ready in the output folder. You can now flash these to your device using `fastboot`.
+4.  **Flash the Images:** Once the script is finished, new img files will be ready in the output folder. You can now flash these to your device using `fastboot`.
 
 ## Script Descriptions
 
+* **`info.bat`**: Drag & drop img file(s) to see information
 * **`install.bat`**: Checks for required tools and keys, and downloads them if they are missing.
 * **`convert.bat`**: The main script. It handles the region code conversion and re-signs the `vbmeta.img` **without** adding root.
-* **`convert_with_root.bat`**: An alternative to the main script. It first patches the `vendor_boot.img` with **KernelSU Next** and then runs the conversion and re-signing process.
+* **`convert_with_root.bat`**: An alternative to the main script. It first patches the `init_boot.img` with **KernelSU Next** and then runs the conversion and re-signing process.
