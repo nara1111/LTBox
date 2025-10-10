@@ -4,38 +4,43 @@ from pathlib import Path
 
 def get_kernel_version(file_path):
     """
-    Extracts and prints the Linux kernel version string from a file.
+    Robustly extracts and prints the Linux kernel version in x.y.z format.
+    It finds all printable character sequences in the binary to locate the version string.
     """
     kernel_file = Path(file_path)
     if not kernel_file.exists():
-        print(f"Error: Kernel file not found at '{file_path}'", file=sys.stderr)
+        sys.stderr.write(f"Error: Kernel file not found at '{file_path}'\n")
         sys.exit(1)
 
     try:
         content = kernel_file.read_bytes()
-        # Search for 'Linux version X.Y.Z-...'
-        match = re.search(b'Linux version (\\S+)', content)
-        if match:
-            version = match.group(1).decode('utf-8', errors='ignore')
-            print(version)
+        potential_strings = re.findall(b'[ -~]{10,}', content)
+        
+        found_version = None
+        for string_bytes in potential_strings:
+            try:
+                line = string_bytes.decode('ascii', errors='ignore')
+                if 'Linux version ' in line:
+                    base_version_match = re.search(r'(\d+\.\d+\.\d+)', line)
+                    if base_version_match:
+                        found_version = base_version_match.group(1)
+                        sys.stderr.write(f"Full kernel string found: {line.strip()}\n")
+                        break
+            except UnicodeDecodeError:
+                continue
+
+        if found_version:
+            print(found_version)
         else:
-            print("Error: Kernel version string not found in the file.", file=sys.stderr)
+            sys.stderr.write("Error: Could not find or parse 'Linux version' string in the kernel file.\n")
             sys.exit(1)
+
     except Exception as e:
-        print(f"An error occurred while reading the file: {e}", file=sys.stderr)
+        sys.stderr.write(f"An unexpected error occurred: {e}\n")
         sys.exit(1)
 
-def main():
-    """
-    Main function to handle command-line arguments.
-    """
-    if len(sys.argv) > 1:
-        kernel_file_path = sys.argv[1]
-    else:
-        # Default to 'kernel' if no argument is provided
-        kernel_file_path = 'kernel'
-    
-    get_kernel_version(kernel_file_path)
-
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1:
+        get_kernel_version(sys.argv[1])
+    else:
+        get_kernel_version('kernel')

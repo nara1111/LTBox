@@ -211,14 +211,12 @@ def patch_boot_with_root():
 
         print("\n[2/8] Verifying kernel version...")
         result = run_command([str(PYTHON_EXE), str(GET_KERNEL_VER_PY), "kernel"])
-        full_kernel_string = result.stdout.strip()
-        print(f"[+] Found version string: {full_kernel_string}")
+        target_kernel_version = result.stdout.strip()
 
-        kernel_version_match = re.match(r"(\d+\.\d+\.\d+)", full_kernel_string)
-        if not kernel_version_match:
-            print("[!] Could not extract a valid kernel version (e.g., x.y.z) from string.")
-            sys.exit(1)
-        target_kernel_version = kernel_version_match.group(1)
+        if not re.match(r"\d+\.\d+\.\d+", target_kernel_version):
+             print(f"[!] Invalid kernel version returned from script: '{target_kernel_version}'")
+             sys.exit(1)
+        
         print(f"[+] Target kernel version for download: {target_kernel_version}")
 
         print("\n[3/8] Downloading GKI Kernel with fetch...")
