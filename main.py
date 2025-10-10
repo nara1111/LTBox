@@ -15,13 +15,13 @@ import requests
 BASE_DIR = Path(__file__).parent.resolve()
 TOOLS_DIR = BASE_DIR / "tools"
 PYTHON_DIR = BASE_DIR / "python3"
-KEY_DIR = BASE_DIR / "key"
+AVB_DIR = TOOLS_DIR / "avb"
 OUTPUT_DIR = BASE_DIR / "output"
 BACKUP_DIR = BASE_DIR / "backup"
 WORK_DIR = BASE_DIR / "patch_work"
 
 PYTHON_EXE = PYTHON_DIR / "python.exe"
-AVBTOOL_PY = TOOLS_DIR / "avbtool.py"
+AVBTOOL_PY = AVB_DIR / "avbtool.py"
 EDIT_VNDRBOOT_PY = TOOLS_DIR / "edit_vndrboot.py"
 GET_KERNEL_VER_PY = TOOLS_DIR / "get_kernel_ver.py"
 
@@ -83,8 +83,8 @@ def check_dependencies():
     print("--- Checking for required files ---")
     dependencies = {
         "Python Environment": PYTHON_EXE,
-        "RSA4096 Key": KEY_DIR / "testkey_rsa4096.pem",
-        "RSA2048 Key": KEY_DIR / "testkey_rsa2048.pem",
+        "RSA4096 Key": AVB_DIR / "testkey_rsa4096.pem",
+        "RSA2048 Key": AVB_DIR / "testkey_rsa2048.pem",
         "avbtool": AVBTOOL_PY,
         "fetch tool": get_platform_executable("fetch")
     }
@@ -117,7 +117,7 @@ def extract_image_avb_info(image_path):
     if data_size_match:
         info['data_size'] = data_size_match.group(1)
     else:
-        desc_size_match = re.search(r"^\s*Image Size:\s*(\d+)\s*bytes", output, re.MULTILILINE)
+        desc_size_match = re.search(r"^\s*Image Size:\s*(\d+)\s*bytes", output, re.MULTILINE)
         if desc_size_match:
             info['data_size'] = desc_size_match.group(1)
 
@@ -351,8 +351,8 @@ def convert_images(with_root=False):
     Path("prop_val.tmp").unlink(missing_ok=True)
     
     key_map = {
-        "2597c218aae470a130f61162feaae70afd97f011": KEY_DIR / "testkey_rsa4096.pem",
-        "cdbb77177f731920bbe0a0f94f84d9038ae0617d": KEY_DIR / "testkey_rsa2048.pem"
+        "2597c218aae470a130f61162feaae70afd97f011": AVB_DIR / "testkey_rsa4096.pem",
+        "cdbb77177f731920bbe0a0f94f84d9038ae0617d": AVB_DIR / "testkey_rsa2048.pem"
     }
     
     vbmeta_pubkey = vbmeta_info.get('pubkey_sha1')

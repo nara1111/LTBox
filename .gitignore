@@ -5,12 +5,9 @@
 backup/
 desktop.ini
 get-pip.py
-key/testkey_rsa2048.pem
-key/testkey_rsa4096.pem
 output/
 python3/
-python_embed.zip
-tools/avbtool.py
+tools/avb/
 tools/fetch.exe
 tools/kernelsu.ko
 tools/ksuinit

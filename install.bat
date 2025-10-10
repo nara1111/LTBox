@@ -28,121 +28,120 @@ set "FETCH_EXE=%TOOLS_DIR%\\fetch.exe"
 if not exist "%TOOLS_DIR%" mkdir "%TOOLS_DIR%"
 if not exist "%KEY_DIR%" mkdir "%KEY_DIR%"
 
-:: ======================================================
-:: 1. Setup Standalone Python Environment
-:: ======================================================
-echo [*] Checking for Python environment...
-if exist "%PYTHON_DIR%\\python.exe" goto PythonExists
 
-echo [!] Python environment not found.
-echo Starting setup...
-
-echo [*] Downloading Python embeddable package (%PYTHON_VERSION%)...
+:: ======================================================
+:: Download Python and Set Up Environment
+:: ======================================================
+echo [*] Checking for Python...
+if exist "%PYTHON_DIR%\\python.exe" goto python_exists
+echo [!] Python not found.
+echo Attempting to download Python %PYTHON_VERSION%...
 curl -L "%PYTHON_ZIP_URL%" -o "%PYTHON_ZIP_PATH%"
-if errorlevel 1 (
-    echo [!] Failed to download Python. Please check your internet connection.
-    pause
-    exit /b
+if not exist "%PYTHON_ZIP_PATH%" (
+    echo [!] Download failed.
+    goto :eof
 )
-
+echo [+] Download successful.
 echo [*] Extracting Python...
 powershell -Command "Expand-Archive -Path '%PYTHON_ZIP_PATH%' -DestinationPath '%PYTHON_DIR%' -Force"
-if errorlevel 1 (
-    echo [!] Failed to extract Python. Make sure you have PowerShell.
-    del "%PYTHON_ZIP_PATH%"
-    pause
-    exit /b
-)
-
 del "%PYTHON_ZIP_PATH%"
-echo [+] Python environment created successfully.
-echo [*] Configuring Python environment...
 if exist "%PYTHON_PTH_FILE_SRC%" (
-    copy "%PYTHON_PTH_FILE_SRC%" "%PYTHON_PTH_FILE_DST%" >nul
-) else (
-    echo import site > "%PYTHON_PTH_FILE_DST%"
+    echo [*] Copying PTH file...
+    copy "%PYTHON_PTH_FILE_SRC%" "%PYTHON_PTH_FILE_DST%"
 )
-
-echo [*] Downloading get-pip.py...
+echo [*] Checking for pip...
+if exist "%PYTHON_DIR%\\Scripts\\pip.exe" goto pip_exists
+echo [!] pip not found.
+echo Attempting to download get-pip.py...
 curl -L "%GETPIP_URL%" -o "%GETPIP_PATH%"
-if errorlevel 1 (
-    echo [!] Failed to download get-pip.py.
-    pause
-    exit /b
+if not exist "%GETPIP_PATH%" (
+    echo [!] Download failed.
+    goto :eof
 )
-
+echo [+] Download successful.
 echo [*] Installing pip...
 "%PYTHON_DIR%\\python.exe" "%GETPIP_PATH%"
-if errorlevel 1 (
-    echo [!] Failed to install pip.
-    del "%GETPIP_PATH%"
-    pause
-    exit /b
-)
-
 del "%GETPIP_PATH%"
-echo [+] pip installed successfully.
-echo [*] Installing cryptography package...
-"%PYTHON_DIR%\\python.exe" -m pip install cryptography
-if errorlevel 1 (
-    echo [!] Failed to install cryptography.
-    pause
-    exit /b
-)
-echo [+] cryptography installed successfully.
-echo [*] Installing requests package...
-"%PYTHON_DIR%\\python.exe" -m pip install requests
-if errorlevel 1 (
-    echo [!] Failed to install requests.
-    pause
-    exit /b
-)
-echo [+] requests installed successfully.
-:PythonExists
-echo [+] Python environment is ready.
+:pip_exists
+:python_exists
+echo.
+echo [*] Checking for requests module...
+"%PYTHON_DIR%\\python.exe" -c "import requests" 2>nul
+if %errorlevel% equ 0 goto requests_exists
+echo [!] 'requests' module not found.
+echo Attempting to install...
+"%PYTHON_DIR%\\Scripts\\pip.exe" install requests
+:requests_exists
+echo.
+echo [*] Checking for cryptography module...
+"%PYTHON_DIR%\\python.exe" -c "import cryptography" 2>nul
+if %errorlevel% equ 0 goto cryptography_exists
+echo [!] 'cryptography' module not found.
+echo Attempting to install...
+"%PYTHON_DIR%\\Scripts\\pip.exe" install cryptography
+:cryptography_exists
 echo.
 
-:: ======================================================
-:: 2. Download Other Required Files
-:: ======================================================
 
-echo --- Downloading Tools ---
-echo.
+:: ======================================================
+:: Download Other Tools
+:: ======================================================
 echo [*] Checking for fetch.exe...
 if exist "%FETCH_EXE%" goto fetch_exists
 echo [!] 'fetch.exe' not found.
 echo Attempting to download...
-curl -L "%FETCH_URL%" -o "%FETCH_EXE%" --fail
+curl -L "%FETCH_URL%" -o "%FETCH_EXE%"
 if exist "%FETCH_EXE%" (echo [+] Download successful.) else (echo [!] Download failed.)
 :fetch_exists
 echo.
-echo [*] Checking for avbtool.py...
-if exist "%TOOLS_DIR%\\avbtool.py" goto avbtool_exists
-echo [!] 'avbtool.py' not found.
-echo Attempting to download...
-curl -L "https://github.com/LineageOS/android_external_avb/raw/refs/heads/lineage-22.2/avbtool.py" -o "%TOOLS_DIR%\\avbtool.py"
-if exist "%TOOLS_DIR%\\avbtool.py" (echo [+] Download successful.) else (echo [!] Download failed.)
-:avbtool_exists
-echo.
-echo [*] Checking for testkey_rsa4096.pem...
-if exist "%KEY_DIR%\\testkey_rsa4096.pem" goto key4096_exists
-echo [!] 'testkey_rsa4096.pem' not found.
-echo Attempting to download...
-curl -L "https://github.com/LineageOS/android_external_avb/raw/refs/heads/lineage-22.2/test/data/testkey_rsa4096.pem" -o "%KEY_DIR%\\testkey_rsa4096.pem"
-if exist "%KEY_DIR%\\testkey_rsa4096.pem" (echo [+] Download successful.) else (echo [!] Download failed.)
-:key4096_exists
-echo.
-echo [*] Checking for testkey_rsa2048.pem...
-if exist "%KEY_DIR%\\testkey_rsa2048.pem" goto key2048_exists
-echo [!] 'testkey_rsa2048.pem' not found.
-echo Attempting to download...
-curl -L "https://github.com/LineageOS/android_external_avb/raw/refs/heads/lineage-22.2/test/data/testkey_rsa2048.pem" -o "%KEY_DIR%\\testkey_rsa2048.pem"
-if exist "%KEY_DIR%\\testkey_rsa2048.pem" (echo [+] Download successful.) else (echo [!] Download failed.)
-:key2048_exists
-echo.
+
 :: ======================================================
-:: Finalization
+:: Download avbtool and Keys
 :: ======================================================
-echo --- All required files are present ---
+set "AVB_DIR=%TOOLS_DIR%\avb"
+set "AVB_TOOL_PATH=%AVB_DIR%\avbtool.py"
+set "AVB_ARCHIVE_URL=https://android.googlesource.com/platform/external/avb/+archive/refs/heads/main.tar.gz"
+set "TEMP_ARCHIVE=%TOOLS_DIR%\avb_main.tar.gz"
+
+echo [*] Checking for avbtool and test keys...
+if exist "%AVB_TOOL_PATH%" (
+    echo [+] avbtool and keys are already present.
+) else (
+    echo [*] avbtool not found. Downloading from AOSP...
+    if not exist "%AVB_DIR%" mkdir "%AVB_DIR%"
+
+    echo [*] Downloading avb source archive...
+    curl -L "%AVB_ARCHIVE_URL%" -o "%TEMP_ARCHIVE%"
+    if errorlevel 1 (
+        echo [!] Failed to download the archive.
+        goto :error
+    )
+
+    echo [*] Extracting required files...
+    tar -xzf "%TEMP_ARCHIVE%" -C "%AVB_DIR%" avbtool.py
+    if errorlevel 1 (
+        echo [!] Failed to extract avbtool.py.
+        goto :error
+    )
+    tar -xzf "%TEMP_ARCHIVE%" -C "%AVB_DIR%" --strip-components=2 test/data/testkey_rsa2048.pem
+    if errorlevel 1 (
+        echo [!] Failed to extract testkey_rsa2048.pem.
+        goto :error
+    )
+    tar -xzf "%TEMP_ARCHIVE%" -C "%AVB_DIR%" --strip-components=2 test/data/testkey_rsa4096.pem
+    if errorlevel 1 (
+        echo [!] Failed to extract testkey_rsa4096.pem.
+        goto :error
+    )
+
+    echo [+] Extraction successful.
+    del "%TEMP_ARCHIVE%"
+)
 echo.
+
+:error
+if exist "%TEMP_ARCHIVE%" del "%TEMP_ARCHIVE%"
+
+echo --- Installation complete ---
 pause
+endlocal
