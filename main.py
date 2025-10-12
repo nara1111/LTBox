@@ -27,6 +27,9 @@ AVBTOOL_PY = AVB_DIR / "avbtool.py"
 EDIT_IMAGES_PY = TOOLS_DIR / "edit_images.py"
 GET_KERNEL_VER_PY = TOOLS_DIR / "get_kernel_ver.py"
 
+MAGISKBOOT_REPO_URL = "https://github.com/PinNaCode/magiskboot_build"
+MAGISKBOOT_TAG = "last-ci"
+
 KSU_APK_REPO = "KernelSU-Next/KernelSU-Next"
 KSU_APK_TAG = "v1.1.1"
 
@@ -95,7 +98,7 @@ def check_dependencies():
     if missing_deps:
         for name in missing_deps:
             print(f"[!] Error: Dependency '{name}' is missing.")
-        print("Please run 'install.bat' first to download all required files.")
+        print("Please run one of the main scripts (e.g., root.bat) to install all required files.")
         sys.exit(1)
 
     print("[+] All dependencies are present.\n")
@@ -166,16 +169,64 @@ def patch_boot_with_root():
     if not magiskboot_exe.exists():
         print(f"[!] '{magiskboot_exe.name}' not found. Attempting to download...")
         if platform.system() == "Windows":
-            url = 'https://github.com/CYRUS-STUDIO/MagiskBootWindows/raw/main/magiskboot.exe'
+            arch = platform.machine()
+            arch_map = {
+                'AMD64': 'x86_64',
+                'ARM64': 'arm64',
+            }
+            target_arch = arch_map.get(arch, 'i686')
+            
+            asset_pattern = f"magiskboot-.*-windows-.*-{target_arch}-standalone\\.zip"
+            
+            print(f"[*] Detected Windows architecture: {arch}. Selecting matching magiskboot binary.")
+            
             try:
-                response = requests.get(url, stream=True, timeout=30)
-                response.raise_for_status()
-                with open(magiskboot_exe, 'wb') as f:
-                    shutil.copyfileobj(response.raw, f)
-                print("[+] Download successful.")
-            except requests.RequestException as e:
-                print(f"Error downloading magiskboot: {e}", file=sys.stderr)
+                fetch_command = [
+                    str(fetch_exe),
+                    "--repo", MAGISKBOOT_REPO_URL,
+                    "--tag", MAGISKBOOT_TAG,
+                    "--release-asset", asset_pattern,
+                    str(TOOLS_DIR)
+                ]
+                run_command(fetch_command, capture=True)
+
+                downloaded_zips = list(TOOLS_DIR.glob("magiskboot-*-windows-*.zip"))
+                
+                if not downloaded_zips:
+                    raise FileNotFoundError("Failed to find the downloaded magiskboot zip archive.")
+                
+                downloaded_zip_path = downloaded_zips[0]
+                
+                with zipfile.ZipFile(downloaded_zip_path, 'r') as zip_ref:
+                    magiskboot_info = None
+                    for member in zip_ref.infolist():
+                        if member.filename.endswith('magiskboot.exe'):
+                            magiskboot_info = member
+                            break
+                    
+                    if not magiskboot_info:
+                        raise FileNotFoundError("magiskboot.exe not found inside the downloaded zip archive.")
+
+                    zip_ref.extract(magiskboot_info, path=TOOLS_DIR)
+                    
+                    extracted_path = TOOLS_DIR / magiskboot_info.filename
+                    
+                    shutil.move(extracted_path, magiskboot_exe)
+                    
+                    parent_dir = extracted_path.parent
+                    if parent_dir.is_dir() and parent_dir != TOOLS_DIR:
+                         try:
+                            parent_dir.rmdir()
+                         except OSError:
+                            shutil.rmtree(parent_dir)
+
+                downloaded_zip_path.unlink()
+                print("[+] Download and extraction successful.")
+
+            except (subprocess.CalledProcessError, FileNotFoundError, KeyError, IndexError) as e:
+                print(f"[!] Error downloading or extracting magiskboot: {e}", file=sys.stderr)
                 sys.exit(1)
+
         else:
             print(f"[!] Auto-download for {platform.system()} is not supported. Please add it to the 'tools' folder manually.")
             sys.exit(1)
