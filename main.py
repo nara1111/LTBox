@@ -40,6 +40,10 @@ REPO_URL = f"https://github.com/{RELEASE_OWNER}/{RELEASE_REPO}"
 
 ANYKERNEL_ZIP_FILENAME = "AnyKernel3.zip"
 
+EDL_NG_REPO_URL = "https://github.com/strongtz/edl-ng"
+EDL_NG_TAG = "v1.4.1"
+EDL_LOADER_FILE = BASE_DIR / "xbl_s_devprg_ns.melf"
+
 
 # --- Helper Functions ---
 def run_command(command, shell=False, check=True, env=None, capture=False):
@@ -69,6 +73,28 @@ def run_command(command, shell=False, check=True, env=None, capture=False):
         if e.stderr:
             print(f"Stderr:\n{e.stderr.strip()}", file=sys.stderr)
         raise
+
+def check_edl_device():
+    print("[*] Checking for Qualcomm EDL (9008) device...")
+    try:
+        result = subprocess.run(
+            ['wmic', 'path', 'Win32_PnPEntity', 'where', "Name like 'Qualcomm%9008%'", 'get', 'Name'],
+            capture_output=True, text=True, encoding='utf-8', errors='ignore', shell=True
+        )
+        if "Qualcomm" in result.stdout and "9008" in result.stdout:
+            print("[+] Qualcomm EDL device found.")
+            return True
+        else:
+            print("[!] No Qualcomm EDL (9008) device found in Device Manager.")
+            print("[!] Please connect your device in EDL mode.")
+            return False
+    except FileNotFoundError:
+        print("[!] WMIC command not found. Cannot check for EDL device.", file=sys.stderr)
+        print("[!] Assuming device is connected. The script will proceed.")
+        return True
+    except Exception as e:
+        print(f"[!] Error checking for EDL device: {e}", file=sys.stderr)
+        return False
 
 def get_platform_executable(name):
     """Returns the path to a platform-specific executable."""
@@ -579,6 +605,193 @@ def edit_devinfo_persist():
     print("=" * 61)
 
 
+def read_edl():
+    print("--- Starting EDL Read Process ---")
+    
+    if platform.system() != "Windows":
+        print("[!] This function is only supported on Windows.", file=sys.stderr)
+        sys.exit(1)
+
+    fetch_exe = get_platform_executable("fetch")
+    edl_ng_exe = TOOLS_DIR / "edl-ng.exe"
+
+    if not edl_ng_exe.exists():
+        print(f"[!] '{edl_ng_exe.name}' not found. Attempting to download...")
+        arch = platform.machine()
+        if arch == 'AMD64':
+            asset_pattern = "edl-ng-windows-x64.zip"
+        elif arch == 'ARM64':
+            asset_pattern = "edl-ng-windows-arm64.zip"
+        else:
+            print(f"[!] Unsupported Windows architecture: {arch}. Cannot download edl-ng.", file=sys.stderr)
+            sys.exit(1)
+            
+        print(f"[*] Detected {arch} architecture. Downloading '{asset_pattern}'...")
+
+        try:
+            fetch_command = [
+                str(fetch_exe),
+                "--repo", EDL_NG_REPO_URL,
+                "--tag", EDL_NG_TAG,
+                "--release-asset", asset_pattern,
+                str(TOOLS_DIR)
+            ]
+            run_command(fetch_command, capture=True)
+
+            downloaded_zip_path = TOOLS_DIR / asset_pattern
+            
+            if not downloaded_zip_path.exists():
+                raise FileNotFoundError(f"Failed to find the downloaded edl-ng zip archive: {asset_pattern}")
+            
+            with zipfile.ZipFile(downloaded_zip_path, 'r') as zip_ref:
+                edl_info = None
+                for member in zip_ref.infolist():
+                    if member.filename.endswith('edl-ng.exe'):
+                        edl_info = member
+                        break
+                
+                if not edl_info:
+                    raise FileNotFoundError("edl-ng.exe not found inside the downloaded zip archive.")
+
+                zip_ref.extract(edl_info, path=TOOLS_DIR)
+                
+                extracted_path = TOOLS_DIR / edl_info.filename
+                if extracted_path != edl_ng_exe:
+                    shutil.move(extracted_path, edl_ng_exe)
+                    parent_dir = extracted_path.parent
+                    if parent_dir.is_dir() and parent_dir != TOOLS_DIR:
+                        try:
+                            parent_dir.rmdir()
+                        except OSError:
+                            shutil.rmtree(parent_dir, ignore_errors=True)
+
+            downloaded_zip_path.unlink()
+            print("[+] edl-ng download and extraction successful.")
+
+        except (subprocess.CalledProcessError, FileNotFoundError, KeyError, IndexError) as e:
+            print(f"[!] Error downloading or extracting edl-ng: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    if not EDL_LOADER_FILE.exists():
+        print(f"[!] Error: Loader file '{EDL_LOADER_FILE.name}' not found in the main directory.")
+        print("[!] Aborting.")
+        sys.exit(1)
+    print(f"[+] Loader file '{EDL_LOADER_FILE.name}' found.")
+
+    if not check_edl_device():
+        sys.exit(1)
+        
+    print("\n[*] Attempting to read 'devinfo' partition...")
+    try:
+        run_command([
+            str(edl_ng_exe),
+            "--loader", str(EDL_LOADER_FILE),
+            "read-part", "devinfo", "devinfo.img"
+        ])
+        print("[+] Successfully read 'devinfo' to devinfo.img.")
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"[!] Failed to read 'devinfo': {e}", file=sys.stderr)
+
+    print("\n[*] Attempting to read 'persist' partition...")
+    try:
+        run_command([
+            str(edl_ng_exe),
+            "--loader", str(EDL_LOADER_FILE),
+            "read-part", "persist", "persist.img"
+        ])
+        print("[+] Successfully read 'persist' to persist.img.")
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"[!] Failed to read 'persist': {e}", file=sys.stderr)
+
+    print("\n--- EDL Read Process Finished ---")
+
+
+def write_edl():
+    print("--- Starting EDL Write Process ---")
+
+    if platform.system() != "Windows":
+        print("[!] This function is only supported on Windows.", file=sys.stderr)
+        sys.exit(1)
+
+    if not OUTPUT_DP_DIR.exists():
+        print(f"[!] Error: Patched images folder '{OUTPUT_DP_DIR.name}' not found.", file=sys.stderr)
+        print("[!] Please run 'devinfo_persist.bat' first to generate the modified images.", file=sys.stderr)
+        sys.exit(1)
+    print(f"[+] Found patched images folder: '{OUTPUT_DP_DIR.name}'.")
+
+    if not EDL_LOADER_FILE.exists():
+        print(f"[!] Error: Loader file '{EDL_LOADER_FILE.name}' not found in the main directory.", file=sys.stderr)
+        print("[!] Aborting.")
+        sys.exit(1)
+    print(f"[+] Loader file '{EDL_LOADER_FILE.name}' found.")
+
+    if not check_edl_device():
+        sys.exit(1)
+
+    patched_devinfo = OUTPUT_DP_DIR / "devinfo.img"
+    patched_persist = OUTPUT_DP_DIR / "persist.img"
+
+    if not patched_devinfo.exists() and not patched_persist.exists():
+         print(f"[!] Error: Neither 'devinfo.img' nor 'persist.img' found inside '{OUTPUT_DP_DIR.name}'.", file=sys.stderr)
+         sys.exit(1)
+
+    edl_ng_exe = TOOLS_DIR / "edl-ng.exe"
+    if not edl_ng_exe.exists():
+        print(f"[!] 'edl-ng.exe' not found. Please run 'read_edl.bat' first to download it.", file=sys.stderr)
+        sys.exit(1)
+
+    commands_executed = False
+    
+    try:
+        if patched_devinfo.exists():
+            print(f"\n[*] Attempting to write 'devinfo' partition with '{patched_devinfo.name}'...")
+            run_command([
+                str(edl_ng_exe),
+                "--loader", str(EDL_LOADER_FILE),
+                "write-part", "devinfo", str(patched_devinfo)
+            ])
+            print("[+] Successfully wrote 'devinfo'.")
+            commands_executed = True
+        else:
+            print(f"\n[*] 'devinfo.img' not found in '{OUTPUT_DP_DIR.name}'. Skipping write.")
+
+        if patched_persist.exists():
+            print(f"\n[*] Attempting to write 'persist' partition with '{patched_persist.name}'...")
+            run_command([
+                str(edl_ng_exe),
+                "--loader", str(EDL_LOADER_FILE),
+                "write-part", "persist", str(patched_persist)
+            ])
+            print("[+] Successfully wrote 'persist'.")
+            commands_executed = True
+        else:
+            print(f"\n[*] 'persist.img' not found in '{OUTPUT_DP_DIR.name}'. Skipping write.")
+
+        if commands_executed:
+            print("\n[*] Operations complete. Resetting device...")
+            run_command([
+                str(edl_ng_exe),
+                "--loader", str(EDL_LOADER_FILE),
+                "reset"
+            ])
+            print("[+] Device reset command sent.")
+        else:
+            print("\n[!] No partitions were written. Skipping reset.")
+
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"[!] An error occurred during the EDL write/reset operation: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print("\n" + "="*61)
+    print("  FRIENDLY REMINDER:")
+    print("  Please ensure you have a safe backup of your original")
+    print("  'devinfo.img' and 'persist.img' files before proceeding")
+    print("  with any manual flashing operations.")
+    print("="*61)
+
+    print("\n--- EDL Write Process Finished ---")
+
+
 def show_image_info(files):
     """Displays information about image files, searching directories for .img files."""
     all_files = []
@@ -642,6 +855,8 @@ def main():
     subparsers.add_parser("convert", help="Convert vendor_boot region and remake vbmeta.")
     subparsers.add_parser("root", help="Patch boot.img with KernelSU.")
     subparsers.add_parser("edit_dp", help="Edit devinfo and persist images.")
+    subparsers.add_parser("read_edl", help="Read devinfo and persist images via EDL.")
+    subparsers.add_parser("write_edl", help="Write patched devinfo and persist images via EDL.")
     parser_info = subparsers.add_parser("info", help="Display AVB info for image files or directories.")
     parser_info.add_argument("files", nargs='+', help="Image file(s) or folder(s) to inspect.")
 
@@ -654,6 +869,10 @@ def main():
             root_boot_only()
         elif args.command == "edit_dp":
             edit_devinfo_persist()
+        elif args.command == "read_edl":
+            read_edl()
+        elif args.command == "write_edl":
+            write_edl()
         elif args.command == "info":
             show_image_info(args.files)
     except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError, SystemExit) as e:

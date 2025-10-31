@@ -8,6 +8,7 @@ get-pip.py
 output/
 python3/
 tools/avb/
+tools/edl-ng.exe
 tools/fetch.exe
 tools/kernelsu.ko
 tools/ksuinit
