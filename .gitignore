@@ -5,7 +5,12 @@
 backup/
 desktop.ini
 get-pip.py
+input/
+input_dp/
+input_root/
 output/
+output_dp/
+output_root/
 python3/
 tools/avb/
 tools/edl-ng.exe
