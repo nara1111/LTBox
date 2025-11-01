@@ -1,5 +1,4 @@
 @echo off
-:: mode con: ... (창 크기 강제 조절 명령어 제거)
 chcp 65001 > nul
 setlocal
 
@@ -43,7 +42,8 @@ echo     4. Write devinfo/persist via EDL (Flash patched)
 echo     5. Create Rooted boot.img
 echo     6. Bypass Anti-Rollback (Firmware Downgrade)
 echo.
-echo     7. Exit
+echo     7. Clean Workspace (Remove tools and I/O folders)
+echo     8. Exit
 echo.
 echo   ==========================================================
 echo.
@@ -58,11 +58,12 @@ if "%CHOICE%"=="3" call :run_task edit_dp "Patch devinfo/persist"
 if "%CHOICE%"=="4" call :run_task write_edl "EDL Write devinfo/persist"
 if "%CHOICE%"=="5" call :run_task root "Root boot.img"
 if "%CHOICE%"=="6" call :run_task anti_rollback "Anti-Rollback Bypass"
-if "%CHOICE%"=="7" goto :cleanup
+if "%CHOICE%"=="7" call :run_task clean "Workspace Cleanup"
+if "%CHOICE%"=="8" goto :cleanup
 
 :: Handle invalid input
 echo.
-echo     [!] Invalid choice. Please enter a number from 1-7.
+echo     [!] Invalid choice. Please enter a number from 1-8.
 pause
 goto :main_menu
 

@@ -1177,6 +1177,85 @@ def anti_rollback():
         print(f"\n[!] An error occurred during patching: {e}", file=sys.stderr)
         shutil.rmtree(OUTPUT_ANTI_ROLLBACK_DIR) 
 
+def clean_workspace():
+    print("--- Starting Cleanup Process ---")
+    print("This will remove all input/output folders and downloaded tools.")
+    print("The 'python3' and 'backup' folders will NOT be removed.")
+    print("-" * 50)
+
+    # --- Folders for full removal ---
+    folders_to_remove = [
+        INPUT_DIR, INPUT_ROOT_DIR, INPUT_DP_DIR, INPUT_CURRENT_DIR, INPUT_NEW_DIR,
+        OUTPUT_DIR, OUTPUT_ROOT_DIR, OUTPUT_DP_DIR, OUTPUT_ANTI_ROLLBACK_DIR,
+        WORK_DIR,
+        AVB_DIR 
+    ]
+    
+    print("[*] Removing directories...")
+    for folder in folders_to_remove:
+        if folder.exists():
+            try:
+                shutil.rmtree(folder)
+                print(f"  > Removed: {folder.name}{os.sep}")
+            except OSError as e:
+                print(f"[!] Error removing {folder.name}: {e}", file=sys.stderr)
+        else:
+            print(f"  > Skipping (not found): {folder.name}{os.sep}")
+
+    # --- Files to remove from TOOLS_DIR ---
+    print("\n[*] Removing downloaded tools from 'tools' folder...")
+    tools_files_to_remove = [
+        "fetch.exe", "fetch-linux", "fetch-macos",
+        "magiskboot.exe", "magiskboot-linux", "magiskboot-macos",
+        "edl-ng.exe",
+        "magiskboot-*.zip",
+        "edl-ng-*.zip"
+    ]
+    
+    cleaned_tools_files = 0
+    for pattern in tools_files_to_remove:
+        for f in TOOLS_DIR.glob(pattern):
+            try:
+                f.unlink()
+                print(f"  > Removed tool: {f.name}")
+                cleaned_tools_files += 1
+            except OSError as e:
+                print(f"[!] Error removing {f.name}: {e}", file=sys.stderr)
+    
+    if cleaned_tools_files == 0:
+        print("  > No downloaded tools found to clean.")
+
+    # --- Files to remove from BASE_DIR ---
+    print("\n[*] Cleaning up temporary files from root directory...")
+    file_patterns_to_remove = [
+        "*.bak.img",
+        "*.root.img",
+        "*prc.img",
+        "*modified.img",
+        "image_info_*.txt",
+        "KernelSU*.apk",
+        "devinfo.img", 
+        "persist.img", 
+        "boot.img", 
+        "vbmeta.img" 
+    ]
+    
+    cleaned_root_files = 0
+    for pattern in file_patterns_to_remove:
+        for f in BASE_DIR.glob(pattern):
+            try:
+                f.unlink()
+                print(f"  > Removed: {f.name}")
+                cleaned_root_files += 1
+            except OSError as e:
+                print(f"[!] Error removing {f.name}: {e}", file=sys.stderr)
+    
+    if cleaned_root_files == 0:
+        print("  > No temporary files found to clean.")
+
+    print("\n--- Cleanup Finished ---")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Android Image Patcher and AVB Tool.")
     subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
@@ -1187,6 +1266,7 @@ def main():
     subparsers.add_parser("read_edl", help="Read devinfo and persist images via EDL.")
     subparsers.add_parser("write_edl", help="Write patched devinfo and persist images via EDL.")
     subparsers.add_parser("anti_rollback", help="Bypass anti-rollback (downgrade) protection by patching firmware indices.")
+    subparsers.add_parser("clean", help="Remove downloaded tools, I/O folders, and temp files.")
     parser_info = subparsers.add_parser("info", help="Display AVB info for image files or directories.")
     parser_info.add_argument("files", nargs='+', help="Image file(s) or folder(s) to inspect.")
 
@@ -1205,6 +1285,8 @@ def main():
             write_edl()
         elif args.command == "anti_rollback":
             anti_rollback()
+        elif args.command == "clean":
+            clean_workspace()
         elif args.command == "info":
             show_image_info(args.files)
     except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError, SystemExit) as e:
