@@ -55,13 +55,13 @@ Before you begin, place the required firmware images into the correct `input*` f
 * **For `Create Rooted boot.img` (Menu 5):**
     * Place `boot.img` in the `input_root` folder.
 
-* **For `EDL Dump/Patch/Write` (Menu 2, 3, 4):**
+* **For `EDL Dump/Patch/Write` (Menu 2, 3, 4) AND `Bypass Anti-Rollback` (Menu 6):**
     * Place the EDL loader file (`xbl_s_devprg_ns.melf`) in the `input_dp` folder.
     * For **Patch (Menu 3)**, you must first place `devinfo.img` and/or `persist.img` in the `input_dp` folder. (You can use **Menu 2** to dump them there).
 
 * **For `Bypass Anti-Rollback` (Menu 6):**
-    * `input_current` folder: Place `boot.img` and `vbmeta_system.img` from your **currently installed** firmware.
-    * `input_new` folder: Place the `boot.img` and `vbmeta_system.img` from the **new (downgrade) firmware** you wish to flash.
+    * **Step 1 (Auto-Dump):** The script will first ask for the EDL loader file (in `input_dp`) and **automatically dump your device's current** `boot.img` and `vbmeta_system.img` into the `input_current` folder.
+    * **Step 2 (User-Input):** After the dump is complete, the script will pause and ask you to place the **new (downgrade)** `boot.img` and `vbmeta_system.img` into the `input_new` folder.
 
 ## 4. How to Use
 
@@ -79,7 +79,7 @@ Before you begin, place the required firmware images into the correct `input*` f
     * **Menu 3. Patch devinfo/persist (Region Code Reset):** Reads from `input_dp`, saves to `output_dp`.
     * **Menu 4. Write devinfo/persist via EDL (Flash patched):** Reads patched images from `output_dp` and flashes them.
     * **Menu 5. Create Rooted boot.img:** Reads from `input_root`, saves to `output_root`.
-    * **Menu 6. Bypass Anti-Rollback:** Reads from `input_current` and `input_new`, saves to `output_anti_rollback`.
+    * **Menu 6. Bypass Anti-Rollback:** **Dumps current firmware (`boot`/`vbmeta_system`) via EDL to `input_current`**, then reads new firmware from `input_new`, and saves patched images to `output_anti_rollback`.
     * **Menu 7. Clean Workspace:** Deletes all `input*` and `output*` folders, temporary files, and downloaded tools (like `fetch.exe`, `edl-ng.exe`, `avb/`). **Keeps `python3` and `backup` folders.**
     * **Menu 8. Exit:** Closes the script.
 

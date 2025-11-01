@@ -1093,13 +1093,51 @@ def anti_rollback():
         shutil.rmtree(OUTPUT_ANTI_ROLLBACK_DIR)
     OUTPUT_ANTI_ROLLBACK_DIR.mkdir(exist_ok=True)
     
-    # --- 1. Get Current Firmware Indices ---
-    current_files = ["boot.img", "vbmeta_system.img"]
-    current_prompt = (
-        "[STEP 1] Place the firmware files from your CURRENTLY INSTALLED OS version\n"
-        "         (e.g., from your device or a backup) into the folder below."
+    # --- 1. Get Current Firmware Indices (via EDL) ---
+    print("\n--- [STEP 1] Dumping Current Firmware via EDL ---")
+    edl_ng_exe = _ensure_edl_ng()
+    
+    INPUT_CURRENT_DIR.mkdir(exist_ok=True)
+    boot_out = INPUT_CURRENT_DIR / "boot.img"
+    vbmeta_out = INPUT_CURRENT_DIR / "vbmeta_system.img"
+
+    print(f"--- Waiting for EDL Loader File ---")
+    required_loader = [EDL_LOADER_FILENAME]
+    loader_prompt = (
+        f"[REQUIRED] Place the EDL loader file ('{EDL_LOADER_FILENAME}')\n"
+        f"         into the '{INPUT_DP_DIR.name}' folder to dump current firmware."
     )
-    wait_for_files(INPUT_CURRENT_DIR, current_files, current_prompt)
+    wait_for_files(INPUT_DP_DIR, required_loader, loader_prompt)
+    print(f"[+] Loader file '{EDL_LOADER_FILE.name}' found in '{INPUT_DP_DIR.name}'.")
+
+    if not check_edl_device():
+        sys.exit(1)
+        
+    print("\n[*] Attempting to read 'boot' partition...")
+    try:
+        run_command([
+            str(edl_ng_exe),
+            "--loader", str(EDL_LOADER_FILE), 
+            "read-part", "boot", str(boot_out) 
+        ])
+        print(f"[+] Successfully read 'boot' to '{boot_out}'.")
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"[!] Failed to read 'boot': {e}", file=sys.stderr)
+        sys.exit(1) # Exit if we can't get the current boot image
+
+    print("\n[*] Attempting to read 'vbmeta_system' partition...")
+    try:
+        run_command([
+            str(edl_ng_exe),
+            "--loader", str(EDL_LOADER_FILE), 
+            "read-part", "vbmeta_system", str(vbmeta_out) 
+        ])
+        print(f"[+] Successfully read 'vbmeta_system' to '{vbmeta_out}'.")
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"[!] Failed to read 'vbmeta_system': {e}", file=sys.stderr)
+        sys.exit(1) # Exit if we can't get the current vbmeta
+        
+    print("\n--- [STEP 1] Dump complete ---")
     
     print("\n[*] Extracting current firmware rollback indices...")
     try:
@@ -1115,10 +1153,11 @@ def anti_rollback():
     print(f"  > Current Boot Index: {current_boot_rb}")
     print(f"  > Current VBMeta System Index: {current_vbmeta_rb}")
 
-    # --- 2. Get New Firmware Indices ---
+    # --- 2. Get New Firmware Indices (from User) ---
     new_files = ["boot.img", "vbmeta_system.img"]
     new_prompt = (
-        "[STEP 2] Place the NEW firmware files you want to FLASH\n"
+        "\n--- [STEP 2] Waiting for New Firmware ---\n"
+        "Place the NEW firmware files you want to FLASH\n"
         "         (e.g., the downgrade firmware) into the folder below."
     )
     wait_for_files(INPUT_NEW_DIR, new_files, new_prompt)
