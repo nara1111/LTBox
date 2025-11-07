@@ -24,6 +24,7 @@ def main():
 
     subparsers.add_parser("convert", help="Convert vendor_boot region and remake vbmeta.")
     subparsers.add_parser("root", help="Patch boot.img with KernelSU.")
+    subparsers.add_parser("disable_ota", help="Disable OTA updates via ADB.")
     subparsers.add_parser("edit_dp", help="Edit devinfo and persist images.")
     subparsers.add_parser("read_edl", help="Read devinfo and persist images via EDL.")
     subparsers.add_parser("write_edl", help="Write patched devinfo and persist images via EDL.")
@@ -48,6 +49,8 @@ def main():
             actions.convert_images()
         elif args.command == "root":
             actions.root_boot_only()
+        elif args.command == "disable_ota":
+            actions.disable_ota()
         elif args.command == "edit_dp":
             actions.edit_devinfo_persist()
         elif args.command == "read_edl":

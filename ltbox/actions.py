@@ -356,6 +356,45 @@ def modify_xml(wipe=0):
     print("  You can now run 'Flash EDL' (Menu 10).")
     print("=" * 61)
 
+def disable_ota():
+    print("--- Starting Disable OTA Process ---")
+    
+    print("\n" + "="*61)
+    print("  STEP 1/2: Waiting for ADB Connection")
+    print("="*61)
+    try:
+        device.wait_for_adb()
+        print("[+] ADB device connected.")
+    except Exception as e:
+        print(f"[!] Error waiting for ADB device: {e}", file=sys.stderr)
+        raise
+
+    print("\n" + "="*61)
+    print("  STEP 2/2: Disabling Lenovo OTA Service")
+    print("="*61)
+    
+    command = [
+        str(ADB_EXE), 
+        "shell", "pm", "disable-user", "--user", "0", "com.lenovo.ota"
+    ]
+    
+    print(f"[*] Running command: {' '.join(command)}")
+    try:
+        result = utils.run_command(command, capture=True)
+        if "disabled" in result.stdout.lower() or "already disabled" in result.stdout.lower():
+            print("[+] Success: OTA service (com.lenovo.ota) is now disabled.")
+            print(result.stdout.strip())
+        else:
+            print("[!] Command executed, but result was unexpected.")
+            print(f"Stdout: {result.stdout.strip()}")
+            if result.stderr:
+                print(f"Stderr: {result.stderr.strip()}", file=sys.stderr)
+    except Exception as e:
+        print(f"[!] An error occurred while running the command: {e}", file=sys.stderr)
+        raise
+
+    print("\n--- Disable OTA Process Finished ---")
+
 # --- EDL Actions ---
 
 def read_edl():

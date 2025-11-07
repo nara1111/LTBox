@@ -38,7 +38,8 @@ echo   ==========================================================
 echo.
 echo     1. Install ROW firmware to PRC device (WIPE DATA)
 echo     2. Update ROW firmware on PRC device (NO WIPE)
-echo     3. Create rooted boot.img
+echo     3. Disable OTA
+echo     4. Create rooted boot.img
 echo.
 echo     a. Advanced
 echo     x. Exit
@@ -46,17 +47,18 @@ echo.
 echo   ==========================================================
 echo.
 set "CHOICE="
-set /p "CHOICE=    Enter your choice (1, 2, 3, a, x): "
+set /p "CHOICE=    Enter your choice: "
 
 if /I "%CHOICE%"=="1" call :run_task patch_all_wipe "Install ROW firmware (WIPE DATA)"
 if /I "%CHOICE%"=="2" call :run_task patch_all "Update ROW firmware (NO WIPE)"
-if /I "%CHOICE%"=="3" call :run_task root "Root boot.img"
+if /I "%CHOICE%"=="3" call :run_task disable_ota "Disable OTA"
+if /I "%CHOICE%"=="4" call :run_task root "Root boot.img"
 if /I "%CHOICE%"=="a" goto :advanced_menu
 if /I "%CHOICE%"=="x" goto :cleanup
 
 :: Handle invalid input
 echo.
-echo     [!] Invalid choice. Please enter 1, 2, 3, a, or x.
+echo     [!] Invalid choice.
 pause
 goto :main_menu
 
@@ -146,6 +148,7 @@ pause > nul
 :: If the task was from the Main menu, return to Main
 if "%1"=="patch_all_wipe" goto :main_menu
 if "%1"=="patch_all" goto :main_menu
+if "%1"=="disable_ota" goto :main_menu
 if "%1"=="root" goto :main_menu
 
 :: Stay in advanced menu for advanced tasks
