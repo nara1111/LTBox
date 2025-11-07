@@ -9,6 +9,7 @@ image/
 input/
 input_dp/
 input_root/
+ltbox/__pycache__/
 output/
 output_dp/
 output_root/

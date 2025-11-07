@@ -2,18 +2,17 @@
 setlocal
 
 :: This script is called by other batch files.
-:: No need for CHCP or initial echo as the caller handles it.
-
 :: ======================================================
 :: Variable Definitions (relative to this script's location)
 :: ======================================================
-set "TOOLS_DIR=%~dp0"
+set "LTBOX_DIR=%~dp0"
 set "BASE_DIR=%~dp0..\"
+set "TOOLS_DIR=%BASE_DIR%tools\"
 set "PYTHON_DIR=%BASE_DIR%python3"
 set "PYTHON_VERSION=3.14.0"
 set "PYTHON_ZIP_URL=https://www.python.org/ftp/python/%PYTHON_VERSION%/python-%PYTHON_VERSION%-embed-amd64.zip"
 set "PYTHON_ZIP_PATH=%BASE_DIR%python_embed.zip"
-set "PYTHON_PTH_FILE_SRC=%TOOLS_DIR%python314._pth"
+set "PYTHON_PTH_FILE_SRC=%LTBOX_DIR%python314._pth"
 set "PYTHON_PTH_FILE_DST=%PYTHON_DIR%\python314._pth"
 set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 set "GETPIP_PATH=%PYTHON_DIR%\get-pip.py"

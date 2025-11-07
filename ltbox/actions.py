@@ -1,499 +1,20 @@
-import argparse
 import os
 import platform
 import re
 import shutil
 import subprocess
 import sys
-import zipfile
-import time
 from datetime import datetime
 from pathlib import Path
 
-import requests 
-
-# --- Constants ---
-BASE_DIR = Path(__file__).parent.resolve()
-TOOLS_DIR = BASE_DIR / "tools"
-PYTHON_DIR = BASE_DIR / "python3"
-AVB_DIR = TOOLS_DIR / "avb"
-OUTPUT_DIR = BASE_DIR / "output"
-OUTPUT_ROOT_DIR = BASE_DIR / "output_root"
-OUTPUT_DP_DIR = BASE_DIR / "output_dp"
-BACKUP_DIR = BASE_DIR / "backup"
-WORK_DIR = BASE_DIR / "patch_work"
-
-# --- Input Directories ---
-INPUT_CURRENT_DIR = BASE_DIR / "input_current"
-INPUT_NEW_DIR = BASE_DIR / "input_new"
-
-OUTPUT_ANTI_ROLLBACK_DIR = BASE_DIR / "output_anti_rollback"
-
-# --- Main Firmware Source / XML Dirs ---
-IMAGE_DIR = BASE_DIR / "image"
-WORKING_DIR = BASE_DIR / "working"
-OUTPUT_XML_DIR = BASE_DIR / "output_xml"
-
-
-PYTHON_EXE = PYTHON_DIR / "python.exe"
-AVBTOOL_PY = AVB_DIR / "avbtool.py"
-EDIT_IMAGES_PY = TOOLS_DIR / "edit_images.py"
-GET_KERNEL_VER_PY = TOOLS_DIR / "get_kernel_ver.py"
-DECRYPT_PY = TOOLS_DIR / "decrypt_x.py"
-
-MAGISKBOOT_REPO_URL = "https://github.com/PinNaCode/magiskboot_build"
-MAGISKBOOT_TAG = "last-ci"
-
-KSU_APK_REPO = "KernelSU-Next/KernelSU-Next"
-KSU_APK_TAG = "v1.1.1"
-
-RELEASE_OWNER = "WildKernels"
-RELEASE_REPO = "GKI_KernelSU_SUSFS"
-RELEASE_TAG = "v1.5.12-r16"
-REPO_URL = f"https://github.com/{RELEASE_OWNER}/{RELEASE_REPO}"
-
-ANYKERNEL_ZIP_FILENAME = "AnyKernel3.zip"
-
-EDL_NG_REPO_URL = "https://github.com/strongtz/edl-ng"
-EDL_NG_TAG = "v1.4.1"
-
-EDL_LOADER_FILENAME = "xbl_s_devprg_ns.melf"
-EDL_LOADER_FILE = IMAGE_DIR / EDL_LOADER_FILENAME 
-EDL_LOADER_FILE_IMAGE = IMAGE_DIR / EDL_LOADER_FILENAME
-
-KEY_MAP = {
-    "2597c218aae470a130f61162feaae70afd97f011": AVB_DIR / "testkey_rsa4096.pem",
-    "cdbb77177f731920bbe0a0f94f84d9038ae0617d": AVB_DIR / "testkey_rsa2048.pem"
-}
-
-
-# --- Helper Functions ---
-def run_command(command, shell=False, check=True, env=None, capture=False):
-    env = env or os.environ.copy()
-    env['PATH'] = str(TOOLS_DIR) + os.pathsep + env['PATH']
-
-    try:
-        process = subprocess.run(
-            command, shell=shell, check=check, capture_output=True,
-            text=True, encoding='utf-8', errors='ignore', env=env
-        )
-        if not capture:
-            if process.stdout:
-                print(process.stdout.strip())
-            if process.stderr:
-                print(process.stderr.strip(), file=sys.stderr)
-        return process
-    except FileNotFoundError as e:
-        print(f"Error: Command not found - {e.filename}", file=sys.stderr)
-        raise
-    except subprocess.CalledProcessError as e:
-        print(f"Error executing command: {' '.join(map(str, command))}", file=sys.stderr)
-        print(f"Return code: {e.returncode}", file=sys.stderr)
-        if e.stdout:
-            print(f"Stdout:\n{e.stdout.strip()}", file=sys.stderr)
-        if e.stderr:
-            print(f"Stderr:\n{e.stderr.strip()}", file=sys.stderr)
-        raise
-
-def check_edl_device(silent=False):
-    if not silent:
-        print("[*] Checking for Qualcomm EDL (9008) device...")
-    try:
-        result = subprocess.run(
-            ['wmic', 'path', 'Win32_PnPEntity', 'where', "Name like 'Qualcomm%9008%'", 'get', 'Name'],
-            capture_output=True, text=True, encoding='utf-8', errors='ignore', shell=True
-        )
-        if "Qualcomm" in result.stdout and "9008" in result.stdout:
-            if not silent:
-                print("[+] Qualcomm EDL device found.")
-            return True
-        else:
-            if not silent:
-                print("[!] No Qualcomm EDL (9008) device found in Device Manager.")
-                print("[!] Please connect your device in EDL mode.")
-            return False
-    except FileNotFoundError:
-        if not silent:
-            print("[!] WMIC command not found. Cannot check for EDL device.", file=sys.stderr)
-        return False
-    except Exception as e:
-        if not silent:
-            print(f"[!] Error checking for EDL device: {e}", file=sys.stderr)
-        return False
-
-def wait_for_edl():
-    print("\n--- WAITING FOR EDL DEVICE ---")
-    if check_edl_device():
-        return
-    
-    while not check_edl_device(silent=True):
-        print("[*] Waiting for Qualcomm EDL (9008) device... (Press Ctrl+C to cancel)")
-        try:
-            time.sleep(2)
-        except KeyboardInterrupt:
-            print("\n[!] EDL wait cancelled by user.")
-            raise
-    print("[+] EDL device connected.")
-
-def get_platform_executable(name):
-    system = platform.system()
-    executables = {
-        "Windows": f"{name}.exe",
-        "Linux": f"{name}-linux",
-        "Darwin": f"{name}-macos"
-    }
-    exe_name = executables.get(system)
-    if not exe_name:
-        raise RuntimeError(f"Unsupported operating system: {system}")
-    return TOOLS_DIR / exe_name
-
-def check_dependencies():
-    print("--- Checking for required files ---")
-    dependencies = {
-        "Python Environment": PYTHON_EXE,
-        "RSA4096 Key": AVB_DIR / "testkey_rsa4096.pem",
-        "RSA2048 Key": AVB_DIR / "testkey_rsa2048.pem",
-        "avbtool": AVBTOOL_PY,
-        "fetch tool": get_platform_executable("fetch")
-    }
-    missing_deps = [name for name, path in dependencies.items() if not Path(path).exists()]
-
-    if missing_deps:
-        for name in missing_deps:
-            print(f"[!] Error: Dependency '{name}' is missing.")
-        print("Please run one of the main scripts (e.g., root.bat) to install all required files.")
-        sys.exit(1)
-
-    print("[+] All dependencies are present.\n")
-
-def extract_image_avb_info(image_path):
-    info_proc = run_command(
-        [str(PYTHON_EXE), str(AVBTOOL_PY), "info_image", "--image", str(image_path)],
-        capture=True
-    )
-    
-    output = info_proc.stdout.strip()
-    info = {}
-    props_args = []
-
-    partition_size_match = re.search(r"^Image size:\s*(\d+)\s*bytes", output, re.MULTILINE)
-    if partition_size_match:
-        info['partition_size'] = partition_size_match.group(1)
-    
-    data_size_match = re.search(r"Original image size:\s*(\d+)\s*bytes", output)
-    if data_size_match:
-        info['data_size'] = data_size_match.group(1)
-    else:
-        desc_size_match = re.search(r"^\s*Image Size:\s*(\d+)\s*bytes", output, re.MULTILINE)
-        if desc_size_match:
-            info['data_size'] = desc_size_match.group(1)
-
-    patterns = {
-        'name': r"Partition Name:\s*(\S+)",
-        'salt': r"Salt:\s*([0-9a-fA-F]+)",
-        'algorithm': r"Algorithm:\s*(\S+)",
-        'pubkey_sha1': r"Public key \(sha1\):\s*([0-9a-fA-F]+)",
-    }
-    
-    header_section = output.split('Descriptors:')[0]
-    rollback_match = re.search(r"Rollback Index:\s*(\d+)", header_section)
-    if rollback_match:
-        info['rollback'] = rollback_match.group(1)
-        
-    flags_match = re.search(r"Flags:\s*(\d+)", header_section)
-    if flags_match:
-        info['flags'] = flags_match.group(1)
-        if output: 
-            print(f"[Info] Parsed Flags: {info['flags']}")
-        
-    for key, pattern in patterns.items():
-        if key not in info:
-            match = re.search(pattern, output)
-            if match:
-                info[key] = match.group(1)
-
-    for line in output.split('\n'):
-        if line.strip().startswith("Prop:"):
-            parts = line.split('->')
-            key = parts[0].split(':')[-1].strip()
-            val = parts[1].strip()[1:-1]
-            info[key] = val
-            props_args.extend(["--prop", f"{key}:{val}"])
-            
-    info['props_args'] = props_args
-    if props_args and output: 
-        print(f"[Info] Parsed {len(props_args) // 2} properties.")
-
-    return info
-
-def wait_for_files(directory, required_files, prompt_message):
-    directory.mkdir(exist_ok=True)
-    while True:
-        all_found = True
-        missing = []
-        for file in required_files:
-            if not (directory / file).exists():
-                all_found = False
-                missing.append(file)
-        
-        if all_found:
-            return True
-        
-        if platform.system() == "Windows":
-            os.system('cls')
-        else:
-            os.system('clear')
-            
-        print("--- WAITING FOR FILES ---")
-        print(prompt_message)
-        print(f"\nPlease place the following file(s) in the '{directory.name}' folder:")
-        for f in missing:
-            print(f" - {f}")
-        print("\nPress Enter when ready...")
-        try:
-            input()
-        except EOFError:
-            sys.exit(1)
-
-def wait_for_directory(directory, prompt_message):
-    directory.mkdir(exist_ok=True)
-    while True:
-        if directory.is_dir() and any(directory.iterdir()):
-             return True
-        
-        if platform.system() == "Windows":
-            os.system('cls')
-        else:
-            os.system('clear')
-            
-        print("--- WAITING FOR FOLDER ---")
-        print(prompt_message)
-        print(f"\nPlease copy the entire folder into this directory:")
-        print(f" - {directory.name}{os.sep}")
-        print("\nThis is typically located at:")
-        print(r"   C:\ProgramData\RSA\Download\RomFiles\[Your_Firmware_Folder]")
-        print("\nPress Enter when ready...")
-        try:
-            input()
-        except EOFError:
-            sys.exit(1)
-
-
-# --- Helper Functions ---
-
-def _ensure_magiskboot(fetch_exe, magiskboot_exe):
-    if magiskboot_exe.exists():
-        return True
-
-    print(f"[!] '{magiskboot_exe.name}' not found. Attempting to download...")
-    if platform.system() == "Windows":
-        arch = platform.machine()
-        arch_map = {
-            'AMD64': 'x86_64',
-            'ARM64': 'arm64',
-        }
-        target_arch = arch_map.get(arch, 'i686')
-        
-        asset_pattern = f"magiskboot-.*-windows-.*-{target_arch}-standalone\\.zip"
-        
-        print(f"[*] Detected Windows architecture: {arch}. Selecting matching magiskboot binary.")
-        
-        try:
-            fetch_command = [
-                str(fetch_exe),
-                "--repo", MAGISKBOOT_REPO_URL,
-                "--tag", MAGISKBOOT_TAG,
-                "--release-asset", asset_pattern,
-                str(TOOLS_DIR)
-            ]
-            run_command(fetch_command, capture=True)
-
-            downloaded_zips = list(TOOLS_DIR.glob("magiskboot-*-windows-*.zip"))
-            
-            if not downloaded_zips:
-                raise FileNotFoundError("Failed to find the downloaded magiskboot zip archive.")
-            
-            downloaded_zip_path = downloaded_zips[0]
-            
-            with zipfile.ZipFile(downloaded_zip_path, 'r') as zip_ref:
-                magiskboot_info = None
-                for member in zip_ref.infolist():
-                    if member.filename.endswith('magiskboot.exe'):
-                        magiskboot_info = member
-                        break
-                
-                if not magiskboot_info:
-                    raise FileNotFoundError("magiskboot.exe not found inside the downloaded zip archive.")
-
-                zip_ref.extract(magiskboot_info, path=TOOLS_DIR)
-                
-                extracted_path = TOOLS_DIR / magiskboot_info.filename
-                
-                shutil.move(extracted_path, magiskboot_exe)
-                
-                parent_dir = extracted_path.parent
-                if parent_dir.is_dir() and parent_dir != TOOLS_DIR:
-                     try:
-                        parent_dir.rmdir()
-                     except OSError:
-                        shutil.rmtree(parent_dir)
-
-            downloaded_zip_path.unlink()
-            print("[+] Download and extraction successful.")
-            return True
-
-        except (subprocess.CalledProcessError, FileNotFoundError, KeyError, IndexError) as e:
-            print(f"[!] Error downloading or extracting magiskboot: {e}", file=sys.stderr)
-            sys.exit(1)
-
-    else:
-        print(f"[!] Auto-download for {platform.system()} is not supported. Please add it to the 'tools' folder manually.")
-        sys.exit(1)
-
-def _get_gki_kernel(fetch_exe, kernel_version, work_dir):
-    print("\n[3/8] Downloading GKI Kernel with fetch...")
-    asset_pattern = f".*{kernel_version}.*AnyKernel3.zip"
-    fetch_command = [
-        str(fetch_exe), "--repo", REPO_URL, "--tag", RELEASE_TAG,
-        "--release-asset", asset_pattern, str(work_dir)
-    ]
-    run_command(fetch_command)
-
-    downloaded_files = list(work_dir.glob(f"*{kernel_version}*AnyKernel3.zip"))
-    if not downloaded_files:
-        print(f"[!] Failed to download AnyKernel3.zip for kernel {kernel_version}.")
-        sys.exit(1)
-    
-    anykernel_zip = work_dir / ANYKERNEL_ZIP_FILENAME
-    shutil.move(downloaded_files[0], anykernel_zip)
-    print("[+] Download complete.")
-
-    print("\n[4/8] Extracting new kernel image...")
-    extracted_kernel_dir = work_dir / "extracted_kernel"
-    with zipfile.ZipFile(anykernel_zip, 'r') as zip_ref:
-        zip_ref.extractall(extracted_kernel_dir)
-    
-    kernel_image = extracted_kernel_dir / "Image"
-    if not kernel_image.exists():
-        print("[!] 'Image' file not found in the downloaded zip.")
-        sys.exit(1)
-    print("[+] Extraction successful.")
-    return kernel_image
-
-def _download_ksu_apk(fetch_exe, target_dir):
-    print("\n[7/8] Downloading KernelSU Manager APKs...")
-    if list(target_dir.glob("KernelSU*.apk")):
-        print("[+] KernelSU Manager APK already exists. Skipping download.")
-    else:
-        ksu_apk_command = [
-            str(fetch_exe), "--repo", f"https://github.com/{KSU_APK_REPO}", "--tag", KSU_APK_TAG,
-            "--release-asset", ".*\\.apk", str(target_dir)
-        ]
-        run_command(ksu_apk_command)
-        print("[+] KernelSU Manager APKs downloaded to the main directory (if found).")
-
-def _ensure_edl_ng():
-    if platform.system() != "Windows":
-        print("[!] EDL functions are only supported on Windows.", file=sys.stderr)
-        sys.exit(1)
-        
-    edl_ng_exe = TOOLS_DIR / "edl-ng.exe"
-    if edl_ng_exe.exists():
-        return edl_ng_exe
-
-    fetch_exe = get_platform_executable("fetch")
-    if not fetch_exe.exists():
-         print(f"[!] '{fetch_exe.name}' not found. Please run install.bat")
-         sys.exit(1)
-
-    print(f"[!] '{edl_ng_exe.name}' not found. Attempting to download...")
-    arch = platform.machine()
-    if arch == 'AMD64':
-        asset_pattern = "edl-ng-windows-x64.zip"
-    elif arch == 'ARM64':
-        asset_pattern = "edl-ng-windows-arm64.zip"
-    else:
-        print(f"[!] Unsupported Windows architecture: {arch}. Cannot download edl-ng.", file=sys.stderr)
-        sys.exit(1)
-        
-    print(f"[*] Detected {arch} architecture. Downloading '{asset_pattern}'...")
-
-    try:
-        fetch_command = [
-            str(fetch_exe),
-            "--repo", EDL_NG_REPO_URL,
-            "--tag", EDL_NG_TAG,
-            "--release-asset", asset_pattern,
-            str(TOOLS_DIR)
-        ]
-        run_command(fetch_command, capture=True)
-
-        downloaded_zip_path = TOOLS_DIR / asset_pattern
-        
-        if not downloaded_zip_path.exists():
-            raise FileNotFoundError(f"Failed to find the downloaded edl-ng zip archive: {asset_pattern}")
-        
-        with zipfile.ZipFile(downloaded_zip_path, 'r') as zip_ref:
-            edl_info = None
-            for member in zip_ref.infolist():
-                if member.filename.endswith('edl-ng.exe'):
-                    edl_info = member
-                    break
-            
-            if not edl_info:
-                raise FileNotFoundError("edl-ng.exe not found inside the downloaded zip archive.")
-
-            zip_ref.extract(edl_info, path=TOOLS_DIR)
-            
-            extracted_path = TOOLS_DIR / edl_info.filename
-            if extracted_path != edl_ng_exe:
-                shutil.move(extracted_path, edl_ng_exe)
-                parent_dir = extracted_path.parent
-                if parent_dir.is_dir() and parent_dir != TOOLS_DIR:
-                    try:
-                        parent_dir.rmdir()
-                    except OSError:
-                        shutil.rmtree(parent_dir, ignore_errors=True)
-
-        downloaded_zip_path.unlink()
-        print("[+] edl-ng download and extraction successful.")
-        return edl_ng_exe
-
-    except (subprocess.CalledProcessError, FileNotFoundError, KeyError, IndexError) as e:
-        print(f"[!] Error downloading or extracting edl-ng: {e}", file=sys.stderr)
-        sys.exit(1)
-
-def _apply_hash_footer(image_path, image_info, key_file, new_rollback_index=None):
-    rollback_index = new_rollback_index if new_rollback_index is not None else image_info['rollback']
-    
-    print(f"\n[*] Adding hash footer to '{image_path.name}'...")
-    print(f"  > Partition: {image_info['name']}, Rollback Index: {rollback_index}")
-
-    add_footer_cmd = [
-        str(PYTHON_EXE), str(AVBTOOL_PY), "add_hash_footer",
-        "--image", str(image_path), 
-        "--key", str(key_file),
-        "--algorithm", image_info['algorithm'], 
-        "--partition_size", image_info['partition_size'],
-        "--partition_name", image_info['name'], 
-        "--rollback_index", str(rollback_index),
-        "--salt", image_info['salt'], 
-        *image_info.get('props_args', [])
-    ]
-    
-    if 'flags' in image_info:
-        add_footer_cmd.extend(["--flags", image_info.get('flags', '0')])
-        print(f"  > Restoring flags: {image_info.get('flags', '0')}")
-
-    run_command(add_footer_cmd)
-    print(f"[+] Successfully applied hash footer to {image_path.name}.")
-
+from ltbox.constants import *
+from ltbox import utils
 
 # --- Core Functions ---
 def patch_boot_with_root():
     print("--- Starting boot.img patching process ---")
-    magiskboot_exe = get_platform_executable("magiskboot")
-    fetch_exe = get_platform_executable("fetch")
+    magiskboot_exe = utils.get_platform_executable("magiskboot")
+    fetch_exe = utils.get_platform_executable("fetch")
     
     patched_boot_path = BASE_DIR / "boot.root.img"
 
@@ -501,7 +22,7 @@ def patch_boot_with_root():
          print(f"[!] '{fetch_exe.name}' not found. Please run install.bat")
          sys.exit(1)
 
-    _ensure_magiskboot(fetch_exe, magiskboot_exe)
+    utils._ensure_magiskboot(fetch_exe, magiskboot_exe)
 
     if platform.system() != "Windows":
         os.chmod(magiskboot_exe, 0o755)
@@ -514,7 +35,7 @@ def patch_boot_with_root():
         "[STEP 1] Place your stock 'boot.img' file\n"
         f"         (e.g., from your firmware) into the '{IMAGE_DIR.name}' folder."
     )
-    wait_for_files(IMAGE_DIR, required_files, prompt)
+    utils.wait_for_files(IMAGE_DIR, required_files, prompt)
     
     boot_img_src = IMAGE_DIR / "boot.img"
     boot_img = BASE_DIR / "boot.img" 
@@ -544,14 +65,14 @@ def patch_boot_with_root():
         shutil.copy(boot_img, WORK_DIR)
 
         print("\n[1/8] Unpacking boot image...")
-        run_command([str(magiskboot_exe), "unpack", "boot.img"])
+        utils.run_command([str(magiskboot_exe), "unpack", "boot.img"])
         if not (WORK_DIR / "kernel").exists():
             print("[!] Failed to unpack boot.img. The image might be invalid.")
             sys.exit(1)
         print("[+] Unpack successful.")
 
         print("\n[2/8] Verifying kernel version...")
-        result = run_command([str(PYTHON_EXE), str(GET_KERNEL_VER_PY), "kernel"])
+        result = utils.run_command([str(PYTHON_EXE), str(GET_KERNEL_VER_PY), "kernel"])
         target_kernel_version = result.stdout.strip()
 
         if not re.match(r"\d+\.\d+\.\d+", target_kernel_version):
@@ -560,21 +81,21 @@ def patch_boot_with_root():
         
         print(f"[+] Target kernel version for download: {target_kernel_version}")
 
-        kernel_image_path = _get_gki_kernel(fetch_exe, target_kernel_version, WORK_DIR)
+        kernel_image_path = utils._get_gki_kernel(fetch_exe, target_kernel_version, WORK_DIR)
 
         print("\n[5/8] Replacing original kernel with the new one...")
         shutil.move(str(kernel_image_path), "kernel")
         print("[+] Kernel replaced.")
 
         print("\n[6/8] Repacking boot image...")
-        run_command([str(magiskboot_exe), "repack", "boot.img"])
+        utils.run_command([str(magiskboot_exe), "repack", "boot.img"])
         if not (WORK_DIR / "new-boot.img").exists():
             print("[!] Failed to repack the boot image.")
             sys.exit(1)
         shutil.move("new-boot.img", patched_boot_path)
         print("[+] Repack successful.")
 
-        _download_ksu_apk(fetch_exe, BASE_DIR)
+        utils._download_ksu_apk(fetch_exe, BASE_DIR)
 
     finally:
         os.chdir(original_cwd)
@@ -589,7 +110,7 @@ def patch_boot_with_root():
     return None
 
 def convert_images():
-    check_dependencies()
+    utils.check_dependencies()
     
     print("--- Starting vendor_boot & vbmeta conversion process ---") 
 
@@ -605,7 +126,7 @@ def convert_images():
         "[STEP 1] Place the required firmware files for conversion\n"
         f"         (e.g., from your PRC firmware) into the '{IMAGE_DIR.name}' folder."
     )
-    wait_for_files(IMAGE_DIR, required_files, prompt)
+    utils.wait_for_files(IMAGE_DIR, required_files, prompt)
     
     vendor_boot_src = IMAGE_DIR / "vendor_boot.img"
     vbmeta_src = IMAGE_DIR / "vbmeta.img"
@@ -623,7 +144,7 @@ def convert_images():
         raise
 
     print("--- Starting PRC/ROW Conversion ---")
-    run_command([str(PYTHON_EXE), str(EDIT_IMAGES_PY), "vndrboot", str(vendor_boot_bak)])
+    utils.run_command([str(PYTHON_EXE), str(EDIT_IMAGES_PY), "vndrboot", str(vendor_boot_bak)])
 
     vendor_boot_prc = BASE_DIR / "vendor_boot_prc.img"
     print("\n[*] Verifying conversion result...")
@@ -633,8 +154,8 @@ def convert_images():
     print("[+] Conversion to PRC successful.\n")
 
     print("--- Extracting image information ---")
-    vbmeta_info = extract_image_avb_info(vbmeta_bak)
-    vendor_boot_info = extract_image_avb_info(vendor_boot_bak)
+    vbmeta_info = utils.extract_image_avb_info(vbmeta_bak)
+    vendor_boot_info = utils.extract_image_avb_info(vendor_boot_bak)
     print("[+] Information extracted.\n")
     
     print("--- Adding Hash Footer to vendor_boot ---")
@@ -663,7 +184,7 @@ def convert_images():
         add_hash_footer_cmd.extend(["--flags", vendor_boot_info.get('flags', '0')])
         print(f"[+] Restoring flags for vendor_boot: {vendor_boot_info.get('flags', '0')}")
 
-    run_command(add_hash_footer_cmd)
+    utils.run_command(add_hash_footer_cmd)
     
     vbmeta_pubkey = vbmeta_info.get('pubkey_sha1')
     key_file = KEY_MAP.get(vbmeta_pubkey) 
@@ -689,7 +210,7 @@ def convert_images():
         "--include_descriptors_from_image", str(vendor_boot_prc) 
     ]
         
-    run_command(remake_cmd)
+    utils.run_command(remake_cmd)
     print()
 
     finalize_images()
@@ -726,7 +247,7 @@ def root_boot_only():
     OUTPUT_ROOT_DIR.mkdir(exist_ok=True)
     print()
     
-    check_dependencies()
+    utils.check_dependencies()
 
     patched_boot_path = patch_boot_with_root()
 
@@ -734,7 +255,7 @@ def root_boot_only():
         print("\n--- Finalizing ---")
         final_boot_img = OUTPUT_ROOT_DIR / "boot.img"
         
-        process_boot_image(patched_boot_path)
+        utils.process_boot_image(patched_boot_path)
 
         print(f"\n[*] Moving final image to '{OUTPUT_ROOT_DIR.name}' folder...")
         shutil.move(patched_boot_path, final_boot_img)
@@ -751,36 +272,6 @@ def root_boot_only():
         print("=" * 61)
     else:
         print("[!] Patched boot image was not created. An error occurred during the process.", file=sys.stderr)
-
-
-def process_boot_image(image_to_process):
-    print("\n[*] Verifying boot image key and metadata...") 
-    boot_bak_img = BASE_DIR / "boot.bak.img"
-    if not boot_bak_img.exists():
-        print(f"[!] Backup file '{boot_bak_img.name}' not found. Cannot process image.", file=sys.stderr)
-        raise FileNotFoundError(f"{boot_bak_img.name} not found.")
-        
-    boot_info = extract_image_avb_info(boot_bak_img)
-    
-    for key in ['partition_size', 'name', 'rollback', 'salt', 'algorithm', 'pubkey_sha1']:
-        if key not in boot_info:
-            raise KeyError(f"Could not find '{key}' in '{boot_bak_img.name}' AVB info.")
-            
-    boot_pubkey = boot_info.get('pubkey_sha1')
-    key_file = KEY_MAP.get(boot_pubkey) 
-    
-    if not key_file:
-        print(f"[!] Public key SHA1 '{boot_pubkey}' from boot.img did not match known keys. Cannot add footer.")
-        raise KeyError(f"Unknown boot public key: {boot_pubkey}")
-
-    print(f"[+] Matched {key_file.name}.")
-    
-    _apply_hash_footer(
-        image_path=image_to_process,
-        image_info=boot_info,
-        key_file=key_file
-    )
-
 
 def edit_devinfo_persist():
     print("--- Starting devinfo & persist patching process ---")
@@ -846,7 +337,7 @@ def edit_devinfo_persist():
     OUTPUT_DP_DIR.mkdir(exist_ok=True)
 
     print("[*] Running patch script...")
-    run_command([str(PYTHON_EXE), str(EDIT_IMAGES_PY), "dp"])
+    utils.run_command([str(PYTHON_EXE), str(EDIT_IMAGES_PY), "dp"])
 
     modified_devinfo = BASE_DIR / "devinfo_modified.img"
     modified_persist = BASE_DIR / "persist_modified.img"
@@ -871,7 +362,7 @@ def edit_devinfo_persist():
 def read_edl():
     print("--- Starting EDL Read Process ---")
     
-    edl_ng_exe = _ensure_edl_ng()
+    edl_ng_exe = utils._ensure_edl_ng()
     
     BACKUP_DIR.mkdir(exist_ok=True)
     devinfo_out = BACKUP_DIR / "devinfo.img"
@@ -883,14 +374,14 @@ def read_edl():
         f"[STEP 1] Place the EDL loader file ('{EDL_LOADER_FILENAME}')\n"
         f"         into the '{IMAGE_DIR.name}' folder to proceed."
     )
-    wait_for_files(IMAGE_DIR, required_files, prompt)
+    utils.wait_for_files(IMAGE_DIR, required_files, prompt)
     print(f"[+] Loader file '{EDL_LOADER_FILE.name}' found in '{IMAGE_DIR.name}'.")
 
-    wait_for_edl()
+    utils.wait_for_edl()
         
     print("\n[*] Attempting to read 'devinfo' partition...")
     try:
-        run_command([
+        utils.run_command([
             str(edl_ng_exe),
             "--loader", str(EDL_LOADER_FILE), 
             "read-part", "devinfo", str(devinfo_out) 
@@ -901,7 +392,7 @@ def read_edl():
 
     print("\n[*] Attempting to read 'persist' partition...")
     try:
-        run_command([
+        utils.run_command([
             str(edl_ng_exe),
             "--loader", str(EDL_LOADER_FILE), 
             "read-part", "persist", str(persist_out) 
@@ -918,7 +409,7 @@ def read_edl():
 def write_edl(skip_reset=False, skip_reset_edl=False):
     print("--- Starting EDL Write Process ---")
 
-    edl_ng_exe = _ensure_edl_ng()
+    edl_ng_exe = utils._ensure_edl_ng()
 
     if not OUTPUT_DP_DIR.exists():
         print(f"[!] Error: Patched images folder '{OUTPUT_DP_DIR.name}' not found.", file=sys.stderr)
@@ -934,10 +425,10 @@ def write_edl(skip_reset=False, skip_reset_edl=False):
             f"         into the '{IMAGE_DIR.name}' folder to proceed."
         )
         IMAGE_DIR.mkdir(exist_ok=True) 
-        wait_for_files(IMAGE_DIR, required_files, prompt)
+        utils.wait_for_files(IMAGE_DIR, required_files, prompt)
         print(f"[+] Loader file '{EDL_LOADER_FILE.name}' found in '{IMAGE_DIR.name}'.")
 
-        wait_for_edl()
+        utils.wait_for_edl()
 
     patched_devinfo = OUTPUT_DP_DIR / "devinfo.img"
     patched_persist = OUTPUT_DP_DIR / "persist.img"
@@ -951,7 +442,7 @@ def write_edl(skip_reset=False, skip_reset_edl=False):
     try:
         if patched_devinfo.exists():
             print(f"\n[*] Attempting to write 'devinfo' partition with '{patched_devinfo.name}'...")
-            run_command([
+            utils.run_command([
                 str(edl_ng_exe),
                 "--loader", str(EDL_LOADER_FILE), 
                 "write-part", "devinfo", str(patched_devinfo)
@@ -963,7 +454,7 @@ def write_edl(skip_reset=False, skip_reset_edl=False):
 
         if patched_persist.exists():
             print(f"\n[*] Attempting to write 'persist' partition with '{patched_persist.name}'...")
-            run_command([
+            utils.run_command([
                 str(edl_ng_exe),
                 "--loader", str(EDL_LOADER_FILE), 
                 "write-part", "persist", str(patched_persist)
@@ -975,7 +466,7 @@ def write_edl(skip_reset=False, skip_reset_edl=False):
 
         if commands_executed and not skip_reset:
             print("\n[*] Operations complete. Resetting device...")
-            run_command([
+            utils.run_command([
                 str(edl_ng_exe),
                 "--loader", str(EDL_LOADER_FILE), 
                 "reset"
@@ -1000,135 +491,6 @@ def write_edl(skip_reset=False, skip_reset_edl=False):
 
     print("\n--- EDL Write Process Finished ---")
 
-
-def show_image_info(files):
-    all_files = []
-    for f in files:
-        path = Path(f)
-        if path.is_dir():
-            all_files.extend(path.rglob('*.img'))
-        elif path.is_file():
-            all_files.append(path)
-
-    if not all_files:
-        print("No .img files found in the provided paths.")
-        return
-        
-    output_lines = [
-        "\n" + "=" * 42,
-        "  Sorted and Processing Images...",
-        "=" * 42 + "\n"
-    ]
-    print("\n".join(output_lines))
-
-    for file_path in sorted(all_files):
-        info_header = f"Processing file: {file_path}\n---------------------------------" 
-        print(info_header)
-        output_lines.append(info_header)
-
-        if not file_path.exists():
-            not_found_msg = f"File not found: {file_path}"
-            print(not_found_msg)
-            output_lines.append(not_found_msg)
-            continue
-
-        try:
-            process = run_command(
-                [str(PYTHON_EXE), str(AVBTOOL_PY), "info_image", "--image", str(file_path)],
-            )
-            output_lines.append(process.stdout.strip())
-        except (subprocess.CalledProcessError) as e:
-            error_message = f"Failed to get info from {file_path.name}"
-            print(error_message, file=sys.stderr)
-            if e.stderr:
-                print(e.stderr.strip(), file=sys.stderr)
-            output_lines.append(error_message)
-        finally:
-            output_lines.append("---------------------------------\n")
-
-    try:
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        output_filename = BASE_DIR / f"image_info_{timestamp}.txt"
-        with open(output_filename, "w", encoding="utf-8") as f:
-            f.write("\n".join(output_lines))
-        print(f"[*] Image info saved to: {output_filename}")
-    except IOError as e:
-        print(f"[!] Error saving info to file: {e}", file=sys.stderr)
-
-def patch_chained_image_rollback(image_name, current_rb_index, new_image_path, patched_image_path):
-    try:
-        print(f"[*] Analyzing new {image_name}...")
-        info = extract_image_avb_info(new_image_path)
-        new_rb_index = int(info.get('rollback', '0'))
-        print(f"  > New index: {new_rb_index}")
-
-        if new_rb_index >= current_rb_index:
-            print(f"[*] {image_name} index is OK. Copying as is.")
-            shutil.copy(new_image_path, patched_image_path)
-            return
-
-        print(f"[!] Anti-Rollback Bypassed: Patching {image_name} from {new_rb_index} to {current_rb_index}...")
-        
-        for key in ['partition_size', 'name', 'salt', 'algorithm', 'pubkey_sha1']:
-            if key not in info:
-                raise KeyError(f"Could not find '{key}' in '{new_image_path.name}' AVB info.")
-        
-        key_file = KEY_MAP.get(info['pubkey_sha1']) 
-        if not key_file:
-            raise KeyError(f"Unknown public key SHA1 {info['pubkey_sha1']} in {new_image_path.name}")
-        
-        shutil.copy(new_image_path, patched_image_path)
-        
-        _apply_hash_footer(
-            image_path=patched_image_path,
-            image_info=info,
-            key_file=key_file,
-            new_rollback_index=str(current_rb_index)
-        )
-
-    except (KeyError, subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"[!] Error processing {image_name}: {e}", file=sys.stderr)
-        raise
-
-def patch_vbmeta_image_rollback(image_name, current_rb_index, new_image_path, patched_image_path):
-    try:
-        print(f"[*] Analyzing new {image_name}...")
-        info = extract_image_avb_info(new_image_path)
-        new_rb_index = int(info.get('rollback', '0'))
-        print(f"  > New index: {new_rb_index}")
-
-        if new_rb_index >= current_rb_index:
-            print(f"[*] {image_name} index is OK. Copying as is.")
-            shutil.copy(new_image_path, patched_image_path)
-            return
-
-        print(f"[!] Anti-Rollback Bypassed: Patching {image_name} from {new_rb_index} to {current_rb_index}...")
-
-        for key in ['algorithm', 'pubkey_sha1']:
-            if key not in info:
-                raise KeyError(f"Could not find '{key}' in '{new_image_path.name}' AVB info.")
-        
-        key_file = KEY_MAP.get(info['pubkey_sha1']) 
-        if not key_file:
-            raise KeyError(f"Unknown public key SHA1 {info['pubkey_sha1']} in {new_image_path.name}")
-
-        remake_cmd = [
-            str(PYTHON_EXE), str(AVBTOOL_PY), "make_vbmeta_image",
-            "--output", str(patched_image_path),
-            "--key", str(key_file),
-            "--algorithm", info['algorithm'],
-            "--rollback_index", str(current_rb_index),
-            "--flags", info.get('flags', '0'),
-            "--include_descriptors_from_image", str(new_image_path)
-        ]
-        
-        run_command(remake_cmd)
-        print(f"[+] Successfully patched {image_name}.")
-
-    except (KeyError, subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"[!] Error processing {image_name}: {e}", file=sys.stderr)
-        raise
-
 def _compare_rollback_indices(edl_ng_exe):
     print("\n--- [STEP 1] Dumping Current Firmware via EDL ---")
     INPUT_CURRENT_DIR.mkdir(exist_ok=True)
@@ -1141,14 +503,14 @@ def _compare_rollback_indices(edl_ng_exe):
         f"[REQUIRED] Place the EDL loader file ('{EDL_LOADER_FILENAME}')\n"
         f"         into the '{IMAGE_DIR.name}' folder to dump current firmware."
     )
-    wait_for_files(IMAGE_DIR, required_loader, loader_prompt)
+    utils.wait_for_files(IMAGE_DIR, required_loader, loader_prompt)
     print(f"[+] Loader file '{EDL_LOADER_FILE.name}' found in '{IMAGE_DIR.name}'.")
 
-    wait_for_edl()
+    utils.wait_for_edl()
         
     print("\n[*] Attempting to read 'boot' partition...")
     try:
-        run_command([
+        utils.run_command([
             str(edl_ng_exe),
             "--loader", str(EDL_LOADER_FILE), 
             "read-part", "boot", str(boot_out) 
@@ -1160,7 +522,7 @@ def _compare_rollback_indices(edl_ng_exe):
 
     print("\n[*] Attempting to read 'vbmeta_system' partition...")
     try:
-        run_command([
+        utils.run_command([
             str(edl_ng_exe),
             "--loader", str(EDL_LOADER_FILE), 
             "read-part", "vbmeta_system", str(vbmeta_out) 
@@ -1177,10 +539,10 @@ def _compare_rollback_indices(edl_ng_exe):
     current_boot_rb = 0
     current_vbmeta_rb = 0
     try:
-        current_boot_info = extract_image_avb_info(INPUT_CURRENT_DIR / "boot.img")
+        current_boot_info = utils.extract_image_avb_info(INPUT_CURRENT_DIR / "boot.img")
         current_boot_rb = int(current_boot_info.get('rollback', '0'))
         
-        current_vbmeta_info = extract_image_avb_info(INPUT_CURRENT_DIR / "vbmeta_system.img")
+        current_vbmeta_info = utils.extract_image_avb_info(INPUT_CURRENT_DIR / "vbmeta_system.img")
         current_vbmeta_rb = int(current_vbmeta_info.get('rollback', '0'))
     except Exception as e:
         print(f"[!] Error reading current image info: {e}. Please check files.", file=sys.stderr)
@@ -1200,10 +562,10 @@ def _compare_rollback_indices(edl_ng_exe):
     new_boot_rb = 0
     new_vbmeta_rb = 0
     try:
-        new_boot_info = extract_image_avb_info(new_boot_img)
+        new_boot_info = utils.extract_image_avb_info(new_boot_img)
         new_boot_rb = int(new_boot_info.get('rollback', '0'))
         
-        new_vbmeta_info = extract_image_avb_info(new_vbmeta_img)
+        new_vbmeta_info = utils.extract_image_avb_info(new_vbmeta_img)
         new_vbmeta_rb = int(new_vbmeta_info.get('rollback', '0'))
     except Exception as e:
         print(f"[!] Error reading new image info: {e}. Please check files.", file=sys.stderr)
@@ -1221,8 +583,8 @@ def _compare_rollback_indices(edl_ng_exe):
 
 def read_anti_rollback():
     print("--- Anti-Rollback Status Check ---")
-    check_dependencies()
-    edl_ng_exe = _ensure_edl_ng()
+    utils.check_dependencies()
+    edl_ng_exe = utils._ensure_edl_ng()
     
     try:
         status, _, _ = _compare_rollback_indices(edl_ng_exe)
@@ -1232,8 +594,8 @@ def read_anti_rollback():
 
 def patch_anti_rollback():
     print("--- Anti-Rollback Patcher ---")
-    check_dependencies()
-    edl_ng_exe = _ensure_edl_ng()
+    utils.check_dependencies()
+    edl_ng_exe = utils._ensure_edl_ng()
 
     if OUTPUT_ANTI_ROLLBACK_DIR.exists():
         shutil.rmtree(OUTPUT_ANTI_ROLLBACK_DIR)
@@ -1248,7 +610,7 @@ def patch_anti_rollback():
 
         print("\n--- [STEP 3] Patching New Firmware ---")
         
-        patch_chained_image_rollback(
+        utils.patch_chained_image_rollback(
             image_name="boot.img",
             current_rb_index=current_boot_rb,
             new_image_path=(IMAGE_DIR / "boot.img"),
@@ -1257,7 +619,7 @@ def patch_anti_rollback():
         
         print("-" * 20)
         
-        patch_vbmeta_image_rollback(
+        utils.patch_vbmeta_image_rollback(
             image_name="vbmeta_system.img",
             current_rb_index=current_vbmeta_rb,
             new_image_path=(IMAGE_DIR / "vbmeta_system.img"),
@@ -1277,7 +639,7 @@ def patch_anti_rollback():
 def write_anti_rollback(skip_reset=False):
     print("--- Starting Anti-Rollback Write Process ---")
 
-    edl_ng_exe = _ensure_edl_ng()
+    edl_ng_exe = utils._ensure_edl_ng()
 
     boot_img = OUTPUT_ANTI_ROLLBACK_DIR / "boot.img"
     vbmeta_img = OUTPUT_ANTI_ROLLBACK_DIR / "vbmeta_system.img"
@@ -1296,14 +658,14 @@ def write_anti_rollback(skip_reset=False):
             f"         into the '{IMAGE_DIR.name}' folder to proceed."
         )
         IMAGE_DIR.mkdir(exist_ok=True) 
-        wait_for_files(IMAGE_DIR, required_files, prompt)
+        utils.wait_for_files(IMAGE_DIR, required_files, prompt)
         print(f"[+] Loader file '{EDL_LOADER_FILE.name}' found in '{IMAGE_DIR.name}'.")
 
-        wait_for_edl()
+        utils.wait_for_edl()
     
     try:
         print(f"\n[*] Attempting to write 'boot' partition...")
-        run_command([
+        utils.run_command([
             str(edl_ng_exe),
             "--loader", str(EDL_LOADER_FILE), 
             "write-part", "boot", str(boot_img)
@@ -1311,7 +673,7 @@ def write_anti_rollback(skip_reset=False):
         print("[+] Successfully wrote 'boot'.")
 
         print(f"\n[*] Attempting to write 'vbmeta_system' partition...")
-        run_command([
+        utils.run_command([
             str(edl_ng_exe),
             "--loader", str(EDL_LOADER_FILE), 
             "write-part", "vbmeta_system", str(vbmeta_img)
@@ -1320,7 +682,7 @@ def write_anti_rollback(skip_reset=False):
 
         if not skip_reset:
             print("\n[*] Operations complete. Resetting device...")
-            run_command([
+            utils.run_command([
                 str(edl_ng_exe),
                 "--loader", str(EDL_LOADER_FILE), 
                 "reset"
@@ -1427,7 +789,7 @@ def modify_xml(wipe=0):
         "[STEP 1] Please copy the entire 'image' folder from your\n"
         "         unpacked Lenovo RSA firmware into the main directory."
     )
-    wait_for_directory(IMAGE_DIR, prompt)
+    utils.wait_for_directory(IMAGE_DIR, prompt)
 
     if WORKING_DIR.exists():
         shutil.rmtree(WORKING_DIR)
@@ -1442,7 +804,7 @@ def modify_xml(wipe=0):
     for file in IMAGE_DIR.glob("*.x"):
         out_file = WORKING_DIR / file.with_suffix('.xml').name
         try:
-            run_command([str(PYTHON_EXE), str(DECRYPT_PY), str(file), str(out_file)])
+            utils.run_command([str(PYTHON_EXE), str(DECRYPT_PY), str(file), str(out_file)])
             print(f"  > Decrypted: {file.name} -> {out_file.name}")
             xml_files.append(out_file)
         except Exception as e:
@@ -1549,7 +911,7 @@ def modify_xml(wipe=0):
 def flash_edl(skip_reset=False, skip_reset_edl=False):
     print("--- Starting Full EDL Flash Process ---")
     
-    edl_ng_exe = _ensure_edl_ng()
+    edl_ng_exe = utils._ensure_edl_ng()
 
     if not IMAGE_DIR.is_dir() or not any(IMAGE_DIR.iterdir()):
         print(f"[!] Error: The '{IMAGE_DIR.name}' folder is missing or empty.")
@@ -1598,7 +960,7 @@ def flash_edl(skip_reset=False, skip_reset_edl=False):
     if copied_count == 0:
         print("[*] No 'output*' folders found. Proceeding with files already in 'image' folder.")
     
-    wait_for_edl()
+    utils.wait_for_edl()
     
     print("\n--- [STEP 1] Flashing main firmware via rawprogram ---")
     raw_xmls = list(IMAGE_DIR.glob("rawprogram*.xml"))
@@ -1618,7 +980,7 @@ def flash_edl(skip_reset=False, skip_reset_edl=False):
     ]
     
     try:
-        run_command(cmd)
+        utils.run_command(cmd)
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"[!] An error occurred during main flash: {e}", file=sys.stderr)
         print("[!] The device may be in an unstable state. Do not reboot manually.")
@@ -1637,7 +999,7 @@ def flash_edl(skip_reset=False, skip_reset_edl=False):
         if not skip_reset_edl:
             print("\n[*] Resetting device back into EDL mode for devinfo/persist flash...")
             try:
-                run_command([
+                utils.run_command([
                     str(edl_ng_exe),
                     "--loader", str(loader_path), 
                     "reset", "edl"
@@ -1647,7 +1009,7 @@ def flash_edl(skip_reset=False, skip_reset_edl=False):
                  print(f"[!] Failed to reset device to EDL: {e}", file=sys.stderr)
                  print("[!] Please manually reboot to EDL mode.")
             
-            wait_for_edl() 
+            utils.wait_for_edl() 
         
         write_edl(skip_reset=True, skip_reset_edl=True)
 
@@ -1670,7 +1032,7 @@ def flash_edl(skip_reset=False, skip_reset_edl=False):
     if not skip_reset:
         print("\n[*] Final step: Resetting device to system...")
         try:
-            run_command([
+            utils.run_command([
                 str(edl_ng_exe),
                 "--loader", str(loader_path), 
                 "reset"
@@ -1696,7 +1058,7 @@ def patch_all(wipe=0):
         "         unpacked Lenovo RSA firmware into the main directory.\n"
         r"         (Typical Location: C:\ProgramData\RSA\Download\RomFiles\...)"
     )
-    wait_for_directory(IMAGE_DIR, prompt)
+    utils.wait_for_directory(IMAGE_DIR, prompt)
     print("[+] 'image' folder found.")
     
     try:
@@ -1756,72 +1118,3 @@ def patch_all(wipe=0):
         print("\n" + "!" * 61)
         print("  PROCESS CANCELLED BY USER.")
         print("!" * 61)
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Android Image Patcher and AVB Tool.")
-    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
-
-    subparsers.add_parser("convert", help="Convert vendor_boot region and remake vbmeta.")
-    subparsers.add_parser("root", help="Patch boot.img with KernelSU.")
-    subparsers.add_parser("edit_dp", help="Edit devinfo and persist images.")
-    subparsers.add_parser("read_edl", help="Read devinfo and persist images via EDL.")
-    subparsers.add_parser("write_edl", help="Write patched devinfo and persist images via EDL.")
-    subparsers.add_parser("read_anti_rollback", help="Read and Compare Anti-Rollback indices.")
-    subparsers.add_parser("patch_anti_rollback", help="Patch firmware images to bypass Anti-Rollback.")
-    subparsers.add_parser("write_anti_rollback", help="Flash patched Anti-Rollback images via EDL.")
-    subparsers.add_parser("clean", help="Remove downloaded tools, I/O folders, and temp files.")
-    subparsers.add_parser("modify_xml", help="Modify XML files from RSA firmware for flashing.")
-    subparsers.add_parser("flash_edl", help="Flash the entire modified firmware via EDL.")
-    subparsers.add_parser("patch_all", help="Run the full automated ROW flashing process (NO WIPE).")
-    subparsers.add_parser("patch_all_wipe", help="Run the full automated ROW flashing process (WIPE DATA).")
-    parser_info = subparsers.add_parser("info", help="Display AVB info for image files or directories.")
-    parser_info.add_argument("files", nargs='+', help="Image file(s) or folder(s) to inspect.")
-
-    args = parser.parse_args()
-
-    try:
-        if args.command == "convert":
-            convert_images()
-        elif args.command == "root":
-            root_boot_only()
-        elif args.command == "edit_dp":
-            edit_devinfo_persist()
-        elif args.command == "read_edl":
-            read_edl()
-        elif args.command == "write_edl":
-            write_edl()
-        elif args.command == "read_anti_rollback":
-            read_anti_rollback()
-        elif args.command == "patch_anti_rollback":
-            patch_anti_rollback()
-        elif args.command == "write_anti_rollback":
-            write_anti_rollback()
-        elif args.command == "clean":
-            clean_workspace()
-        elif args.command == "modify_xml":
-            modify_xml()
-        elif args.command == "flash_edl":
-            flash_edl()
-        elif args.command == "patch_all":
-            patch_all(wipe=0)
-        elif args.command == "patch_all_wipe":
-            patch_all(wipe=1)
-        elif args.command == "info":
-            show_image_info(args.files)
-    except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError, KeyError) as e:
-        if not isinstance(e, SystemExit):
-            print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
-    except SystemExit:
-        print("\nProcess halted by script (e.g., file not found).", file=sys.stderr)
-    except KeyboardInterrupt:
-        print("\nProcess cancelled by user.", file=sys.stderr)
-
-
-    finally:
-        print()
-        if platform.system() == "Windows":
-            os.system("pause")
-
-if __name__ == "__main__":
-    main()

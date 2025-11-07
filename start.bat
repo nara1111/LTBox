@@ -4,27 +4,27 @@ setlocal
 
 :: --- 1. Initialization and Dependency Check ---
 echo --- Initializing LTBox... ---
-call "%~dp0tools\install.bat"
+call "%~dp0ltbox\install.bat"
 if errorlevel 1 (
-    echo [!] Dependency installation failed. Please check tools\install.bat.
+    echo [!] Dependency installation failed. Please check ltbox\install.bat.
     pause
     goto :eof
 )
 
 :: --- 2. Set Python and Main Script Paths ---
 set "PYTHON_EXE=%~dp0python3\python.exe"
-set "MAIN_PY=%~dp0main.py"
+set "MAIN_PY=%~dp0ltbox\main.py"
 
 if not exist "%PYTHON_EXE%" (
     echo [!] Python not found at: %PYTHON_EXE%
-    echo [!] Please run tools\install.bat first.
+    echo [!] Please run ltbox\install.bat first.
     pause
     goto :eof
 )
 if not exist "%MAIN_PY%" (
     echo [!] Main script not found at: %MAIN_PY%
    
- pause
+    pause
     goto :eof
 )
 
@@ -100,15 +100,15 @@ if "%ADV_CHOICE%"=="9" call :run_task flash_edl "Flash ROM to device"
 if "%ADV_CHOICE%"=="10" (
     cls
   
-  echo ==========================================================
+    echo ==========================================================
     echo  Starting Task: [Workspace Cleanup]...
     echo ==========================================================
     echo.
-"%PYTHON_EXE%" "%MAIN_PY%" clean
+    "%PYTHON_EXE%" "%MAIN_PY%" clean
     echo.
     echo ==========================================================
     echo  Task [Workspace Cleanup] has completed.
-echo ==========================================================
+    echo ==========================================================
     echo.
     echo Press any key to exit...
     pause > nul
