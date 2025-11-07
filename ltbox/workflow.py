@@ -2,7 +2,7 @@ import subprocess
 import sys
 
 from ltbox.constants import *
-from ltbox import utils, device, patch, actions_edl
+from ltbox import utils, device, actions
 
 def patch_all(wipe=0):
     if wipe == 1:
@@ -32,39 +32,39 @@ def patch_all(wipe=0):
         print("\n" + "="*61)
         print("  STEP 3/8: Converting Firmware (PRC to ROW) & Validating Model")
         print("="*61)
-        patch.convert_images(device_model=device_model)
+        actions.convert_images(device_model=device_model)
         print("\n--- [STEP 3/8] Firmware Conversion & Validation SUCCESS ---")
 
         print("\n" + "="*61)
         print("  STEP 4/8: Modifying XML Files")
         print("="*61)
-        patch.modify_xml(wipe=wipe)
+        actions.modify_xml(wipe=wipe)
         print("\n--- [STEP 4/8] XML Modification SUCCESS ---")
         
         print("\n" + "="*61)
         print("  STEP 5/8: Dumping devinfo/persist for patching")
         print("="*61)
-        actions_edl.read_edl()
+        actions.read_edl()
         print("\n--- [STEP 5/8] Dump SUCCESS ---")
         
         print("\n" + "="*61)
         print("  STEP 6/8: Patching devinfo/persist")
         print("="*61)
-        patch.edit_devinfo_persist()
+        actions.edit_devinfo_persist()
         print("\n--- [STEP 6/8] Patching SUCCESS ---")
         
         print("\n" + "="*61)
         print("  STEP 7/8: Checking and Patching Anti-Rollback")
         print("="*61)
-        actions_edl.read_anti_rollback()
-        actions_edl.patch_anti_rollback()
+        actions.read_anti_rollback()
+        actions.patch_anti_rollback()
         print("\n--- [STEP 7/8] Anti-Rollback Check/Patch SUCCESS ---")
         
         print("\n" + "="*61)
         print("  [FINAL STEP 8/8] Flashing All Images via EDL")
         print("="*61)
         print("The device will now be flashed with all modified images.")
-        actions_edl.flash_edl(skip_reset_edl=True) 
+        actions.flash_edl(skip_reset_edl=True) 
         
         print("\n" + "=" * 61)
         print("  FULL PROCESS COMPLETE!")

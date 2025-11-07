@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 try:
-    from ltbox import utils, patch, actions_edl, workflow
+    from ltbox import utils, actions, workflow
 except ImportError as e:
     print(f"[!] Error: Failed to import 'ltbox' package.", file=sys.stderr)
     print(f"[!] Details: {e}", file=sys.stderr)
@@ -45,29 +45,29 @@ def main():
 
     try:
         if args.command == "convert":
-            patch.convert_images()
+            actions.convert_images()
         elif args.command == "root":
-            patch.root_boot_only()
+            actions.root_boot_only()
         elif args.command == "edit_dp":
-            patch.edit_devinfo_persist()
+            actions.edit_devinfo_persist()
         elif args.command == "read_edl":
-            actions_edl.read_edl()
+            actions.read_edl()
         elif args.command == "write_edl":
-            actions_edl.write_edl()
+            actions.write_edl()
         elif args.command == "read_anti_rollback":
-            actions_edl.read_anti_rollback()
+            actions.read_anti_rollback()
         elif args.command == "patch_anti_rollback":
-            actions_edl.patch_anti_rollback()
+            actions.patch_anti_rollback()
         elif args.command == "write_anti_rollback":
-            actions_edl.write_anti_rollback()
+            actions.write_anti_rollback()
         elif args.command == "clean":
             utils.clean_workspace()
         elif args.command == "modify_xml":
-            patch.modify_xml(wipe=0)
+            actions.modify_xml(wipe=0)
         elif args.command == "modify_xml_wipe":
-            patch.modify_xml(wipe=1)
+            actions.modify_xml(wipe=1)
         elif args.command == "flash_edl":
-            actions_edl.flash_edl()
+            actions.flash_edl()
         elif args.command == "patch_all":
             workflow.patch_all(wipe=0)
         elif args.command == "patch_all_wipe":
