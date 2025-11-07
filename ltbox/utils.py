@@ -89,47 +89,6 @@ def reboot_to_edl():
         print(f"[!] Failed to send reboot command: {e}", file=sys.stderr)
         print("[!] Please reboot to EDL manually if it fails.")
 
-# --- EDL Device Handling ---
-def check_edl_device(silent=False):
-    if not silent:
-        print("[*] Checking for Qualcomm EDL (9008) device...")
-    try:
-        result = subprocess.run(
-            ['wmic', 'path', 'Win32_PnPEntity', 'where', "Name like 'Qualcomm%9008%'", 'get', 'Name'],
-            capture_output=True, text=True, encoding='utf-8', errors='ignore', shell=True
-        )
-        if "Qualcomm" in result.stdout and "9008" in result.stdout:
-            if not silent:
-                print("[+] Qualcomm EDL device found.")
-            return True
-        else:
-            if not silent:
-                print("[!] No Qualcomm EDL (9008) device found in Device Manager.")
-                print("[!] Please connect your device in EDL mode.")
-            return False
-    except FileNotFoundError:
-        if not silent:
-            print("[!] WMIC command not found. Cannot check for EDL device.", file=sys.stderr)
-        return False
-    except Exception as e:
-        if not silent:
-            print(f"[!] Error checking for EDL device: {e}", file=sys.stderr)
-        return False
-
-def wait_for_edl():
-    print("\n--- WAITING FOR EDL DEVICE ---")
-    if check_edl_device():
-        return
-    
-    while not check_edl_device(silent=True):
-        print("[*] Waiting for Qualcomm EDL (9008) device... (Press Ctrl+C to cancel)")
-        try:
-            time.sleep(2)
-        except KeyboardInterrupt:
-            print("\n[!] EDL wait cancelled by user.")
-            raise
-    print("[+] EDL device connected.")
-
 # --- File/Directory Waiters ---
 def wait_for_files(directory, required_files, prompt_message):
     directory.mkdir(exist_ok=True)
@@ -314,77 +273,6 @@ def _download_ksu_apk(fetch_exe, target_dir):
         ]
         run_command(ksu_apk_command)
         print("[+] KernelSU Manager APKs downloaded to the main directory (if found).")
-
-def _ensure_edl_ng():
-    if platform.system() != "Windows":
-        print("[!] EDL functions are only supported on Windows.", file=sys.stderr)
-        sys.exit(1)
-        
-    edl_ng_exe = TOOLS_DIR / "edl-ng.exe"
-    if edl_ng_exe.exists():
-        return edl_ng_exe
-
-    fetch_exe = get_platform_executable("fetch")
-    if not fetch_exe.exists():
-         print(f"[!] '{fetch_exe.name}' not found. Please run install.bat")
-         sys.exit(1)
-
-    print(f"[!] '{edl_ng_exe.name}' not found. Attempting to download...")
-    arch = platform.machine()
-    if arch == 'AMD64':
-        asset_pattern = "edl-ng-windows-x64.zip"
-    elif arch == 'ARM64':
-        asset_pattern = "edl-ng-windows-arm64.zip"
-    else:
-        print(f"[!] Unsupported Windows architecture: {arch}. Cannot download edl-ng.", file=sys.stderr)
-        sys.exit(1)
-        
-    print(f"[*] Detected {arch} architecture. Downloading '{asset_pattern}'...")
-
-    try:
-        fetch_command = [
-            str(fetch_exe),
-            "--repo", EDL_NG_REPO_URL,
-            "--tag", EDL_NG_TAG,
-            "--release-asset", asset_pattern,
-            str(TOOLS_DIR)
-        ]
-        run_command(fetch_command, capture=True)
-
-        downloaded_zip_path = TOOLS_DIR / asset_pattern
-        
-        if not downloaded_zip_path.exists():
-            raise FileNotFoundError(f"Failed to find the downloaded edl-ng zip archive: {asset_pattern}")
-        
-        with zipfile.ZipFile(downloaded_zip_path, 'r') as zip_ref:
-            edl_info = None
-            for member in zip_ref.infolist():
-                if member.filename.endswith('edl-ng.exe'):
-                    edl_info = member
-                    break
-            
-            if not edl_info:
-                raise FileNotFoundError("edl-ng.exe not found inside the downloaded zip archive.")
-
-            zip_ref.extract(edl_info, path=TOOLS_DIR)
-            
-            extracted_path = TOOLS_DIR / edl_info.filename
-            if extracted_path != edl_ng_exe:
-                shutil.move(extracted_path, edl_ng_exe)
-                parent_dir = extracted_path.parent
-                if parent_dir.is_dir() and parent_dir != TOOLS_DIR:
-                    try:
-                        parent_dir.rmdir()
-                    except OSError:
-                        shutil.rmtree(parent_dir, ignore_errors=True)
-
-        downloaded_zip_path.unlink()
-        print("[+] edl-ng download and extraction successful.")
-        return edl_ng_exe
-
-    except (subprocess.CalledProcessError, FileNotFoundError, KeyError, IndexError) as e:
-        print(f"[!] Error downloading or extracting edl-ng: {e}", file=sys.stderr)
-        sys.exit(1)
 
 # --- AVB (Android Verified Boot) Helpers ---
 def extract_image_avb_info(image_path):
