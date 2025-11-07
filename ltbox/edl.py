@@ -4,6 +4,7 @@ import sys
 import time
 import zipfile
 import shutil
+import serial.tools.list_ports
 
 from ltbox.constants import *
 from ltbox import utils
@@ -82,24 +83,24 @@ def _ensure_edl_ng():
 def check_edl_device(silent=False):
     if not silent:
         print("[*] Checking for Qualcomm EDL (9008) device...")
+    
     try:
-        result = subprocess.run(
-            ['wmic', 'path', 'Win32_PnPEntity', 'where', "Name like 'Qualcomm%9008%'", 'get', 'Name'],
-            capture_output=True, text=True, encoding='utf-8', errors='ignore', shell=True
-        )
-        if "Qualcomm" in result.stdout and "9008" in result.stdout:
-            if not silent:
-                print("[+] Qualcomm EDL device found.")
-            return True
-        else:
-            if not silent:
-                print("[!] No Qualcomm EDL (9008) device found in Device Manager.")
-                print("[!] Please connect your device in EDL mode.")
-            return False
-    except FileNotFoundError:
+        ports = serial.tools.list_ports.comports()
+        for port in ports:
+            # Check description (friendly name) or hwid (more reliable VID/PID)
+            is_qualcomm_port = (port.description and "Qualcomm" in port.description and "9008" in port.description) or \
+                               (port.hwid and "VID:PID=05C6:9008" in port.hwid.upper())
+            
+            if is_qualcomm_port:
+                if not silent:
+                    print(f"[+] Qualcomm EDL device found: {port.device}")
+                return True
+        
         if not silent:
-            print("[!] WMIC command not found. Cannot check for EDL device.", file=sys.stderr)
+            print("[!] No Qualcomm EDL (9008) device found.")
+            print("[!] Please connect your device in EDL mode.")
         return False
+    
     except Exception as e:
         if not silent:
             print(f"[!] Error checking for EDL device: {e}", file=sys.stderr)
