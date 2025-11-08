@@ -18,14 +18,16 @@ def run_command(command, shell=False, check=True, env=None, capture=False):
 
     try:
         process = subprocess.run(
-            command, shell=shell, check=check, capture_output=True,
+            command, shell=shell, check=check, capture_output=capture,
             text=True, encoding='utf-8', errors='ignore', env=env
         )
+
         if not capture:
             if process.stdout:
                 print(process.stdout.strip())
             if process.stderr:
                 print(process.stderr.strip(), file=sys.stderr)
+        
         return process
     except FileNotFoundError as e:
         print(f"Error: Command not found - {e.filename}", file=sys.stderr)

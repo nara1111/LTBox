@@ -741,19 +741,32 @@ def flash_edl(skip_reset=False, skip_reset_edl=False):
     if copied_count == 0:
         print("[*] No 'output*' folders found. Proceeding with files already in 'image' folder.")
     
-    device.wait_for_edl()
+    print("\n[*] Resetting device to EDL to ensure a clean state for fh_loader...")
+    try:
+        device.edl_reset(loader_path, mode="edl")
+        print("[+] Device reset-to-EDL command sent. Waiting 5 seconds for re-enumeration...")
+        time.sleep(5)
+    except Exception as e:
+        print(f"[!] Failed to reset device to EDL: {e}", file=sys.stderr)
+        print("[!] Proceeding anyway, but may fail. If so, reboot to EDL manually.")
+            
+    port = device.wait_for_edl()
+    if not port:
+        print("[!] Failed to find EDL port after reset. Aborting.")
+        raise SystemExit("EDL port not found")
     
-    print("\n--- [STEP 1] Flashing main firmware via rawprogram ---")
-    raw_xmls = list(IMAGE_DIR.glob("rawprogram*.xml"))
+    print("\n--- [STEP 1] Flashing main firmware via rawprogram (fh_loader) ---")
+
+    raw_xmls = [f for f in IMAGE_DIR.glob("rawprogram*.xml") if f.name != "rawprogram0.xml"]
     patch_xmls = list(IMAGE_DIR.glob("patch*.xml"))
     
     if not raw_xmls or not patch_xmls:
-        print(f"[!] Error: 'rawprogram*.xml' or 'patch*.xml' files not found in '{IMAGE_DIR.name}'.")
+        print(f"[!] Error: 'rawprogram*.xml' (excluding rawprogram0.xml) or 'patch*.xml' files not found in '{IMAGE_DIR.name}'.")
         print(f"[!] Cannot flash. Please run XML modification first.")
         raise FileNotFoundError(f"Missing essential XML flash files in {IMAGE_DIR.name}")
         
     try:
-        device.edl_rawprogram(loader_path, "UFS", raw_xmls, patch_xmls)
+        device.edl_rawprogram(loader_path, "UFS", raw_xmls, patch_xmls, port)
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"[!] An error occurred during main flash: {e}", file=sys.stderr)
         print("[!] The device may be in an unstable state. Do not reboot manually.")

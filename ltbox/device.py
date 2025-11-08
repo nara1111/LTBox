@@ -131,31 +131,33 @@ def check_edl_device(silent=False):
             if is_qualcomm_port:
                 if not silent:
                     print(f"[+] Qualcomm EDL device found: {port.device}")
-                return True
+                return port.device
         
         if not silent:
             print("[!] No Qualcomm EDL (9008) device found.")
             print("[!] Please connect your device in EDL mode.")
-        return False
+        return None
     
     except Exception as e:
         if not silent:
             print(f"[!] Error checking for EDL device: {e}", file=sys.stderr)
-        return False
+        return None
 
 def wait_for_edl():
     print("\n--- WAITING FOR EDL DEVICE ---")
-    if check_edl_device():
-        return
+    port_name = check_edl_device()
+    if port_name:
+        return port_name
     
-    while not check_edl_device(silent=True):
+    while not (port_name := check_edl_device(silent=True)):
         print("[*] Waiting for Qualcomm EDL (9008) device... (Press Ctrl+C to cancel)")
         try:
             time.sleep(2)
         except KeyboardInterrupt:
             print("\n[!] EDL wait cancelled by user.")
             raise
-    print("[+] EDL device connected.")
+    print(f"[+] EDL device connected on {port_name}.")
+    return port_name
 
 def _run_edl_command(loader_path, args_list):
     edl_ng_exe = _ensure_edl_ng()
@@ -172,14 +174,39 @@ def edl_write_part(loader_path, partition, input_file):
 def edl_reset(loader_path, mode=None):
     cmd = ["reset"]
     if mode == "edl":
-        cmd.append("edl")
+        cmd.extend(["--mode", "edl"])
     return _run_edl_command(loader_path, cmd)
 
-def edl_rawprogram(loader_path, memory_type, raw_xmls, patch_xmls):
-    cmd = [
-        "--memory", memory_type, 
-        "rawprogram", 
-        *[str(p) for p in raw_xmls], 
-        *[str(p) for p in patch_xmls]
+def edl_rawprogram(loader_path, memory_type, raw_xmls, patch_xmls, port):
+    if not QSAHARASERVER_EXE.exists() or not FH_LOADER_EXE.exists():
+        print(f"[!] Error: Qsaharaserver.exe or fh_loader.exe not found in {TOOLS_DIR.name} folder.")
+        raise FileNotFoundError("Missing fh_loader/Qsaharaserver executables")
+    
+    port_str = f"\\\\.\\{port}"
+    search_path = str(loader_path.parent)
+
+    print("[*] STEP 1/2: Loading programmer with Qsaharaserver...")
+    cmd_sahara = [
+        str(QSAHARASERVER_EXE), 
+        "-p", port_str, 
+        "-s", f"13:{loader_path}"
     ]
-    return _run_edl_command(loader_path, cmd)
+    utils.run_command(cmd_sahara)
+
+    print("\n[*] STEP 2/2: Flashing firmware with fh_loader...")
+    raw_xml_str = ",".join([p.name for p in raw_xmls])
+    patch_xml_str = ",".join([p.name for p in patch_xmls])
+
+    cmd_fh = [
+        str(FH_LOADER_EXE),
+        f"--port={port_str}",
+        f"--search_path={search_path}",
+        f"--sendxml={raw_xml_str}",
+        f"--sendxml={patch_xml_str}",
+        "--setactivepartition=1",
+        f"--memoryname={memory_type}",
+        "--showpercentagecomplete",
+        "--zlpawarehost=1",
+        "--noprompt"
+    ]
+    utils.run_command(cmd_fh)

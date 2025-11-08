@@ -32,6 +32,8 @@ AVBTOOL_PY = AVB_DIR / "avbtool.py"
 EDIT_IMAGES_PY = LTBOX_DIR / "edit_images.py"
 GET_KERNEL_VER_PY = LTBOX_DIR / "get_kernel_ver.py"
 DECRYPT_PY = LTBOX_DIR / "decrypt_x.py"
+QSAHARASERVER_EXE = TOOLS_DIR / "Qsaharaserver.exe"
+FH_LOADER_EXE = TOOLS_DIR / "fh_loader.exe"
 
 # --- MagiskBoot ---
 MAGISKBOOT_REPO_URL = "https://github.com/PinNaCode/magiskboot_build"
