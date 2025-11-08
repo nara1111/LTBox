@@ -1,25 +1,44 @@
 import subprocess
 import sys
+import shutil
 
 from ltbox.constants import *
 from ltbox import utils, device, actions
 
 def patch_all(wipe=0):
+    
+    print("--- [STEP 1/9] Cleaning up previous output folders ---")
+    output_folders_to_clean = [
+        OUTPUT_DIR, 
+        OUTPUT_ROOT_DIR, 
+        OUTPUT_DP_DIR, 
+        OUTPUT_ANTI_ROLLBACK_DIR,
+        OUTPUT_XML_DIR
+    ]
+    
+    for folder in output_folders_to_clean:
+        if folder.exists():
+            try:
+                shutil.rmtree(folder)
+                print(f"  > Removed: {folder.name}")
+            except OSError as e:
+                print(f"[!] Error removing {folder.name}: {e}", file=sys.stderr)
+
     if wipe == 1:
-        print("--- [WIPE MODE] Starting Automated Install & Flash ROW Firmware Process ---")
+        print("\n--- [WIPE MODE] Starting Automated Install & Flash ROW Firmware Process ---")
     else:
-        print("--- [NO WIPE MODE] Starting Automated Update & Flash ROW Firmware Process ---")
+        print("\n--- [NO WIPE MODE] Starting Automated Update & Flash ROW Firmware Process ---")
     
     print("\n" + "="*61)
-    print("  STEP 1/8: Waiting for ADB Connection")
+    print("  STEP 2/9: Waiting for ADB Connection")
     print("="*61)
     device.wait_for_adb()
     device_model = device.get_device_model()
     if not device_model:
         raise SystemExit("Failed to get device model via ADB.")
-    print("\n--- [STEP 1/8] ADB Device Found SUCCESS ---")
+    print("\n--- [STEP 2/9] ADB Device Found SUCCESS ---")
     
-    print("\n--- [STEP 2/8] Waiting for RSA Firmware 'image' folder ---")
+    print("\n--- [STEP 3/9] Waiting for RSA Firmware 'image' folder ---")
     prompt = (
         "Please copy the entire 'image' folder from your\n"
         "         unpacked Lenovo RSA firmware into the main directory.\n"
@@ -30,38 +49,38 @@ def patch_all(wipe=0):
     
     try:
         print("\n" + "="*61)
-        print("  STEP 3/8: Converting Firmware (PRC to ROW) & Validating Model")
+        print("  STEP 4/9: Converting Firmware (PRC to ROW) & Validating Model")
         print("="*61)
         actions.convert_images(device_model=device_model)
-        print("\n--- [STEP 3/8] Firmware Conversion & Validation SUCCESS ---")
+        print("\n--- [STEP 4/9] Firmware Conversion & Validation SUCCESS ---")
 
         print("\n" + "="*61)
-        print("  STEP 4/8: Modifying XML Files")
+        print("  STEP 5/9: Modifying XML Files")
         print("="*61)
         actions.modify_xml(wipe=wipe)
-        print("\n--- [STEP 4/8] XML Modification SUCCESS ---")
+        print("\n--- [STEP 5/9] XML Modification SUCCESS ---")
         
         print("\n" + "="*61)
-        print("  STEP 5/8: Dumping devinfo/persist for patching")
+        print("  STEP 6/9: Dumping devinfo/persist for patching")
         print("="*61)
         actions.read_edl()
-        print("\n--- [STEP 5/8] Dump SUCCESS ---")
+        print("\n--- [STEP 6/9] Dump SUCCESS ---")
         
         print("\n" + "="*61)
-        print("  STEP 6/8: Patching devinfo/persist")
+        print("  STEP 7/9: Patching devinfo/persist")
         print("="*61)
         actions.edit_devinfo_persist()
-        print("\n--- [STEP 6/8] Patching SUCCESS ---")
+        print("\n--- [STEP 7/9] Patching SUCCESS ---")
         
         print("\n" + "="*61)
-        print("  STEP 7/8: Checking and Patching Anti-Rollback")
+        print("  STEP 8/9: Checking and Patching Anti-Rollback")
         print("="*61)
         actions.read_anti_rollback()
         actions.patch_anti_rollback()
-        print("\n--- [STEP 7/8] Anti-Rollback Check/Patch SUCCESS ---")
+        print("\n--- [STEP 8/9] Anti-Rollback Check/Patch SUCCESS ---")
         
         print("\n" + "="*61)
-        print("  [FINAL STEP 8/8] Flashing All Images via EDL")
+        print("  [FINAL STEP 9/9] Flashing All Images via EDL")
         print("="*61)
         print("The device will now be flashed with all modified images.")
         actions.flash_edl(skip_reset_edl=True) 
