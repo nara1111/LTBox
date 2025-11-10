@@ -921,9 +921,16 @@ def flash_edl(skip_reset=False, skip_reset_edl=False, skip_dp=False):
     if not skip_reset:
         print("\n--- [STEP 3] Final step: Resetting device to system ---")
         try:
-            device.edl_reset(loader_path)
+            print("[*] Attempting to reset device via fh_loader...")
+            reboot_cmd = [
+                str(FH_LOADER_EXE),
+                "--port=" + str(port),
+                "--reset",
+                "--noprompt"
+            ]
+            utils.run_command(reboot_cmd)
             print("[+] Device reset command sent.")
-        except Exception as e:
+        except (subprocess.CalledProcessError, FileNotFoundError, Exception) as e:
              print(f"[!] Failed to reset device: {e}", file=sys.stderr)
     else:
         print("[*] Skipping final device reset as requested.")
