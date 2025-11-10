@@ -705,12 +705,14 @@ def read_anti_rollback(active_slot_suffix=None):
     utils.check_dependencies()
     
     try:
-        status, _, _ = _compare_rollback_indices(active_slot_suffix=active_slot_suffix)
+        status, boot_rb, vbmeta_rb = _compare_rollback_indices(active_slot_suffix=active_slot_suffix)
         print(f"\n--- Status Check Complete: {status} ---")
+        return status, boot_rb, vbmeta_rb
     except Exception as e:
         print(f"\n[!] An error occurred during status check: {e}", file=sys.stderr)
+        return 'ERROR', 0, 0
 
-def patch_anti_rollback(active_slot_suffix=None):
+def patch_anti_rollback(active_slot_suffix=None, comparison_result=None):
     print("--- Anti-Rollback Patcher ---")
     utils.check_dependencies()
 
@@ -719,7 +721,12 @@ def patch_anti_rollback(active_slot_suffix=None):
     OUTPUT_ANTI_ROLLBACK_DIR.mkdir(exist_ok=True)
     
     try:
-        status, current_boot_rb, current_vbmeta_rb = _compare_rollback_indices(active_slot_suffix=active_slot_suffix)
+        if comparison_result:
+            print("[*] Using pre-computed Anti-Rollback status...")
+            status, current_boot_rb, current_vbmeta_rb = comparison_result
+        else:
+            print("[*] No pre-computed status found, running check...")
+            status, current_boot_rb, current_vbmeta_rb = _compare_rollback_indices(active_slot_suffix=active_slot_suffix)
 
         if status != 'NEEDS_PATCH':
             print("\n[!] No patching is required or files are missing. Aborting patch.")

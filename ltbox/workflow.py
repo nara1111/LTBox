@@ -95,8 +95,8 @@ def patch_all(wipe=0, skip_adb=False):
         print("\n" + "="*61)
         print("  STEP 8/9: Checking and Patching Anti-Rollback")
         print("="*61)
-        actions.read_anti_rollback(active_slot_suffix=active_slot_suffix)
-        actions.patch_anti_rollback(active_slot_suffix=active_slot_suffix)
+        arb_status_result = actions.read_anti_rollback(active_slot_suffix=active_slot_suffix)
+        actions.patch_anti_rollback(active_slot_suffix=active_slot_suffix, comparison_result=arb_status_result)
         print("\n--- [STEP 8/9] Anti-Rollback Check/Patch SUCCESS ---")
         
         print("\n" + "="*61)
