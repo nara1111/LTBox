@@ -437,13 +437,14 @@ def edit_devinfo_persist():
             proceed = True
         else:
             print("[*] Operation cancelled. No changes made.")
+            
             devinfo_img.unlink(missing_ok=True)
             persist_img.unlink(missing_ok=True)
-
+            
             print("[*] Safety: Removing stock devinfo.img/persist.img from 'image' folder to prevent accidental flash.")
             (IMAGE_DIR / "devinfo.img").unlink(missing_ok=True)
             (IMAGE_DIR / "persist.img").unlink(missing_ok=True)
-
+            
             return
 
     if proceed:
@@ -750,70 +751,28 @@ def write_edl(skip_reset=False, skip_reset_edl=False):
 
     print("\n--- Write Process Finished ---")
 
-def read_anti_rollback(fastboot_output=None, dumped_boot_path=None, dumped_vbmeta_path=None):
+def read_anti_rollback(dumped_boot_path, dumped_vbmeta_path):
     print("--- Anti-Rollback Status Check ---")
     utils.check_dependencies()
     
     current_boot_rb = 0
     current_vbmeta_rb = 0
     
-    if dumped_boot_path and dumped_vbmeta_path:
-        print("\n--- [STEP 1] Parsing Rollback Indices from DUMPED IMAGES (Slot B) ---")
-        try:
-            if not dumped_boot_path.exists() or not dumped_vbmeta_path.exists():
-                raise FileNotFoundError("Dumped boot/vbmeta images not found.")
-            
-            print(f"[*] Reading from: {dumped_boot_path.name}")
-            boot_info = imgpatch.extract_image_avb_info(dumped_boot_path)
-            current_boot_rb = int(boot_info.get('rollback', '0'))
-            
-            print(f"[*] Reading from: {dumped_vbmeta_path.name}")
-            vbmeta_info = imgpatch.extract_image_avb_info(dumped_vbmeta_path)
-            current_vbmeta_rb = int(vbmeta_info.get('rollback', '0'))
-            
-        except Exception as e:
-            print(f"[!] Error extracting AVB info from dumps: {e}", file=sys.stderr)
-            print(f"\n--- Status Check Complete: ERROR ---")
-            return 'ERROR', 0, 0
-
-    elif fastboot_output:
-        print("\n--- [STEP 1] Parsing Rollback Indices from Fastboot ---")
-        try:
-            boot_rb_match = re.search(r"stored_rollback_index:2\s*[:=]\s*(\S+)", fastboot_output, re.MULTILINE)
-            vbmeta_rb_match = re.search(r"stored_rollback_index:3\s*[:=]\s*(\S+)", fastboot_output, re.MULTILINE)
-            
-            if not boot_rb_match:
-                print("\n[DEBUG] --- FASTBOOT GETVAR ALL OUTPUT START ---")
-                print(fastboot_output.strip())
-                print("[DEBUG] --- FASTBOOT GETVAR ALL OUTPUT END ---\n")
-                
-                possible_matches = re.findall(r"(.*rollback.*)", fastboot_output, re.IGNORECASE)
-                if possible_matches:
-                    print("[DEBUG] Found similar variables:")
-                    for m in possible_matches:
-                        print(f"  > {m.strip()}")
-
-                raise ValueError("Could not find 'stored_rollback_index:2' (boot) in fastboot output.")
-
-            if not vbmeta_rb_match:
-                print("\n[DEBUG] --- FASTBOOT GETVAR ALL OUTPUT START ---")
-                print(fastboot_output.strip())
-                print("[DEBUG] --- FASTBOOT GETVAR ALL OUTPUT END ---\n")
-                raise ValueError("Could not find 'stored_rollback_index:3' (vbmeta_system) in fastboot output.")
-            
-            current_boot_rb_hex = boot_rb_match.group(1)
-            current_vbmeta_rb_hex = vbmeta_rb_match.group(1)
-
-            current_boot_rb = int(current_boot_rb_hex, 16)
-            current_vbmeta_rb = int(current_vbmeta_rb_hex, 16)
-            
-        except Exception as e:
-            print(f"[!] Error parsing fastboot output: {e}", file=sys.stderr)
-            print(f"\n--- Status Check Complete: ERROR ---")
-            return 'ERROR', 0, 0
-
-    else:
-        print("[!] Neither Fastboot output nor Dumped images provided.")
+    print("\n--- [STEP 1] Parsing Rollback Indices from DUMPED IMAGES ---")
+    try:
+        if not dumped_boot_path.exists() or not dumped_vbmeta_path.exists():
+            raise FileNotFoundError("Dumped boot/vbmeta images not found.")
+        
+        print(f"[*] Reading from: {dumped_boot_path.name}")
+        boot_info = imgpatch.extract_image_avb_info(dumped_boot_path)
+        current_boot_rb = int(boot_info.get('rollback', '0'))
+        
+        print(f"[*] Reading from: {dumped_vbmeta_path.name}")
+        vbmeta_info = imgpatch.extract_image_avb_info(dumped_vbmeta_path)
+        current_vbmeta_rb = int(vbmeta_info.get('rollback', '0'))
+        
+    except Exception as e:
+        print(f"[!] Error extracting AVB info from dumps: {e}", file=sys.stderr)
         print(f"\n--- Status Check Complete: ERROR ---")
         return 'ERROR', 0, 0
 
@@ -856,7 +815,7 @@ def read_anti_rollback(fastboot_output=None, dumped_boot_path=None, dumped_vbmet
     print(f"\n--- Status Check Complete: {status} ---")
     return status, current_boot_rb, current_vbmeta_rb
 
-def patch_anti_rollback(fastboot_output=None, comparison_result=None):
+def patch_anti_rollback(comparison_result):
     print("--- Anti-Rollback Patcher ---")
     utils.check_dependencies()
 
@@ -869,8 +828,8 @@ def patch_anti_rollback(fastboot_output=None, comparison_result=None):
             print("[*] Using pre-computed Anti-Rollback status...")
             status, current_boot_rb, current_vbmeta_rb = comparison_result
         else:
-            print("[*] No pre-computed status found, running check...")
-            status, current_boot_rb, current_vbmeta_rb = read_anti_rollback(fastboot_output=fastboot_output)
+            print("[!] No comparison result provided. Aborting.")
+            return
 
         if status != 'NEEDS_PATCH':
             print("\n[!] No patching is required or files are missing. Aborting patch.")
@@ -1034,7 +993,7 @@ def flash_edl(skip_reset=False, skip_reset_edl=False, skip_dp=False):
 
     raw_xmls = [f for f in IMAGE_DIR.glob("rawprogram*.xml") if f.name != "rawprogram0.xml"]
     patch_xmls = list(IMAGE_DIR.glob("patch*.xml"))
-
+    
     persist_write_xml = IMAGE_DIR / "rawprogram_write_persist_unsparse0.xml"
     persist_save_xml = IMAGE_DIR / "rawprogram_save_persist_unsparse0.xml"
     devinfo_write_xml = IMAGE_DIR / "rawprogram4_write_devinfo.xml"
@@ -1087,7 +1046,7 @@ def flash_edl(skip_reset=False, skip_reset_edl=False, skip_dp=False):
         try:
             print("[*] Waiting 5 seconds for stability...")
             time.sleep(5)
-
+            
             print("[*] Attempting to reset device via fh_loader...")
             device.fh_loader_reset(port)
             print("[+] Device reset command sent.")
@@ -1194,11 +1153,12 @@ def root_device(skip_adb=False):
 
     print("\n--- [STEP 6/6] Flashing patched boot.img via Fastboot ---")
     print("[*] Resetting to Fastboot mode...")
+    
     print("[*] Waiting 5 seconds for stability...")
     time.sleep(5)
-
+    
     device.fh_loader_reset(port)
-
+    
     if not skip_adb:
         try:
             print("[*] Waiting for device to reboot (10s)...")

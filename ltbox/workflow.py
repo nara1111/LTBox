@@ -39,14 +39,10 @@ def patch_all(wipe=0, skip_adb=False):
     
     active_slot_suffix = device.get_active_slot_suffix(skip_adb=skip_adb)
     
-    fastboot_output = device.get_fastboot_vars(skip_adb=skip_adb)
-    if not fastboot_output and not skip_adb:
-        raise SystemExit("Failed to get fastboot variables for ARB check.")
-
-    print("\n--- [STEP 2/9] ADB/Fastboot Checks SUCCESS ---")
-    print("[*] Device will boot back to system. Waiting for ADB connection again...")
+    print("\n--- [STEP 2/9] Device Info Check SUCCESS ---")
+    print("[*] Device will boot back to system if needed. Waiting for ADB connection again...")
     device.wait_for_adb(skip_adb=skip_adb)
-    print("[+] ADB device re-connected.")
+    print("[+] ADB device connected.")
     
     print("\n--- [STEP 3/9] Waiting for RSA Firmware 'image' folder ---")
     prompt = (
@@ -76,12 +72,13 @@ def patch_all(wipe=0, skip_adb=False):
         print("  STEP 6/9: Dumping devinfo/persist for patching (fh_loader)")
         print("="*61)
 
-        extra_dumps = None
-        is_slot_b = (active_slot_suffix == "_b")
+        suffix = active_slot_suffix if active_slot_suffix else ""
+        boot_target = f"boot{suffix}"
+        vbmeta_target = f"vbmeta_system{suffix}"
         
-        if is_slot_b:
-            print("[*] Slot B detected. Scheduling extra dumps for ARB check...")
-            extra_dumps = ["boot_b", "vbmeta_system_b"]
+        extra_dumps = [boot_target, vbmeta_target]
+        
+        print(f"[*] Scheduled extra dumps for ARB check: {', '.join(extra_dumps)}")
         
         dump_status = actions.read_edl_fhloader(
             skip_adb=skip_adb, 
@@ -111,21 +108,14 @@ def patch_all(wipe=0, skip_adb=False):
         print("  STEP 8/9: Checking and Patching Anti-Rollback")
         print("="*61)
         
-        arb_status_result = None
+        print("[*] Using Dumped Images for ARB Check...")
+        dumped_boot = BACKUP_DIR / f"{boot_target}.img"
+        dumped_vbmeta = BACKUP_DIR / f"{vbmeta_target}.img"
         
-        if is_slot_b:
-            print("[*] Using Dumped Images for ARB Check (Slot B Mode)...")
-            dumped_boot = BACKUP_DIR / "boot_b.img"
-            dumped_vbmeta = BACKUP_DIR / "vbmeta_system_b.img"
-            
-            arb_status_result = actions.read_anti_rollback(
-                fastboot_output=None,
-                dumped_boot_path=dumped_boot,
-                dumped_vbmeta_path=dumped_vbmeta
-            )
-        else:
-            print("[*] Using Fastboot Output for ARB Check (Slot A Mode)...")
-            arb_status_result = actions.read_anti_rollback(fastboot_output=fastboot_output)
+        arb_status_result = actions.read_anti_rollback(
+            dumped_boot_path=dumped_boot,
+            dumped_vbmeta_path=dumped_vbmeta
+        )
         
         if arb_status_result[0] == 'ERROR':
             print("\n" + "!"*61)
