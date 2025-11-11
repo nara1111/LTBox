@@ -375,70 +375,87 @@ def edit_devinfo_persist():
 
     if devinfo_img_src.exists():
         shutil.copy(devinfo_img_src, devinfo_img)
-        print("[+] Copied 'devinfo.img' to main directory for processing.")
     if persist_img_src.exists():
         shutil.copy(persist_img_src, persist_img)
-        print("[+] Copied 'persist.img' to main directory for processing.")
 
-    if not devinfo_img.exists() and not persist_img.exists():
-        print("[!] Error: 'devinfo.img' and 'persist.img' both not found in main directory. Aborting.")
-        raise FileNotFoundError("devinfo.img or persist.img not found for patching.")
-        
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_critical_dir = BASE_DIR / f"backup_critical_{timestamp}"
     backup_critical_dir.mkdir(exist_ok=True)
     
-    print(f"[*] Backing up critical images to '{backup_critical_dir.name}'...")
-    
     if devinfo_img.exists():
         shutil.copy(devinfo_img, backup_critical_dir)
-        print(f"[+] Backed up '{devinfo_img.name}'.")
     if persist_img.exists():
         shutil.copy(persist_img, backup_critical_dir)
-        print(f"[+] Backed up '{persist_img.name}'.")
-    print("[+] Backup complete.\n")
+    print(f"[+] Files copied and backed up to '{backup_critical_dir.name}'.\n")
 
     print(f"[*] Cleaning up old '{OUTPUT_DP_DIR.name}' folder...")
     if OUTPUT_DP_DIR.exists():
         shutil.rmtree(OUTPUT_DP_DIR)
     OUTPUT_DP_DIR.mkdir(exist_ok=True)
 
-    target_code = "CN"
+    print("[*] Detecting current region codes in images...")
+    detected_codes = imgpatch.detect_region_codes()
     
-    while True:
-        print(f"[*] Searching for target code '{target_code}XX' in images...")
-        if imgpatch.check_target_exists(target_code):
-            print(f"[+] Found target code '{target_code}XX'.")
-            replacement_code = select_country_code("SELECT REPLACEMENT COUNTRY CODE")
+    status_messages = []
+    files_found = 0
+    is_cn_detected = False
+    
+    display_order = ["persist.img", "devinfo.img"]
+    
+    for fname in display_order:
+        if fname in detected_codes:
+            code = detected_codes[fname]
+            display_name = Path(fname).stem 
             
-            print("[*] Running patch script...")
-            imgpatch.edit_devinfo_persist(target_code, replacement_code)
-            break
-        else:
-            print(f"[!] Target code '{target_code}XX' not found in devinfo.img or persist.img.")
-            choice = ""
-            while choice not in ['y', 'n']:
-                choice = input("    Manually select a new target code to search for? (y/n): ").lower().strip()
-            
-            if choice == 'n':
-                print("[*] Skipping devinfo/persist patching.")
-                devinfo_img.unlink(missing_ok=True)
-                persist_img.unlink(missing_ok=True)
-                return
+            if code:
+                status_messages.append(f"{display_name}: {code}XX")
+                files_found += 1
+                if code == "CN":
+                    is_cn_detected = True
             else:
-                target_code = select_country_code("SELECT NEW TARGET COUNTRY CODE")
+                status_messages.append(f"{display_name}: null")
+    
+    print(f"\n[+] Detection Result:  {', '.join(status_messages)}")
 
-    modified_devinfo = BASE_DIR / "devinfo_modified.img"
-    modified_persist = BASE_DIR / "persist_modified.img"
+    proceed = False
     
-    if modified_devinfo.exists():
-        shutil.move(modified_devinfo, OUTPUT_DP_DIR / "devinfo.img")
-    if modified_persist.exists():
-        shutil.move(modified_persist, OUTPUT_DP_DIR / "persist.img")
+    if files_found == 0:
+        print("[!] No region codes detected. Patching skipped.")
+        devinfo_img.unlink(missing_ok=True)
+        persist_img.unlink(missing_ok=True)
+        return
+    elif is_cn_detected:
+        print("\n[*] CN Region detected. Automatically proceeding to region selection...")
+        proceed = True
+    else:
+        print("\nDo you want to change the region code? (y/n)")
+        choice = ""
+        while choice not in ['y', 'n']:
+            choice = input("    Enter choice: ").lower().strip()
         
-    print(f"\n[*] Final images have been moved to '{OUTPUT_DP_DIR.name}' folder.")
+        if choice == 'y':
+            proceed = True
+        else:
+            print("[*] Operation cancelled. No changes made.")
+            devinfo_img.unlink(missing_ok=True)
+            persist_img.unlink(missing_ok=True)
+            return
+
+    if proceed:
+        target_map = detected_codes.copy()
+        replacement_code = select_country_code("SELECT NEW REGION CODE")
+        imgpatch.patch_region_codes(replacement_code, target_map)
+
+        modified_devinfo = BASE_DIR / "devinfo_modified.img"
+        modified_persist = BASE_DIR / "persist_modified.img"
+        
+        if modified_devinfo.exists():
+            shutil.move(modified_devinfo, OUTPUT_DP_DIR / "devinfo.img")
+        if modified_persist.exists():
+            shutil.move(modified_persist, OUTPUT_DP_DIR / "persist.img")
+            
+        print(f"\n[*] Final images have been moved to '{OUTPUT_DP_DIR.name}' folder.")
     
-    print("[*] Cleaning up original image files...")
     devinfo_img.unlink(missing_ok=True)
     persist_img.unlink(missing_ok=True)
     
@@ -902,7 +919,7 @@ def flash_edl(skip_reset=False, skip_reset_edl=False, skip_dp=False):
             choice = input("Are you sure you want to continue? (y/n): ").lower().strip()
 
         if choice == 'n':
-            print("[*] Operation cancelled.")
+            print("[*] Operation cancelled. No changes made.")
             return
 
     print("\n[*] Copying patched files to 'image' folder (overwriting)...")

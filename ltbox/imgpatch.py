@@ -434,56 +434,96 @@ def check_target_exists(target_code):
             print(f"[!] Error reading {f.name} for check: {e}", file=sys.stderr)
     return found
 
-def edit_devinfo_persist(target_code, replacement_code):
-    files_to_process = {
-        "devinfo.img": "devinfo_modified.img",
-        "persist.img": "persist_modified.img"
-    }
-    
-    target_string = f"{target_code.upper()}XX"
-    target = target_string.encode('ascii')
-    
+def detect_region_codes():
+    results = {}
+    files_to_check = ["devinfo.img", "persist.img"]
+
+    if not COUNTRY_CODES:
+        print("[!] Warning: COUNTRY_CODES list is empty.", file=sys.stderr)
+        return {f: None for f in files_to_check}
+
+    for filename in files_to_check:
+        file_path = BASE_DIR / filename
+        results[filename] = None
+        
+        if not file_path.exists():
+            continue
+            
+        try:
+            content = file_path.read_bytes()
+            for code, _ in COUNTRY_CODES.items():
+                target_bytes = f"{code.upper()}XX".encode('ascii')
+                if target_bytes in content:
+                    results[filename] = code
+                    break
+        except Exception as e:
+            print(f"[!] Error reading {filename}: {e}", file=sys.stderr)
+            
+    return results
+
+def patch_region_codes(replacement_code, target_map):
     if not replacement_code or len(replacement_code) != 2:
-        print(f"[!] Error: Invalid replacement code '{replacement_code}' received by patcher. Aborting.", file=sys.stderr)
+        print(f"[!] Error: Invalid replacement code '{replacement_code}'. Aborting.", file=sys.stderr)
         sys.exit(1)
         
     replacement_string = f"{replacement_code.upper()}XX"
-    replacement = replacement_string.encode('ascii')
+    replacement_bytes = replacement_string.encode('ascii')
     
-    print(f"[*] Patching target '{target_string}' with '{replacement_string}'...")
+    total_patched = 0
     
-    total_found_count = 0
+    files_to_output = {
+        "devinfo.img": "devinfo_modified.img",
+        "persist.img": "persist_modified.img"
+    }
 
-    for input_filename, output_filename in files_to_process.items():
-        input_file = BASE_DIR / input_filename
-        output_file = BASE_DIR / output_filename
+    print(f"[*] Starting patch process (New Region: {replacement_code})...")
 
-        print(f"\n--- Processing '{input_file.name}' ---")
-
-        if not input_file.exists():
-            print(f"Warning: '{input_file.name}' not found. Skipping.")
+    for filename, current_code in target_map.items():
+        if filename not in files_to_output:
             continue
+            
+        input_file = BASE_DIR / filename
+        output_file = BASE_DIR / files_to_output[filename]
         
+        if not input_file.exists():
+            continue
+            
+        print(f"\n--- Processing '{input_file.name}' ---")
+        
+        if not current_code:
+            print(f"[*] No target code specified/detected for '{filename}'. Skipping.")
+            continue
+
+        target_string = f"{current_code.upper()}XX"
+        target_bytes = target_string.encode('ascii')
+        
+        if target_bytes == replacement_bytes:
+             print(f"[*] File is already '{target_string}'. Copying as is.")
+             shutil.copy(input_file, output_file)
+             continue
+
         try:
             content = input_file.read_bytes()
-            count = content.count(target)
+            count = content.count(target_bytes)
             
             if count > 0:
                 print(f"Found '{target_string}' pattern {count} time(s). Replacing with '{replacement_string}'...")
-                modified_content = content.replace(target, replacement)
+                modified_content = content.replace(target_bytes, replacement_bytes)
                 output_file.write_bytes(modified_content)
-                total_found_count += count
-                print(f"Patch successful! Saved as '{output_file.name}'")
+                total_patched += count
+                print(f"[+] Patch successful! Saved as '{output_file.name}'")
             else:
-                print(f"No target patterns found in '{input_file.name}'. No changes made.")
+                print(f"[!] Pattern '{target_string}' NOT found. No changes made.")
 
         except Exception as e:
-            print(f"An error occurred while processing '{input_file.name}': {e}", file=sys.stderr)
-    
-    if total_found_count > 0:
-        print(f"\nPatching finished! Total {total_found_count} instance(s) replaced across all files.")
+            print(f"[!] Error processing '{input_file.name}': {e}", file=sys.stderr)
+
+    if total_patched > 0:
+        print(f"\nPatching finished! Total {total_patched} instance(s) replaced.")
     else:
-        print("\nPatching finished! No changes were made to any files.")
+        print("\nPatching finished! No instances were replaced.")
+    
+    return total_patched
 
 def get_kernel_version(file_path):
     kernel_file = Path(file_path)
