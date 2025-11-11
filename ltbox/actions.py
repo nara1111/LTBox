@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
@@ -586,6 +587,135 @@ def read_edl(skip_adb=False):
         elif choice == '3':
             print("[*] Aborting. Rebooting to System...")
             device.edl_reset(EDL_LOADER_FILE)
+            raise SystemExit("EDL dump failed, rebooting to system.")
+
+    print(f"\n--- EDL Read Process Finished ---")
+    print(f"[*] Files have been saved to the '{BACKUP_DIR.name}' folder.")
+    print(f"[*] You can now run 'Patch devinfo/persist' (Menu 3) to patch them.")
+    return "SUCCESS"
+
+def _parse_xml_for_dump(xml_path, label_target):
+    if not xml_path.exists():
+        print(f"[!] Warning: XML '{xml_path.name}' not found. Cannot parse for '{label_target}'.")
+        return None
+        
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        for prog in root.findall('program'):
+            if prog.get('label') == label_target:
+                return {
+                    'start_sector': prog.get('start_sector'),
+                    'num_sectors': prog.get('num_partition_sectors'),
+                    'lun': prog.get('physical_partition_number')
+                }
+        print(f"[!] Warning: Label '{label_target}' not found in '{xml_path.name}'.")
+        return None
+    except Exception as e:
+        print(f"[!] Error parsing '{xml_path.name}': {e}")
+        return None
+
+def read_edl_fhloader(skip_adb=False):
+    print("--- Starting EDL Read Process (fh_loader) ---")
+    
+    port = device.setup_edl_connection(skip_adb=skip_adb)
+    
+    try:
+        device.load_firehose_programmer(EDL_LOADER_FILE, port)
+        time.sleep(2)
+    except Exception as e:
+        print(f"[!] Warning: Failed to load programmer: {e}")
+        print("[!] Proceeding, as it might already be loaded.")
+
+    BACKUP_DIR.mkdir(exist_ok=True)
+    devinfo_out = BACKUP_DIR / "devinfo.img"
+    persist_out = BACKUP_DIR / "persist.img"
+
+    print("\n[*] Parsing XML files for partition information...")
+    
+    devinfo_xml = OUTPUT_XML_DIR / "rawprogram4.xml"
+    devinfo_params = _parse_xml_for_dump(devinfo_xml, "devinfo")
+
+    persist_xml = OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
+    persist_params = _parse_xml_for_dump(persist_xml, "persist")
+
+    if devinfo_params:
+        print("\n[*] Attempting to read 'devinfo' partition using fh_loader...")
+        try:
+            device.fh_loader_read_part(
+                port=port,
+                output_filename=str(devinfo_out),
+                lun=devinfo_params['lun'],
+                start_sector=devinfo_params['start_sector'],
+                num_sectors=devinfo_params['num_sectors']
+            )
+            print(f"[+] Successfully read 'devinfo' to '{devinfo_out}'.")
+        except Exception as e:
+            print(f"[!] Failed to read 'devinfo': {e}", file=sys.stderr)
+    else:
+        print("[!] Skipping devinfo dump (XML params not found).")
+
+    if persist_params:
+        print("\n[*] Attempting to read 'persist' partition using fh_loader...")
+        try:
+            device.fh_loader_read_part(
+                port=port,
+                output_filename=str(persist_out),
+                lun=persist_params['lun'],
+                start_sector=persist_params['start_sector'],
+                num_sectors=persist_params['num_sectors']
+            )
+            print(f"[+] Successfully read 'persist' to '{persist_out}'.")
+        except Exception as e:
+            print(f"[!] Failed to read 'persist': {e}", file=sys.stderr)
+    else:
+        print("[!] Skipping persist dump (XML params not found).")
+
+    devinfo_size = os.path.getsize(devinfo_out) if devinfo_out.exists() else 0
+    persist_size = os.path.getsize(persist_out) if persist_out.exists() else 0
+    
+    DEVINFO_MIN_SIZE = 4 * 1024
+    PERSIST_MIN_SIZE = 32 * 1024 * 1024
+    
+    dump_error = False
+    if devinfo_out.exists() and devinfo_size < DEVINFO_MIN_SIZE:
+        print(f"[!] Error: Dumped 'devinfo.img' is too small ({devinfo_size} bytes). Expected at least 4KB.")
+        dump_error = True
+    elif not devinfo_out.exists() and devinfo_params:
+         print(f"[!] Error: 'devinfo.img' failed to dump (file not found).")
+         dump_error = True
+    
+    if persist_out.exists() and persist_size < PERSIST_MIN_SIZE:
+        print(f"[!] Error: Dumped 'persist.img' is too small ({persist_size} bytes). Expected at least 32MB.")
+        dump_error = True
+    elif not persist_out.exists() and persist_params:
+         print(f"[!] Error: 'persist.img' failed to dump (file not found).")
+         dump_error = True
+
+    if dump_error:
+        print("\n[!] An error occurred during the fh_loader dump. The files may be corrupt.")
+        print("    Please choose an option:")
+        print("    1. Skip devinfo/persist steps (Continue workflow)")
+        print("    2. Abort & stay in EDL mode")
+        print("    3. Abort & reboot to system")
+        
+        choice = ""
+        while choice not in ['1', '2', '3']:
+            choice = input("    Enter your choice (1, 2, or 3): ").lower().strip()
+        
+        if choice == '1':
+            print("[*] Skipping devinfo/persist steps...")
+            return "SKIP_DP"
+        elif choice == '2':
+            print("[*] Aborting. Staying in EDL mode...")
+            raise SystemExit("EDL dump failed, staying in EDL mode.")
+        elif choice == '3':
+            print("[*] Aborting. Rebooting to System...")
+            try:
+                cmd = [str(FH_LOADER_EXE), f"--port=\\\\.\\{port}", "--reset", "--noprompt"]
+                utils.run_command(cmd)
+            except:
+                pass
             raise SystemExit("EDL dump failed, rebooting to system.")
 
     print(f"\n--- EDL Read Process Finished ---")

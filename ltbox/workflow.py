@@ -73,9 +73,9 @@ def patch_all(wipe=0, skip_adb=False):
         print("\n--- [STEP 5/9] XML Modification SUCCESS ---")
         
         print("\n" + "="*61)
-        print("  STEP 6/9: Dumping devinfo/persist for patching")
+        print("  STEP 6/9: Dumping devinfo/persist for patching (fh_loader)")
         print("="*61)
-        dump_status = actions.read_edl(skip_adb=skip_adb)
+        dump_status = actions.read_edl_fhloader(skip_adb=skip_adb)
         if dump_status == "SKIP_DP":
             skip_dp_workflow = True
             print("[!] Skipping devinfo/persist patching and flashing steps.")

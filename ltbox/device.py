@@ -228,6 +228,7 @@ def setup_edl_connection(skip_adb=False):
     print("--- [EDL Setup] Device Connected ---")
     return port
 
+# --- EDL-NG Wrappers ---
 def _run_edl_command(loader_path, args_list):
     edl_ng_exe = utils.get_platform_executable("edl-ng")
     base_cmd = [str(edl_ng_exe), "--loader", str(loader_path)]
@@ -246,6 +247,43 @@ def edl_reset(loader_path, mode=None):
         cmd.extend(["--mode", "edl"])
     return _run_edl_command(loader_path, cmd)
 
+# --- FH_LOADER Wrappers (Alternative to EDL-NG) ---
+
+def load_firehose_programmer(loader_path, port):
+    if not QSAHARASERVER_EXE.exists():
+        raise FileNotFoundError(f"QSaharaServer.exe not found at {QSAHARASERVER_EXE}")
+        
+    port_str = f"\\\\.\\{port}"
+    print(f"[*] Uploading programmer via QSaharaServer to {port}...")
+    
+    cmd_sahara = [
+        str(QSAHARASERVER_EXE),
+        "-p", port_str,
+        "-s", f"13:{loader_path}"
+    ]
+    utils.run_command(cmd_sahara, check=False)
+
+def fh_loader_read_part(port, output_filename, lun, start_sector, num_sectors, memory_name="UFS"):
+    if not FH_LOADER_EXE.exists():
+        raise FileNotFoundError(f"fh_loader.exe not found at {FH_LOADER_EXE}")
+
+    port_str = f"\\\\.\\{port}"
+    cmd_fh = [
+        str(FH_LOADER_EXE),
+        f"--port={port_str}",
+        "--convertprogram2read",
+        f"--sendimage={output_filename}",
+        f"--lun={lun}",
+        f"--start_sector={start_sector}",
+        f"--num_sectors={num_sectors}",
+        f"--memoryname={memory_name}",
+        "--noprompt",
+        "--zlpawarehost=1"
+    ]
+    
+    print(f"[*] Dumping -> LUN:{lun}, Start:{start_sector}, Num:{num_sectors}...")
+    utils.run_command(cmd_fh)
+
 def edl_rawprogram(loader_path, memory_type, raw_xmls, patch_xmls, port):
     if not QSAHARASERVER_EXE.exists() or not FH_LOADER_EXE.exists():
         print(f"[!] Error: Qsaharaserver.exe or fh_loader.exe not found in {TOOLS_DIR.name} folder.")
@@ -255,12 +293,7 @@ def edl_rawprogram(loader_path, memory_type, raw_xmls, patch_xmls, port):
     search_path = str(loader_path.parent)
 
     print("[*] STEP 1/2: Loading programmer with Qsaharaserver...")
-    cmd_sahara = [
-        str(QSAHARASERVER_EXE), 
-        "-p", port_str, 
-        "-s", f"13:{loader_path}"
-    ]
-    utils.run_command(cmd_sahara)
+    load_firehose_programmer(loader_path, port)
 
     print("\n[*] STEP 2/2: Flashing firmware with fh_loader...")
     raw_xml_str = ",".join([p.name for p in raw_xmls])
