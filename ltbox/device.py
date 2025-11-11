@@ -79,10 +79,10 @@ def reboot_to_bootloader(skip_adb=False):
     if skip_adb:
         print("[!] Skipping ADB connection as requested.")
         return
-    print("[*] Attempting to reboot device to Bootloader mode via ADB...")
+    print("[*] Attempting to reboot device to Fastboot mode via ADB...")
     try:
         utils.run_command([str(ADB_EXE), "reboot", "bootloader"])
-        print("[+] Reboot command sent. Please wait for the device to enter bootloader mode.")
+        print("[+] Reboot command sent. Please wait for the device to enter Fastboot mode.")
     except Exception as e:
         print(f"[!] Failed to send reboot command: {e}", file=sys.stderr)
         raise
@@ -136,16 +136,23 @@ def fastboot_reboot_system():
         print(f"[!] Failed to send reboot command: {e}", file=sys.stderr)
         
 def get_fastboot_vars(skip_adb=False):
-    if skip_adb:
-        print("[!] Skipping fastboot operations as requested by Skip ADB setting.")
-        return None
-    
     print("\n" + "="*61)
-    print("  Rebooting to Bootloader for Rollback Check")
+    print("  Rollback Check (Fastboot)")
     print("="*61)
-    reboot_to_bootloader(skip_adb=skip_adb)
-    print("[*] Waiting for 10 seconds for device to enter bootloader mode...")
-    time.sleep(10)
+
+    if not skip_adb:
+        print("  Rebooting to Fastboot mode...")
+        reboot_to_bootloader(skip_adb=skip_adb)
+        print("[*] Waiting for 10 seconds for device to enter Fastboot mode...")
+        time.sleep(10)
+    else:
+        print("[!] Skip ADB is ON.")
+        print("[!] Please manually reboot your device to Fastboot mode.")
+        print("[!] Press Enter when the device is in Fastboot mode...")
+        try:
+            input()
+        except EOFError:
+            pass
     
     wait_for_fastboot()
     
@@ -154,17 +161,23 @@ def get_fastboot_vars(skip_adb=False):
         result = utils.run_command([str(FASTBOOT_EXE), "getvar", "all"], capture=True, check=False)
         output = result.stdout + "\n" + result.stderr
         
-        print("[*] Rebooting back to system...")
-        fastboot_reboot_system()
+        if not skip_adb:
+            print("[*] Rebooting back to system...")
+            fastboot_reboot_system()
+        else:
+            print("[!] Skip ADB is ON. Leaving device in Fastboot mode.")
+            print("[!] (You may need to manually reboot to EDL or System for the next steps)")
         
         return output
     except Exception as e:
         print(f"[!] Failed to get fastboot variables: {e}", file=sys.stderr)
-        print("[!] Attempting to reboot system anyway...")
-        try:
-            fastboot_reboot_system()
-        except Exception:
-            pass
+        
+        if not skip_adb:
+            print("[!] Attempting to reboot system anyway...")
+            try:
+                fastboot_reboot_system()
+            except Exception:
+                pass
         raise
         
 # --- EDL Device Handling ---
@@ -268,7 +281,7 @@ def load_firehose_programmer(loader_path, port):
 def fh_loader_read_part(port, output_filename, lun, start_sector, num_sectors, memory_name="UFS"):
     if not FH_LOADER_EXE.exists():
         raise FileNotFoundError(f"fh_loader.exe not found at {FH_LOADER_EXE}")
-    
+
     dest_file = Path(output_filename).resolve()
     dest_dir = dest_file.parent
     dest_filename = dest_file.name
