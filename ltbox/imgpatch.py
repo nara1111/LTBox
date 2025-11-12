@@ -6,21 +6,22 @@ import sys
 import hashlib
 import struct
 from pathlib import Path
+from typing import Dict, Optional, Tuple, Any, Union, List
 from binascii import hexlify, unhexlify
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from ltbox.constants import *
 from ltbox import utils, downloader
 
-def extract_image_avb_info(image_path):
+def extract_image_avb_info(image_path: Path) -> Dict[str, Any]:
     info_proc = utils.run_command(
         [str(PYTHON_EXE), str(AVBTOOL_PY), "info_image", "--image", str(image_path)],
         capture=True
     )
     
     output = info_proc.stdout.strip()
-    info = {}
-    props_args = []
+    info: Dict[str, Any] = {}
+    props_args: List[str] = []
 
     partition_size_match = re.search(r"^Image size:\s*(\d+)\s*bytes", output, re.MULTILINE)
     if partition_size_match:
@@ -72,7 +73,12 @@ def extract_image_avb_info(image_path):
 
     return info
 
-def _apply_hash_footer(image_path, image_info, key_file, new_rollback_index=None):
+def _apply_hash_footer(
+    image_path: Path, 
+    image_info: Dict[str, Any], 
+    key_file: Path, 
+    new_rollback_index: Optional[str] = None
+) -> None:
     rollback_index = new_rollback_index if new_rollback_index is not None else image_info['rollback']
     
     print(f"\n[*] Adding hash footer to '{image_path.name}'...")
@@ -97,7 +103,12 @@ def _apply_hash_footer(image_path, image_info, key_file, new_rollback_index=None
     utils.run_command(add_footer_cmd)
     print(f"[+] Successfully applied hash footer to {image_path.name}.")
 
-def patch_chained_image_rollback(image_name, current_rb_index, new_image_path, patched_image_path):
+def patch_chained_image_rollback(
+    image_name: str, 
+    current_rb_index: int, 
+    new_image_path: Path, 
+    patched_image_path: Path
+) -> None:
     try:
         print(f"[*] Analyzing new {image_name}...")
         info = extract_image_avb_info(new_image_path)
@@ -132,7 +143,12 @@ def patch_chained_image_rollback(image_name, current_rb_index, new_image_path, p
         print(f"[!] Error processing {image_name}: {e}", file=sys.stderr)
         raise
 
-def patch_vbmeta_image_rollback(image_name, current_rb_index, new_image_path, patched_image_path):
+def patch_vbmeta_image_rollback(
+    image_name: str, 
+    current_rb_index: int, 
+    new_image_path: Path, 
+    patched_image_path: Path
+) -> None:
     try:
         print(f"[*] Analyzing new {image_name}...")
         info = extract_image_avb_info(new_image_path)
@@ -171,7 +187,7 @@ def patch_vbmeta_image_rollback(image_name, current_rb_index, new_image_path, pa
         print(f"[!] Error processing {image_name}: {e}", file=sys.stderr)
         raise
 
-def process_boot_image_avb(image_to_process):
+def process_boot_image_avb(image_to_process: Path) -> None:
     print("\n[*] Verifying boot image key and metadata...") 
     boot_bak_img = BASE_DIR / "boot.bak.img"
     if not boot_bak_img.exists():
@@ -199,7 +215,7 @@ def process_boot_image_avb(image_to_process):
         key_file=key_file
     )
 
-def patch_boot_with_root_algo(work_dir, magiskboot_exe):
+def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path) -> Optional[Path]:
     original_cwd = Path.cwd()
     os.chdir(work_dir)
     
@@ -251,7 +267,7 @@ def patch_boot_with_root_algo(work_dir, magiskboot_exe):
         print("\n--- Cleaning up ---")
 
 
-def modify_xml_algo(wipe=0):
+def modify_xml_algo(wipe: int = 0) -> None:
     print("[*] Decrypting *.x files and moving to 'working' folder...")
     xml_files = []
     for file in IMAGE_DIR.glob("*.x"):
@@ -321,17 +337,17 @@ def modify_xml_algo(wipe=0):
 
 PASSWORD = "OSD"
 
-def PBKDF1(s, salt, lenout, hashfunc, iter_):
+def PBKDF1(s: str, salt: bytes, lenout: int, hashfunc: Any, iter_: int) -> bytes:
     m = hashfunc
     digest = m(s.encode("utf-8") + salt).digest()
     for i in range(iter_-1):
         digest = m(digest).digest()
     return digest[:lenout]
 
-def generate(salt):
+def generate(salt: bytes) -> bytes:
     return PBKDF1(PASSWORD, salt, 32, hashlib.sha256, 1000)
 
-def decrypt_file(fi_path, fo_path):
+def decrypt_file(fi_path: str, fo_path: str) -> bool:
     try:
         with open(fi_path, "rb") as fi:
             iv = fi.read(16)
@@ -366,7 +382,13 @@ def decrypt_file(fi_path, fo_path):
         print(f"Error decrypting {fi_path}: {e}", file=sys.stderr)
         return False
 
-def _process_binary_file(input_path, output_path, patch_func, copy_if_unchanged=True, **kwargs):
+def _process_binary_file(
+    input_path: Union[str, Path], 
+    output_path: Union[str, Path], 
+    patch_func: Any, 
+    copy_if_unchanged: bool = True, 
+    **kwargs: Any
+) -> bool:
     input_path = Path(input_path)
     output_path = Path(output_path)
     
@@ -396,7 +418,7 @@ def _process_binary_file(input_path, output_path, patch_func, copy_if_unchanged=
         print(f"An error occurred while processing '{input_path.name}': {e}", file=sys.stderr)
         return False
 
-def _patch_vendor_boot_logic(content, **kwargs):
+def _patch_vendor_boot_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dict[str, Any]]:
     patterns_row = {
         b"\x2E\x52\x4F\x57": b"\x2E\x50\x52\x43",
         b"\x49\x52\x4F\x57": b"\x49\x50\x52\x43"
@@ -422,14 +444,14 @@ def _patch_vendor_boot_logic(content, **kwargs):
     
     return content, {'changed': False, 'message': "No .ROW or .PRC patterns found."}
 
-def edit_vendor_boot(input_file_path):
+def edit_vendor_boot(input_file_path: str) -> None:
     input_file = Path(input_file_path)
     output_file = input_file.parent / "vendor_boot_prc.img"
     
     if not _process_binary_file(input_file, output_file, _patch_vendor_boot_logic, copy_if_unchanged=True):
         sys.exit(1)
 
-def check_target_exists(target_code):
+def check_target_exists(target_code: str) -> bool:
     target_bytes = f"{target_code.upper()}XX".encode('ascii')
     files_to_check = [BASE_DIR / "devinfo.img", BASE_DIR / "persist.img"]
     found = False
@@ -446,8 +468,8 @@ def check_target_exists(target_code):
             print(f"[!] Error reading {f.name} for check: {e}", file=sys.stderr)
     return found
 
-def detect_region_codes():
-    results = {}
+def detect_region_codes() -> Dict[str, Optional[str]]:
+    results: Dict[str, Optional[str]] = {}
     files_to_check = ["devinfo.img", "persist.img"]
 
     if not COUNTRY_CODES:
@@ -473,7 +495,7 @@ def detect_region_codes():
             
     return results
 
-def _patch_region_code_logic(content, **kwargs):
+def _patch_region_code_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dict[str, Any]]:
     current_code = kwargs.get('current_code')
     replacement_code = kwargs.get('replacement_code')
     
@@ -496,7 +518,7 @@ def _patch_region_code_logic(content, **kwargs):
     
     return content, {'changed': False, 'message': f"Pattern '{target_string}' NOT found."}
 
-def patch_region_codes(replacement_code, target_map):
+def patch_region_codes(replacement_code: str, target_map: Dict[str, Optional[str]]) -> int:
     if not replacement_code or len(replacement_code) != 2:
         print(f"[!] Error: Invalid replacement code '{replacement_code}'. Aborting.", file=sys.stderr)
         sys.exit(1)
@@ -535,17 +557,12 @@ def patch_region_codes(replacement_code, target_map):
         )
         
         if success:
-             # Need to verify if it was a patch or a copy to increment total_patched strictly?
-             # The logic function prints replacement counts, so visual feedback is there.
-             # The original code tracked 'total_patched' from the inner count.
-             # Since _process_binary_file abstracts the count, we rely on its print or return.
-             # Ideally _process_binary_file could return the stats object, but for now boolean is sufficient for flow.
              pass
 
     print(f"\nPatching finished.")
     return total_patched
 
-def get_kernel_version(file_path):
+def get_kernel_version(file_path: Union[str, Path]) -> Optional[str]:
     kernel_file = Path(file_path)
     if not kernel_file.exists():
         print(f"Error: Kernel file not found at '{file_path}'", file=sys.stderr)

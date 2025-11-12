@@ -1,15 +1,21 @@
 import os
 import platform
-import shutil
 import subprocess
 import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+from typing import List, Optional, Callable, Generator, Any, Union
 
 from ltbox.constants import *
 
-def run_command(command, shell=False, check=True, env=None, capture=False):
+def run_command(
+    command: Union[List[str], str], 
+    shell: bool = False, 
+    check: bool = True, 
+    env: Optional[dict] = None, 
+    capture: bool = False
+) -> subprocess.CompletedProcess:
     env = env or os.environ.copy()
     env['PATH'] = str(TOOLS_DIR) + os.pathsep + str(DOWNLOAD_DIR) + os.pathsep + env['PATH']
 
@@ -30,7 +36,7 @@ def run_command(command, shell=False, check=True, env=None, capture=False):
         print(f"Error: Command not found - {e.filename}", file=sys.stderr)
         raise
     except subprocess.CalledProcessError as e:
-        print(f"Error executing command: {' '.join(map(str, command))}", file=sys.stderr)
+        print(f"Error executing command: {' '.join(map(str, command)) if isinstance(command, list) else command}", file=sys.stderr)
         print(f"Return code: {e.returncode}", file=sys.stderr)
         if e.stdout:
             print(f"Stdout:\n{e.stdout.strip()}", file=sys.stderr)
@@ -38,7 +44,7 @@ def run_command(command, shell=False, check=True, env=None, capture=False):
             print(f"Stderr:\n{e.stderr.strip()}", file=sys.stderr)
         raise
 
-def get_platform_executable(name):
+def get_platform_executable(name: str) -> Path:
     system = platform.system()
     executables = {
         "Windows": f"{name}.exe",
@@ -50,7 +56,12 @@ def get_platform_executable(name):
         raise RuntimeError(f"Unsupported operating system: {system}")
     return DOWNLOAD_DIR / exe_name
 
-def _wait_for_resource(target_path, check_func, prompt_msg, item_list=None):
+def _wait_for_resource(
+    target_path: Path, 
+    check_func: Callable[[Path, Optional[List[str]]], bool], 
+    prompt_msg: str, 
+    item_list: Optional[List[str]] = None
+) -> bool:
     target_path.mkdir(exist_ok=True, parents=True)
     while True:
         if check_func(target_path, item_list):
@@ -75,22 +86,22 @@ def _wait_for_resource(target_path, check_func, prompt_msg, item_list=None):
         except EOFError:
             sys.exit(1)
 
-def wait_for_files(directory, required_files, prompt_message):
+def wait_for_files(directory: Path, required_files: List[str], prompt_message: str) -> bool:
     return _wait_for_resource(
         directory, 
-        lambda p, f: all((p / i).exists() for i in f), 
+        lambda p, f: all((p / i).exists() for i in (f or [])), 
         prompt_message, 
         required_files
     )
 
-def wait_for_directory(directory, prompt_message):
+def wait_for_directory(directory: Path, prompt_message: str) -> bool:
     return _wait_for_resource(
         directory, 
         lambda p, _: p.is_dir() and any(p.iterdir()), 
         prompt_message
     )
 
-def check_dependencies():
+def check_dependencies() -> None:
     print("--- Checking for required files ---")
     dependencies = {
         "Python Environment": PYTHON_EXE,
@@ -111,14 +122,14 @@ def check_dependencies():
 
     print("[+] All dependencies are present.\n")
 
-def require_dependencies(func):
-    def wrapper(*args, **kwargs):
+def require_dependencies(func: Callable) -> Callable:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         check_dependencies()
         return func(*args, **kwargs)
     return wrapper
 
 @contextmanager
-def working_directory(path):
+def working_directory(path: Path) -> Generator[None, None, None]:
     origin = Path.cwd()
     try:
         os.chdir(path)
@@ -127,7 +138,7 @@ def working_directory(path):
         os.chdir(origin)
 
 @contextmanager
-def temporary_workspace(path):
+def temporary_workspace(path: Path) -> Generator[Path, None, None]:
     if path.exists():
         shutil.rmtree(path)
     path.mkdir(parents=True)
@@ -140,8 +151,8 @@ def temporary_workspace(path):
             except OSError as e:
                 print(f"Warning: Failed to clean up temporary workspace {path}: {e}", file=sys.stderr)
 
-def show_image_info(files):
-    all_files = []
+def show_image_info(files: List[str]) -> None:
+    all_files: List[Path] = []
     for f in files:
         path = Path(f)
         if path.is_dir():
@@ -197,7 +208,7 @@ def show_image_info(files):
     except IOError as e:
         print(f"[!] Error saving info to file: {e}", file=sys.stderr)
 
-def clean_workspace():
+def clean_workspace() -> None:
     print("--- Starting Cleanup Process ---")
     print("This will remove all input/output folders and temporary files.")
     print("The 'python3', 'backup', and 'tools/dl' folders will NOT be removed.")

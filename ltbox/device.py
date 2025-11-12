@@ -8,11 +8,12 @@ import shutil
 import re
 import serial.tools.list_ports
 from pathlib import Path
+from typing import Optional, Union
 
 from ltbox.constants import *
 from ltbox import utils, downloader
 
-def wait_for_adb(skip_adb=False):
+def wait_for_adb(skip_adb: bool = False) -> None:
     if skip_adb:
         print("[!] Skipping ADB connection as requested.")
         return
@@ -27,7 +28,7 @@ def wait_for_adb(skip_adb=False):
         print(f"[!] Error waiting for ADB device: {e}", file=sys.stderr)
         raise
 
-def get_device_model(skip_adb=False):
+def get_device_model(skip_adb: bool = False) -> Optional[str]:
     if skip_adb:
         print("[!] Skipping device model check as requested.")
         return None
@@ -45,7 +46,7 @@ def get_device_model(skip_adb=False):
         print("[!] Please ensure the device is connected and authorized.")
         return None
 
-def get_active_slot_suffix(skip_adb=False):
+def get_active_slot_suffix(skip_adb: bool = False) -> Optional[str]:
     if skip_adb:
         print("[!] Skipping active slot check as requested.")
         return None
@@ -63,7 +64,7 @@ def get_active_slot_suffix(skip_adb=False):
         print("[!] Please ensure the device is connected and authorized.")
         return None
 
-def get_active_slot_suffix_from_fastboot():
+def get_active_slot_suffix_from_fastboot() -> Optional[str]:
     print("[*] Getting active slot suffix via Fastboot...")
     try:
         result = utils.run_command([str(FASTBOOT_EXE), "getvar", "current-slot"], capture=True, check=False)
@@ -83,7 +84,7 @@ def get_active_slot_suffix_from_fastboot():
         print(f"[!] Error getting active slot suffix via Fastboot: {e}", file=sys.stderr)
         return None
 
-def reboot_to_edl(skip_adb=False):
+def reboot_to_edl(skip_adb: bool = False) -> None:
     if skip_adb:
         print("[!] You requested Skip ADB, so please reboot to EDL manually.")
         return
@@ -95,7 +96,7 @@ def reboot_to_edl(skip_adb=False):
         print(f"[!] Failed to send reboot command: {e}", file=sys.stderr)
         print("[!] Please reboot to EDL manually if it fails.")
 
-def reboot_to_bootloader(skip_adb=False):
+def reboot_to_bootloader(skip_adb: bool = False) -> None:
     if skip_adb:
         print("[!] Skipping ADB connection as requested.")
         return
@@ -107,7 +108,7 @@ def reboot_to_bootloader(skip_adb=False):
         print(f"[!] Failed to send reboot command: {e}", file=sys.stderr)
         raise
 
-def check_fastboot_device(silent=False):
+def check_fastboot_device(silent: bool = False) -> bool:
     if not silent:
         print("[*] Checking for fastboot device...")
     try:
@@ -129,7 +130,7 @@ def check_fastboot_device(silent=False):
             print(f"[!] Error checking for fastboot device: {e}", file=sys.stderr)
         return False
 
-def wait_for_fastboot():
+def wait_for_fastboot() -> bool:
     print("\n--- WAITING FOR FASTBOOT DEVICE ---")
     if check_fastboot_device(silent=True):
         print("[+] Fastboot device connected.")
@@ -145,7 +146,7 @@ def wait_for_fastboot():
     print(f"[+] Fastboot device connected.")
     return True
 
-def fastboot_reboot_system():
+def fastboot_reboot_system() -> None:
     print("[*] Attempting to reboot device to System via Fastboot...")
     try:
         utils.run_command([str(FASTBOOT_EXE), "reboot"])
@@ -153,7 +154,7 @@ def fastboot_reboot_system():
     except Exception as e:
         print(f"[!] Failed to send reboot command: {e}", file=sys.stderr)
         
-def get_fastboot_vars(skip_adb=False):
+def get_fastboot_vars(skip_adb: bool = False) -> str:
     print("\n" + "="*61)
     print("  Rollback Check (Fastboot)")
     print("="*61)
@@ -198,7 +199,7 @@ def get_fastboot_vars(skip_adb=False):
                 pass
         raise
 
-def check_edl_device(silent=False):
+def check_edl_device(silent: bool = False) -> Optional[str]:
     if not silent:
         print("[*] Checking for Qualcomm EDL (9008) device...")
     
@@ -223,7 +224,7 @@ def check_edl_device(silent=False):
             print(f"[!] Error checking for EDL device: {e}", file=sys.stderr)
         return None
 
-def wait_for_edl():
+def wait_for_edl() -> str:
     print("\n--- WAITING FOR EDL DEVICE ---")
     port_name = check_edl_device()
     if port_name:
@@ -239,7 +240,7 @@ def wait_for_edl():
     print(f"[+] EDL device connected on {port_name}.")
     return port_name
 
-def setup_edl_connection(skip_adb=False):
+def setup_edl_connection(skip_adb: bool = False) -> str:
     if check_edl_device(silent=True):
         print("[+] Device is already in EDL mode. Skipping ADB reboot.")
     else:
@@ -267,7 +268,7 @@ def setup_edl_connection(skip_adb=False):
     print("--- [EDL Setup] Device Connected ---")
     return port
 
-def load_firehose_programmer(loader_path, port):
+def load_firehose_programmer(loader_path: Path, port: str) -> None:
     if not QSAHARASERVER_EXE.exists():
         raise FileNotFoundError(f"QSaharaServer.exe not found at {QSAHARASERVER_EXE}")
         
@@ -290,7 +291,14 @@ def load_firehose_programmer(loader_path, port):
         print(f"    3. Device is hung (Hold Power+Vol- for 10s to force reboot, then try again).", file=sys.stderr)
         raise e
 
-def fh_loader_read_part(port, output_filename, lun, start_sector, num_sectors, memory_name="UFS"):
+def fh_loader_read_part(
+    port: str, 
+    output_filename: str, 
+    lun: str, 
+    start_sector: str, 
+    num_sectors: str, 
+    memory_name: str = "UFS"
+) -> None:
     if not FH_LOADER_EXE.exists():
         raise FileNotFoundError(f"fh_loader.exe not found at {FH_LOADER_EXE}")
 
@@ -325,7 +333,13 @@ def fh_loader_read_part(port, output_filename, lun, start_sector, num_sectors, m
         print(f"[!] Error executing fh_loader: {e}", file=sys.stderr)
         raise
 
-def fh_loader_write_part(port, image_path, lun, start_sector, memory_name="UFS"):
+def fh_loader_write_part(
+    port: str, 
+    image_path: Path, 
+    lun: str, 
+    start_sector: str, 
+    memory_name: str = "UFS"
+) -> None:
     if not FH_LOADER_EXE.exists():
         raise FileNotFoundError(f"fh_loader.exe not found at {FH_LOADER_EXE}")
 
@@ -358,7 +372,7 @@ def fh_loader_write_part(port, image_path, lun, start_sector, memory_name="UFS")
         print(f"[!] Error executing fh_loader write: {e}", file=sys.stderr)
         raise
 
-def fh_loader_reset(port):
+def fh_loader_reset(port: str) -> None:
     if not FH_LOADER_EXE.exists():
         raise FileNotFoundError(f"fh_loader.exe not found at {FH_LOADER_EXE}")
         
@@ -373,7 +387,13 @@ def fh_loader_reset(port):
     ]
     utils.run_command(cmd_fh)
 
-def edl_rawprogram(loader_path, memory_type, raw_xmls, patch_xmls, port):
+def edl_rawprogram(
+    loader_path: Path, 
+    memory_type: str, 
+    raw_xmls: List[Path], 
+    patch_xmls: List[Path], 
+    port: str
+) -> None:
     if not QSAHARASERVER_EXE.exists() or not FH_LOADER_EXE.exists():
         print(f"[!] Error: Qsaharaserver.exe or fh_loader.exe not found in {TOOLS_DIR.name} folder.")
         raise FileNotFoundError("Missing fh_loader/Qsaharaserver executables")

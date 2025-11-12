@@ -7,6 +7,7 @@ import tarfile
 import requests
 import re
 from pathlib import Path
+from typing import Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
@@ -16,7 +17,7 @@ from ltbox import utils
 class ToolError(Exception):
     pass
 
-def download_resource(url, dest_path):
+def download_resource(url: str, dest_path: Path) -> None:
     print(f"[*] Downloading {dest_path.name}...")
     try:
         with requests.get(url, stream=True, allow_redirects=True) as response:
@@ -31,7 +32,7 @@ def download_resource(url, dest_path):
             dest_path.unlink()
         raise ToolError(f"Download failed for {dest_path.name}")
 
-def extract_archive_files(archive_path, extract_map):
+def extract_archive_files(archive_path: Path, extract_map: Dict[str, Path]) -> None:
     print(f"[*] Extracting files from {archive_path.name}...")
     try:
         is_tar = archive_path.suffix == '.gz' or archive_path.suffix == '.tar'
@@ -59,7 +60,7 @@ def extract_archive_files(archive_path, extract_map):
         print(f"[!] Failed to extract archive {archive_path.name}: {e}", file=sys.stderr)
         raise ToolError(f"Extraction failed for {archive_path.name}")
 
-def _run_fetch_command(args):
+def _run_fetch_command(args: List[str]) -> subprocess.CompletedProcess:
     fetch_exe = DOWNLOAD_DIR / "fetch.exe"
     if not fetch_exe.exists():
         print("[!] 'fetch.exe' not found. Cannot proceed.")
@@ -68,7 +69,13 @@ def _run_fetch_command(args):
     command = [str(fetch_exe)] + args
     return utils.run_command(command, capture=True)
 
-def _ensure_tool_from_github_release(tool_name, exe_name_in_zip, repo_url, tag, asset_patterns):
+def _ensure_tool_from_github_release(
+    tool_name: str, 
+    exe_name_in_zip: str, 
+    repo_url: str, 
+    tag: str, 
+    asset_patterns: Dict[str, str]
+) -> Path:
     tool_exe = DOWNLOAD_DIR / f"{tool_name}.exe"
     if tool_exe.exists():
         return tool_exe
@@ -130,7 +137,7 @@ def _ensure_tool_from_github_release(tool_name, exe_name_in_zip, repo_url, tag, 
         print(f"[!] Error downloading or extracting {tool_name}: {e}", file=sys.stderr)
         raise ToolError(f"Failed to ensure {tool_name}")
 
-def ensure_fetch():
+def ensure_fetch() -> Path:
     tool_exe = DOWNLOAD_DIR / "fetch.exe"
     if tool_exe.exists():
         return tool_exe
@@ -151,7 +158,7 @@ def ensure_fetch():
     download_resource(url, tool_exe)
     return tool_exe
 
-def ensure_platform_tools():
+def ensure_platform_tools() -> None:
     if ADB_EXE.exists() and FASTBOOT_EXE.exists():
         return
     
@@ -182,7 +189,7 @@ def ensure_platform_tools():
             temp_zip_path.unlink()
         raise ToolError("Failed to process platform-tools")
 
-def ensure_avb_tools():
+def ensure_avb_tools() -> None:
     key1 = DOWNLOAD_DIR / "testkey_rsa4096.pem"
     key2 = DOWNLOAD_DIR / "testkey_rsa2048.pem"
     
@@ -205,7 +212,7 @@ def ensure_avb_tools():
     temp_tar_path.unlink()
     print("[+] avbtool and keys ready.")
 
-def ensure_magiskboot():
+def ensure_magiskboot() -> Path:
     asset_patterns = {
         'AMD64': "magiskboot-.*-windows-.*-x86_64-standalone\\.zip",
         'ARM64': "magiskboot-.*-windows-.*-arm64-standalone\\.zip",
@@ -222,7 +229,7 @@ def ensure_magiskboot():
     except ToolError:
         sys.exit(1)
 
-def get_gki_kernel(kernel_version, work_dir):
+def get_gki_kernel(kernel_version: str, work_dir: Path) -> Path:
     print("\n[3/8] Downloading GKI Kernel with fetch...")
     asset_pattern = f".*{kernel_version}.*Normal-AnyKernel3.zip"
     fetch_command = [
@@ -252,7 +259,7 @@ def get_gki_kernel(kernel_version, work_dir):
     print("[+] Extraction successful.")
     return kernel_image
 
-def download_ksu_apk(target_dir):
+def download_ksu_apk(target_dir: Path) -> None:
     print("\n[7/8] Downloading KernelSU Next Manager APKs (Spoofed)...")
     if list(target_dir.glob("*spoofed*.apk")):
         print("[+] KernelSU Next Manager (Spoofed) APK already exists. Skipping download.")
