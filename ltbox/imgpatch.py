@@ -268,23 +268,41 @@ def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path) -> Optional[
 
 
 def modify_xml_algo(wipe: int = 0) -> None:
-    print("[*] Decrypting *.x files and moving to 'working' folder...")
+    print("[*] Checking for *.x files to decrypt...")
     xml_files = []
-    for file in IMAGE_DIR.glob("*.x"):
-        out_file = WORKING_DIR / file.with_suffix('.xml').name
-        try:
-            if decrypt_file(str(file), str(out_file)):
-                print(f"  > Decrypted: {file.name} -> {out_file.name}")
-                xml_files.append(out_file)
-            else:
-                raise Exception(f"Decryption failed for {file.name}")
-        except Exception as e:
-            print(f"[!] Failed to decrypt {file.name}: {e}", file=sys.stderr)
-            
+    x_files_found = list(IMAGE_DIR.glob("*.x"))
+
+    if x_files_found:
+        print(f"[*] Found {len(x_files_found)} .x files. Decrypting to 'working' folder...")
+        for file in x_files_found:
+            out_file = WORKING_DIR / file.with_suffix('.xml').name
+            try:
+                if decrypt_file(str(file), str(out_file)):
+                    print(f"  > Decrypted: {file.name} -> {out_file.name}")
+                    xml_files.append(out_file)
+                else:
+                    raise Exception(f"Decryption failed for {file.name}")
+            except Exception as e:
+                print(f"[!] Failed to decrypt {file.name}: {e}", file=sys.stderr)
+
     if not xml_files:
-        print(f"[!] No '*.x' files found in '{IMAGE_DIR.name}'. Aborting.")
-        shutil.rmtree(WORKING_DIR)
-        raise FileNotFoundError(f"No *.x files found in {IMAGE_DIR.name}")
+        print(f"[*] No decrypted XML files. Checking for plain *.xml files in '{IMAGE_DIR.name}'...")
+        raw_xml_files = list(IMAGE_DIR.glob("*.xml"))
+        
+        if raw_xml_files:
+            print(f"[*] Found {len(raw_xml_files)} .xml files. Copying to 'working' folder...")
+            for file in raw_xml_files:
+                out_file = WORKING_DIR / file.name
+                try:
+                    shutil.copy(str(file), str(out_file))
+                    print(f"  > Copied: {file.name}")
+                    xml_files.append(out_file)
+                except Exception as e:
+                    print(f"[!] Failed to copy {file.name}: {e}", file=sys.stderr)
+        else:
+            print(f"[!] No '*.x' or '*.xml' files found in '{IMAGE_DIR.name}'. Aborting.")
+            shutil.rmtree(WORKING_DIR)
+            raise FileNotFoundError(f"No *.x or *.xml files found in {IMAGE_DIR.name}")
 
     rawprogram4 = WORKING_DIR / "rawprogram4.xml"
     rawprogram_unsparse4 = WORKING_DIR / "rawprogram_unsparse4.xml"
@@ -326,7 +344,7 @@ def modify_xml_algo(wipe: int = 0) -> None:
         if f.exists():
             f.unlink()
             print(f"  > Deleted: {f.name}")
-    
+
     print(f"\n[*] Moving modified XML files to '{OUTPUT_XML_DIR.name}'...")
     moved_count = 0
     for f in WORKING_DIR.glob("*.xml"):
