@@ -45,9 +45,5 @@ if not exist "%PYTHON_DIR%\Scripts\pip.exe" (
     del "%GETPIP_PATH%"
 )
 
-:: Check Python modules
-echo [*] Installing required Python modules from requirements.txt...
-"%PYTHON_DIR%\Scripts\pip.exe" install -r "%BASE_DIR%requirements.txt"
-
 endlocal
 exit /b 0

@@ -4,7 +4,6 @@ import subprocess
 import sys
 import zipfile
 import tarfile
-import requests
 import re
 import json
 from pathlib import Path
@@ -20,6 +19,7 @@ class ToolError(Exception):
     pass
 
 def download_resource(url: str, dest_path: Path) -> None:
+    import requests
     msg = get_string("dl_downloading").format(filename=dest_path.name)
     print(msg)
     try:
@@ -57,7 +57,7 @@ def extract_archive_files(archive_path: Path, extract_map: Dict[str, Path]) -> N
             with zipfile.ZipFile(archive_path, 'r') as zf:
                 for member in zf.infolist():
                     if member.filename in extract_map:
-                        target_path = extract_map[member.filename]
+                        target_path = extract_map[member.name]
                         with zf.open(member) as source, open(target_path, "wb") as target:
                             shutil.copyfileobj(source, target)
                         print(get_string("dl_extracted_file").format(filename=target_path.name))
@@ -296,6 +296,13 @@ if __name__ == "__main__":
         print(get_string("dl_base_installing"))
         DOWNLOAD_DIR.mkdir(exist_ok=True)
         try:
+            print(get_string("utils_check_deps"))
+            req_path = BASE_DIR / "requirements.txt"
+            subprocess.run(
+                [str(PYTHON_EXE), "-m", "pip", "install", "-r", str(req_path)],
+                check=True
+            )
+            
             ensure_fetch()
             ensure_platform_tools()
             ensure_avb_tools()
