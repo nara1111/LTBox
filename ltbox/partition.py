@@ -5,28 +5,28 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-from .constants import *
+from . import constants as const
 from . import utils
 from .crypto import decrypt_file
 from .i18n import get_string
 
 def scan_and_decrypt_xmls() -> List[Path]:
-    OUTPUT_XML_DIR.mkdir(exist_ok=True)
+    const.OUTPUT_XML_DIR.mkdir(exist_ok=True)
     
-    xmls = list(OUTPUT_XML_DIR.glob("rawprogram*.xml"))
+    xmls = list(const.OUTPUT_XML_DIR.glob("rawprogram*.xml"))
     if not xmls:
-        xmls = list(IMAGE_DIR.glob("rawprogram*.xml"))
+        xmls = list(const.IMAGE_DIR.glob("rawprogram*.xml"))
     
     if not xmls:
         print(get_string("act_xml_scan_x"))
-        x_files = list(IMAGE_DIR.glob("*.x"))
+        x_files = list(const.IMAGE_DIR.glob("*.x"))
         
         if x_files:
             print(get_string("act_xml_found_x_count").format(len=len(x_files)))
             utils.check_dependencies() 
             for x_file in x_files:
                 xml_name = x_file.stem + ".xml"
-                out_path = OUTPUT_XML_DIR / xml_name
+                out_path = const.OUTPUT_XML_DIR / xml_name
                 if not out_path.exists():
                     print(get_string("act_xml_decrypting").format(name=x_file.name))
                     if decrypt_file(str(x_file), str(out_path)):

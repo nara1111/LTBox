@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-from ..constants import *
+from .. import constants as const
 from .. import utils, downloader
 from ..i18n import get_string
 
@@ -13,7 +13,7 @@ def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path) -> Optional[
     original_cwd = Path.cwd()
     os.chdir(work_dir)
     
-    patched_boot_path = BASE_DIR / "boot.root.img"
+    patched_boot_path = const.BASE_DIR / "boot.root.img"
     
     try:
         print(get_string("img_root_step1"))
@@ -50,7 +50,7 @@ def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path) -> Optional[
         shutil.move("new-boot.img", patched_boot_path)
         print(get_string("img_root_repack_ok"))
 
-        downloader.download_ksu_apk(BASE_DIR)
+        downloader.download_ksu_apk(const.BASE_DIR)
         
         return patched_boot_path
 

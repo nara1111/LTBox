@@ -5,13 +5,13 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional, Any, List
 
-from ..constants import *
+from .. import constants as const
 from .. import utils
 from ..i18n import get_string
 
 def extract_image_avb_info(image_path: Path) -> Dict[str, Any]:
     info_proc = utils.run_command(
-        [str(PYTHON_EXE), str(AVBTOOL_PY), "info_image", "--image", str(image_path)],
+        [str(const.PYTHON_EXE), str(const.AVBTOOL_PY), "info_image", "--image", str(image_path)],
         capture=True
     )
     
@@ -81,7 +81,7 @@ def _apply_hash_footer(
     print(get_string("img_footer_details").format(part=image_info['name'], rb=rollback_index))
 
     add_footer_cmd = [
-        str(PYTHON_EXE), str(AVBTOOL_PY), "add_hash_footer",
+        str(const.PYTHON_EXE), str(const.AVBTOOL_PY), "add_hash_footer",
         "--image", str(image_path), 
         "--key", str(key_file),
         "--algorithm", image_info['algorithm'], 
@@ -122,7 +122,7 @@ def patch_chained_image_rollback(
             if key not in info:
                 raise KeyError(get_string("img_err_missing_key").format(key=key, name=new_image_path.name))
         
-        key_file = KEY_MAP.get(info['pubkey_sha1']) 
+        key_file = const.KEY_MAP.get(info['pubkey_sha1']) 
         if not key_file:
             raise KeyError(get_string("img_err_unknown_key").format(key=info['pubkey_sha1'], name=new_image_path.name))
         
@@ -162,12 +162,12 @@ def patch_vbmeta_image_rollback(
             if key not in info:
                 raise KeyError(get_string("img_err_missing_key").format(key=key, name=new_image_path.name))
         
-        key_file = KEY_MAP.get(info['pubkey_sha1']) 
+        key_file = const.KEY_MAP.get(info['pubkey_sha1']) 
         if not key_file:
             raise KeyError(get_string("img_err_unknown_key").format(key=info['pubkey_sha1'], name=new_image_path.name))
 
         remake_cmd = [
-            str(PYTHON_EXE), str(AVBTOOL_PY), "make_vbmeta_image",
+            str(const.PYTHON_EXE), str(const.AVBTOOL_PY), "make_vbmeta_image",
             "--output", str(patched_image_path),
             "--key", str(key_file),
             "--algorithm", info['algorithm'],
@@ -185,7 +185,7 @@ def patch_vbmeta_image_rollback(
 
 def process_boot_image_avb(image_to_process: Path) -> None:
     print(get_string("img_verify_boot")) 
-    boot_bak_img = BASE_DIR / "boot.bak.img"
+    boot_bak_img = const.BASE_DIR / "boot.bak.img"
     if not boot_bak_img.exists():
         print(get_string("img_err_boot_bak_missing").format(name=boot_bak_img.name), file=sys.stderr)
         raise FileNotFoundError(f"{boot_bak_img.name} not found.")
@@ -197,7 +197,7 @@ def process_boot_image_avb(image_to_process: Path) -> None:
             raise KeyError(get_string("img_err_missing_key").format(key=key, name=boot_bak_img.name))
             
     boot_pubkey = boot_info.get('pubkey_sha1')
-    key_file = KEY_MAP.get(boot_pubkey) 
+    key_file = const.KEY_MAP.get(boot_pubkey) 
     
     if not key_file:
         print(get_string("img_err_boot_key_mismatch").format(key=boot_pubkey))

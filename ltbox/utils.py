@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Callable, Generator, Any, Union, Dict, Tuple
 
-from ltbox.constants import *
+from ltbox import constants as const
 from .i18n import get_string
 
 def run_command(
@@ -19,7 +19,7 @@ def run_command(
     capture: bool = False
 ) -> subprocess.CompletedProcess:
     env = env or os.environ.copy()
-    env['PATH'] = str(TOOLS_DIR) + os.pathsep + str(DOWNLOAD_DIR) + os.pathsep + env['PATH']
+    env['PATH'] = str(const.TOOLS_DIR) + os.pathsep + str(const.DOWNLOAD_DIR) + os.pathsep + env['PATH']
 
     try:
         process = subprocess.run(
@@ -56,7 +56,7 @@ def get_platform_executable(name: str) -> Path:
     exe_name = executables.get(system)
     if not exe_name:
         raise RuntimeError(f"Unsupported operating system: {system}")
-    return DOWNLOAD_DIR / exe_name
+    return const.DOWNLOAD_DIR / exe_name
 
 def _wait_for_resource(
     target_path: Path, 
@@ -107,12 +107,12 @@ def wait_for_directory(directory: Path, prompt_message: str) -> bool:
 def check_dependencies() -> None:
     print(get_string('utils_check_deps'))
     dependencies = {
-        "Python Environment": PYTHON_EXE,
-        "ADB": ADB_EXE,
-        "Fastboot": FASTBOOT_EXE,
-        "RSA4096 Key": KEY_MAP["2597c218aae470a130f61162feaae70afd97f011"],
-        "RSA2048 Key": KEY_MAP["cdbb77177f731920bbe0a0f94f84d9038ae0617d"],
-        "avbtool": AVBTOOL_PY,
+        "Python Environment": const.PYTHON_EXE,
+        "ADB": const.ADB_EXE,
+        "Fastboot": const.FASTBOOT_EXE,
+        "RSA4096 Key": const.KEY_MAP["2597c218aae470a130f61162feaae70afd97f011"],
+        "RSA2048 Key": const.KEY_MAP["cdbb77177f731920bbe0a0f94f84d9038ae0617d"],
+        "avbtool": const.AVBTOOL_PY,
         "fetch tool": get_platform_executable("fetch")
     }
     missing_deps = [name for name, path in dependencies.items() if not Path(path).exists()]
@@ -145,12 +145,12 @@ def clean_workspace() -> None:
     print("-" * 50)
 
     folders_to_remove = [
-        INPUT_CURRENT_DIR, INPUT_NEW_DIR,
-        OUTPUT_DIR, OUTPUT_ROOT_DIR, OUTPUT_DP_DIR, OUTPUT_ANTI_ROLLBACK_DIR,
-        WORK_DIR,
-        IMAGE_DIR,
-        WORKING_DIR,
-        OUTPUT_XML_DIR,
+        const.INPUT_CURRENT_DIR, const.INPUT_NEW_DIR,
+        const.OUTPUT_DIR, const.OUTPUT_ROOT_DIR, const.OUTPUT_DP_DIR, const.OUTPUT_ANTI_ROLLBACK_DIR,
+        const.WORK_DIR,
+        const.IMAGE_DIR,
+        const.WORKING_DIR,
+        const.OUTPUT_XML_DIR,
     ]
     
     print(get_string('utils_removing_dirs'))
@@ -172,7 +172,7 @@ def clean_workspace() -> None:
     
     cleaned_dl_files = 0
     for pattern in dl_files_to_remove:
-        for f in DOWNLOAD_DIR.glob(pattern):
+        for f in const.DOWNLOAD_DIR.glob(pattern):
             try:
                 f.unlink()
                 print(get_string('utils_removed_temp').format(name=f.name))
@@ -201,7 +201,7 @@ def clean_workspace() -> None:
     
     cleaned_root_files = 0
     for pattern in file_patterns_to_remove:
-        for f in BASE_DIR.glob(pattern):
+        for f in const.BASE_DIR.glob(pattern):
             try:
                 f.unlink()
                 print(get_string('utils_removed').format(name=f.name))

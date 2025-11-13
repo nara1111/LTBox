@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Optional, Dict
 
-from ..constants import *
+from .. import constants as const
 from .. import utils, device, downloader
 from ..downloader import ensure_magiskboot
 from ..partition import ensure_params_or_fail
@@ -17,10 +17,10 @@ from ..patch.avb import process_boot_image_avb
 from ..i18n import get_string
 
 def root_boot_only() -> None:
-    print(get_string("act_clean_root_out").format(dir=OUTPUT_ROOT_DIR.name))
-    if OUTPUT_ROOT_DIR.exists():
-        shutil.rmtree(OUTPUT_ROOT_DIR)
-    OUTPUT_ROOT_DIR.mkdir(exist_ok=True)
+    print(get_string("act_clean_root_out").format(dir=const.OUTPUT_ROOT_DIR.name))
+    if const.OUTPUT_ROOT_DIR.exists():
+        shutil.rmtree(const.OUTPUT_ROOT_DIR)
+    const.OUTPUT_ROOT_DIR.mkdir(exist_ok=True)
     print()
     
     utils.check_dependencies()
@@ -31,13 +31,13 @@ def root_boot_only() -> None:
         os.chmod(magiskboot_exe, 0o755)
 
     print(get_string("act_wait_boot"))
-    IMAGE_DIR.mkdir(exist_ok=True) 
+    const.IMAGE_DIR.mkdir(exist_ok=True) 
     required_files = ["boot.img"]
-    prompt = get_string("act_prompt_boot").format(name=IMAGE_DIR.name)
-    utils.wait_for_files(IMAGE_DIR, required_files, prompt)
+    prompt = get_string("act_prompt_boot").format(name=const.IMAGE_DIR.name)
+    utils.wait_for_files(const.IMAGE_DIR, required_files, prompt)
     
-    boot_img_src = IMAGE_DIR / "boot.img"
-    boot_img = BASE_DIR / "boot.img" 
+    boot_img_src = const.IMAGE_DIR / "boot.img"
+    boot_img = const.BASE_DIR / "boot.img" 
     
     try:
         shutil.copy(boot_img_src, boot_img)
@@ -50,33 +50,33 @@ def root_boot_only() -> None:
         print(get_string("act_err_boot_missing"))
         sys.exit(1)
 
-    shutil.copy(boot_img, BASE_DIR / "boot.bak.img")
+    shutil.copy(boot_img, const.BASE_DIR / "boot.bak.img")
     print(get_string("act_backup_boot"))
 
-    with utils.temporary_workspace(WORK_DIR):
-        shutil.copy(boot_img, WORK_DIR / "boot.img")
+    with utils.temporary_workspace(const.WORK_DIR):
+        shutil.copy(boot_img, const.WORK_DIR / "boot.img")
         boot_img.unlink()
         
-        patched_boot_path = patch_boot_with_root_algo(WORK_DIR, magiskboot_exe)
+        patched_boot_path = patch_boot_with_root_algo(const.WORK_DIR, magiskboot_exe)
 
         if patched_boot_path and patched_boot_path.exists():
             print(get_string("act_finalize_root"))
-            final_boot_img = OUTPUT_ROOT_DIR / "boot.img"
+            final_boot_img = const.OUTPUT_ROOT_DIR / "boot.img"
             
             process_boot_image_avb(patched_boot_path)
 
-            print(get_string("act_move_root_final").format(dir=OUTPUT_ROOT_DIR.name))
+            print(get_string("act_move_root_final").format(dir=const.OUTPUT_ROOT_DIR.name))
             shutil.move(patched_boot_path, final_boot_img)
 
-            print(get_string("act_move_root_backup").format(dir=BACKUP_DIR.name))
-            BACKUP_DIR.mkdir(exist_ok=True)
-            for bak_file in BASE_DIR.glob("boot.bak.img"):
-                shutil.move(bak_file, BACKUP_DIR / bak_file.name)
+            print(get_string("act_move_root_backup").format(dir=const.BACKUP_DIR.name))
+            const.BACKUP_DIR.mkdir(exist_ok=True)
+            for bak_file in const.BASE_DIR.glob("boot.bak.img"):
+                shutil.move(bak_file, const.BACKUP_DIR / bak_file.name)
             print()
 
             print("=" * 61)
             print(get_string("act_success"))
-            print(get_string("act_root_saved").format(dir=OUTPUT_ROOT_DIR.name))
+            print(get_string("act_root_saved").format(dir=const.OUTPUT_ROOT_DIR.name))
             print("=" * 61)
         else:
             print(get_string("act_err_root_fail"), file=sys.stderr)
@@ -84,10 +84,10 @@ def root_boot_only() -> None:
 def root_device(dev: device.DeviceController) -> None:
     print(get_string("act_start_root"))
     
-    if OUTPUT_ROOT_DIR.exists():
-        shutil.rmtree(OUTPUT_ROOT_DIR)
-    OUTPUT_ROOT_DIR.mkdir(exist_ok=True)
-    BACKUP_BOOT_DIR.mkdir(exist_ok=True)
+    if const.OUTPUT_ROOT_DIR.exists():
+        shutil.rmtree(const.OUTPUT_ROOT_DIR)
+    const.OUTPUT_ROOT_DIR.mkdir(exist_ok=True)
+    const.BACKUP_BOOT_DIR.mkdir(exist_ok=True)
 
     utils.check_dependencies()
     
@@ -109,14 +109,14 @@ def root_device(dev: device.DeviceController) -> None:
 
     if not dev.skip_adb:
         print(get_string("act_check_ksu"))
-        downloader.download_ksu_apk(BASE_DIR)
+        downloader.download_ksu_apk(const.BASE_DIR)
         
-        ksu_apks = list(BASE_DIR.glob("*spoofed*.apk"))
+        ksu_apks = list(const.BASE_DIR.glob("*spoofed*.apk"))
         if ksu_apks:
             apk_path = ksu_apks[0]
             print(get_string("act_install_ksu").format(name=apk_path.name))
             try:
-                utils.run_command([str(ADB_EXE), "install", "-r", str(apk_path)])
+                utils.run_command([str(const.ADB_EXE), "install", "-r", str(apk_path)])
                 print(get_string("act_ksu_ok"))
             except Exception as e:
                 print(get_string("act_err_ksu").format(e=e))
@@ -128,19 +128,19 @@ def root_device(dev: device.DeviceController) -> None:
     port = dev.setup_edl_connection()
     
     try:
-        dev.load_firehose_programmer_with_stability(EDL_LOADER_FILE, port)
+        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
     except Exception as e:
         print(get_string("act_warn_prog_load").format(e=e))
 
     print(get_string("act_root_step3").format(part=target_partition))
     
     params = None
-    final_boot_img = OUTPUT_ROOT_DIR / "boot.img"
+    final_boot_img = const.OUTPUT_ROOT_DIR / "boot.img"
     
-    with utils.temporary_workspace(WORKING_BOOT_DIR):
-        dumped_boot_img = WORKING_BOOT_DIR / "boot.img"
-        backup_boot_img = BACKUP_BOOT_DIR / "boot.img"
-        base_boot_bak = BASE_DIR / "boot.bak.img"
+    with utils.temporary_workspace(const.WORKING_BOOT_DIR):
+        dumped_boot_img = const.WORKING_BOOT_DIR / "boot.img"
+        backup_boot_img = const.BACKUP_BOOT_DIR / "boot.img"
+        base_boot_bak = const.BASE_DIR / "boot.bak.img"
 
         try:
             params = ensure_params_or_fail(target_partition)
@@ -167,7 +167,7 @@ def root_device(dev: device.DeviceController) -> None:
         dev.fh_loader_reset(port)
         
         print(get_string("act_root_step4"))
-        patched_boot_path = patch_boot_with_root_algo(WORKING_BOOT_DIR, magiskboot_exe)
+        patched_boot_path = patch_boot_with_root_algo(const.WORKING_BOOT_DIR, magiskboot_exe)
 
         if not (patched_boot_path and patched_boot_path.exists()):
             print(get_string("act_err_root_fail"), file=sys.stderr)
@@ -200,7 +200,7 @@ def root_device(dev: device.DeviceController) -> None:
         port = dev.wait_for_edl()
 
     try:
-        dev.load_firehose_programmer_with_stability(EDL_LOADER_FILE, port)
+        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
     except Exception as e:
         print(get_string("act_warn_prog_load").format(e=e))
 
@@ -227,20 +227,20 @@ def root_device(dev: device.DeviceController) -> None:
 def unroot_device(dev: device.DeviceController) -> None:
     print(get_string("act_start_unroot"))
     
-    backup_boot_file = BACKUP_BOOT_DIR / "boot.img"
-    BACKUP_BOOT_DIR.mkdir(exist_ok=True)
+    backup_boot_file = const.BACKUP_BOOT_DIR / "boot.img"
+    const.BACKUP_BOOT_DIR.mkdir(exist_ok=True)
     
     print(get_string("act_unroot_step1"))
-    if not list(IMAGE_DIR.glob("rawprogram*.xml")) and not list(IMAGE_DIR.glob("*.x")):
-         print(get_string("act_err_no_xmls").format(dir=IMAGE_DIR.name))
+    if not list(const.IMAGE_DIR.glob("rawprogram*.xml")) and not list(const.IMAGE_DIR.glob("*.x")):
+         print(get_string("act_err_no_xmls").format(dir=const.IMAGE_DIR.name))
          print(get_string("act_unroot_req_xmls"))
          prompt = get_string("act_prompt_image")
-         utils.wait_for_directory(IMAGE_DIR, prompt)
+         utils.wait_for_directory(const.IMAGE_DIR, prompt)
 
     print(get_string("act_unroot_step2"))
     if not backup_boot_file.exists():
-        prompt = get_string("act_prompt_backup_boot").format(dir=BACKUP_BOOT_DIR.name)
-        utils.wait_for_files(BACKUP_BOOT_DIR, ["boot.img"], prompt)
+        prompt = get_string("act_prompt_backup_boot").format(dir=const.BACKUP_BOOT_DIR.name)
+        utils.wait_for_files(const.BACKUP_BOOT_DIR, ["boot.img"], prompt)
     
     print(get_string("act_backup_boot_found"))
 
@@ -261,7 +261,7 @@ def unroot_device(dev: device.DeviceController) -> None:
     port = dev.setup_edl_connection()
 
     try:
-        dev.load_firehose_programmer_with_stability(EDL_LOADER_FILE, port)
+        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
     except Exception as e:
         print(get_string("act_warn_prog_load").format(e=e))
 

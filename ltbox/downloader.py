@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
-from ltbox.constants import *
+from ltbox import constants as const
 from ltbox import utils
 from ltbox.i18n import get_string, load_lang as i18n_load_lang
 
@@ -68,7 +68,7 @@ def extract_archive_files(archive_path: Path, extract_map: Dict[str, Path]) -> N
         raise ToolError(f"Extraction failed for {archive_path.name}")
 
 def _run_fetch_command(args: List[str]) -> subprocess.CompletedProcess:
-    fetch_exe = DOWNLOAD_DIR / "fetch.exe"
+    fetch_exe = const.DOWNLOAD_DIR / "fetch.exe"
     if not fetch_exe.exists():
         print(get_string("dl_fetch_not_found"))
         raise FileNotFoundError("fetch.exe not found")
@@ -83,12 +83,12 @@ def _ensure_tool_from_github_release(
     tag: str, 
     asset_patterns: Dict[str, str]
 ) -> Path:
-    tool_exe = DOWNLOAD_DIR / f"{tool_name}.exe"
+    tool_exe = const.DOWNLOAD_DIR / f"{tool_name}.exe"
     if tool_exe.exists():
         return tool_exe
 
     print(get_string("dl_tool_not_found").format(tool_name=tool_exe.name))
-    DOWNLOAD_DIR.mkdir(exist_ok=True)
+    const.DOWNLOAD_DIR.mkdir(exist_ok=True)
     
     arch = platform.machine()
     asset_pattern = asset_patterns.get(arch)
@@ -105,11 +105,11 @@ def _ensure_tool_from_github_release(
             "--repo", repo_url,
             "--tag", tag,
             "--release-asset", asset_pattern,
-            str(DOWNLOAD_DIR)
+            str(const.DOWNLOAD_DIR)
         ]
         _run_fetch_command(fetch_command)
 
-        downloaded_zips = list(DOWNLOAD_DIR.glob(f"*{tool_name}*.zip"))
+        downloaded_zips = list(const.DOWNLOAD_DIR.glob(f"*{tool_name}*.zip"))
         if not downloaded_zips:
             raise FileNotFoundError(f"Failed to find downloaded zip for {tool_name}")
 
@@ -125,14 +125,14 @@ def _ensure_tool_from_github_release(
             if not exe_info:
                 raise FileNotFoundError(f"'{exe_name_in_zip}' not found inside {downloaded_zip_path.name}")
 
-            zip_ref.extract(exe_info, path=DOWNLOAD_DIR)
-            extracted_path = DOWNLOAD_DIR / exe_info.filename
+            zip_ref.extract(exe_info, path=const.DOWNLOAD_DIR)
+            extracted_path = const.DOWNLOAD_DIR / exe_info.filename
             
             if extracted_path != tool_exe:
                 shutil.move(extracted_path, tool_exe)
             
             parent_dir = extracted_path.parent
-            if parent_dir.is_dir() and parent_dir != DOWNLOAD_DIR:
+            if parent_dir.is_dir() and parent_dir != const.DOWNLOAD_DIR:
                  try:
                     parent_dir.rmdir()
                  except OSError:
@@ -148,11 +148,11 @@ def _ensure_tool_from_github_release(
         raise ToolError(f"Failed to ensure {tool_name}")
 
 def ensure_fetch() -> Path:
-    tool_exe = DOWNLOAD_DIR / "fetch.exe"
+    tool_exe = const.DOWNLOAD_DIR / "fetch.exe"
     if tool_exe.exists():
         return tool_exe
     
-    DOWNLOAD_DIR.mkdir(exist_ok=True)
+    const.DOWNLOAD_DIR.mkdir(exist_ok=True)
     
     asset_patterns = {
         'AMD64': "fetch_windows_amd64.exe",
@@ -164,19 +164,19 @@ def ensure_fetch() -> Path:
     if not asset_name:
          raise ToolError(f"Unsupported architecture for fetch: {arch}")
 
-    url = f"{FETCH_REPO_URL}/releases/download/{FETCH_VERSION}/{asset_name}"
+    url = f"{const.FETCH_REPO_URL}/releases/download/{const.FETCH_VERSION}/{asset_name}"
     download_resource(url, tool_exe)
     return tool_exe
 
 def ensure_platform_tools() -> None:
-    if ADB_EXE.exists() and FASTBOOT_EXE.exists():
+    if const.ADB_EXE.exists() and const.FASTBOOT_EXE.exists():
         return
     
     print(get_string("dl_platform_not_found"))
-    DOWNLOAD_DIR.mkdir(exist_ok=True)
-    temp_zip_path = DOWNLOAD_DIR / "platform-tools.zip"
+    const.DOWNLOAD_DIR.mkdir(exist_ok=True)
+    temp_zip_path = const.DOWNLOAD_DIR / "platform-tools.zip"
     
-    download_resource(PLATFORM_TOOLS_ZIP_URL, temp_zip_path)
+    download_resource(const.PLATFORM_TOOLS_ZIP_URL, temp_zip_path)
     
     try:
         with zipfile.ZipFile(temp_zip_path) as zf:
@@ -186,7 +186,7 @@ def ensure_platform_tools() -> None:
                 
                 if re.match(r"^platform-tools/[^/]+$", member.filename):
                     file_name = Path(member.filename).name
-                    target_path = DOWNLOAD_DIR / file_name
+                    target_path = const.DOWNLOAD_DIR / file_name
                     with zf.open(member) as source, open(target_path, "wb") as target:
                         shutil.copyfileobj(source, target)
                         
@@ -201,20 +201,20 @@ def ensure_platform_tools() -> None:
         raise ToolError("Failed to process platform-tools")
 
 def ensure_avb_tools() -> None:
-    key1 = DOWNLOAD_DIR / "testkey_rsa4096.pem"
-    key2 = DOWNLOAD_DIR / "testkey_rsa2048.pem"
+    key1 = const.DOWNLOAD_DIR / "testkey_rsa4096.pem"
+    key2 = const.DOWNLOAD_DIR / "testkey_rsa2048.pem"
     
-    if AVBTOOL_PY.exists() and key1.exists() and key2.exists():
+    if const.AVBTOOL_PY.exists() and key1.exists() and key2.exists():
         return
 
     print(get_string("dl_avb_not_found"))
-    DOWNLOAD_DIR.mkdir(exist_ok=True)
-    temp_tar_path = DOWNLOAD_DIR / "avb.tar.gz"
+    const.DOWNLOAD_DIR.mkdir(exist_ok=True)
+    temp_tar_path = const.DOWNLOAD_DIR / "avb.tar.gz"
     
-    download_resource(AVB_ARCHIVE_URL, temp_tar_path)
+    download_resource(const.AVB_ARCHIVE_URL, temp_tar_path)
 
     files_to_extract = {
-        "avbtool.py": AVBTOOL_PY,
+        "avbtool.py": const.AVBTOOL_PY,
         "test/data/testkey_rsa4096.pem": key1,
         "test/data/testkey_rsa2048.pem": key2,
     }
@@ -233,8 +233,8 @@ def ensure_magiskboot() -> Path:
         return _ensure_tool_from_github_release(
             tool_name="magiskboot",
             exe_name_in_zip="magiskboot.exe",
-            repo_url=MAGISKBOOT_REPO_URL,
-            tag=MAGISKBOOT_TAG,
+            repo_url=const.MAGISKBOOT_REPO_URL,
+            tag=const.MAGISKBOOT_TAG,
             asset_patterns=asset_patterns
         )
     except ToolError:
@@ -244,7 +244,7 @@ def get_gki_kernel(kernel_version: str, work_dir: Path) -> Path:
     print(get_string("dl_gki_downloading"))
     asset_pattern = f".*{kernel_version}.*Normal-AnyKernel3.zip"
     fetch_command = [
-        "--repo", REPO_URL, "--tag", RELEASE_TAG,
+        "--repo", const.REPO_URL, "--tag", const.RELEASE_TAG,
         "--release-asset", asset_pattern, str(work_dir)
     ]
     _run_fetch_command(fetch_command)
@@ -254,7 +254,7 @@ def get_gki_kernel(kernel_version: str, work_dir: Path) -> Path:
         print(get_string("dl_gki_download_fail").format(version=kernel_version))
         sys.exit(1)
     
-    anykernel_zip = work_dir / ANYKERNEL_ZIP_FILENAME
+    anykernel_zip = work_dir / const.ANYKERNEL_ZIP_FILENAME
     shutil.move(downloaded_files[0], anykernel_zip)
     print(get_string("dl_gki_download_ok"))
 
@@ -276,7 +276,7 @@ def download_ksu_apk(target_dir: Path) -> None:
         print(get_string("dl_ksu_exists"))
     else:
         ksu_apk_command = [
-            "--repo", f"https://github.com/{KSU_APK_REPO}", "--tag", KSU_APK_TAG,
+            "--repo", f"https://github.com/{const.KSU_APK_REPO}", "--tag", const.KSU_APK_TAG,
             "--release-asset", ".*spoofed.*\\.apk", str(target_dir)
         ]
         _run_fetch_command(ksu_apk_command)
@@ -294,12 +294,12 @@ if __name__ == "__main__":
     
     if len(sys.argv) > 1 and "install_base_tools" in sys.argv:
         print(get_string("dl_base_installing"))
-        DOWNLOAD_DIR.mkdir(exist_ok=True)
+        const.DOWNLOAD_DIR.mkdir(exist_ok=True)
         try:
             print(get_string("utils_check_deps"))
-            req_path = BASE_DIR / "requirements.txt"
+            req_path = const.BASE_DIR / "requirements.txt"
             subprocess.run(
-                [str(PYTHON_EXE), "-m", "pip", "install", "-r", str(req_path)],
+                [str(const.PYTHON_EXE), "-m", "pip", "install", "-r", str(req_path)],
                 check=True
             )
             

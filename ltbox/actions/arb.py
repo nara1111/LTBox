@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
 
-from ..constants import *
+from .. import constants as const
 from .. import utils
 from ..patch.avb import extract_image_avb_info, patch_chained_image_rollback, patch_vbmeta_image_rollback
 from ..i18n import get_string
@@ -38,11 +38,11 @@ def read_anti_rollback(dumped_boot_path: Path, dumped_vbmeta_path: Path) -> Tupl
 
     print(get_string("act_arb_step2"))
     print(get_string("act_extract_new_indices"))
-    new_boot_img = IMAGE_DIR / "boot.img"
-    new_vbmeta_img = IMAGE_DIR / "vbmeta_system.img"
+    new_boot_img = const.IMAGE_DIR / "boot.img"
+    new_vbmeta_img = const.IMAGE_DIR / "vbmeta_system.img"
 
     if not new_boot_img.exists() or not new_vbmeta_img.exists():
-        print(get_string("act_err_new_rom_missing").format(dir=IMAGE_DIR.name))
+        print(get_string("act_err_new_rom_missing").format(dir=const.IMAGE_DIR.name))
         print(get_string("act_arb_missing_new"))
         return 'MISSING_NEW', 0, 0
         
@@ -76,9 +76,9 @@ def patch_anti_rollback(comparison_result: Tuple[str, int, int]) -> None:
     print(get_string("act_start_arb_patch"))
     utils.check_dependencies()
 
-    if OUTPUT_ANTI_ROLLBACK_DIR.exists():
-        shutil.rmtree(OUTPUT_ANTI_ROLLBACK_DIR)
-    OUTPUT_ANTI_ROLLBACK_DIR.mkdir(exist_ok=True)
+    if const.OUTPUT_ANTI_ROLLBACK_DIR.exists():
+        shutil.rmtree(const.OUTPUT_ANTI_ROLLBACK_DIR)
+    const.OUTPUT_ANTI_ROLLBACK_DIR.mkdir(exist_ok=True)
     
     try:
         if comparison_result:
@@ -97,8 +97,8 @@ def patch_anti_rollback(comparison_result: Tuple[str, int, int]) -> None:
         patch_chained_image_rollback(
             image_name="boot.img",
             current_rb_index=current_boot_rb,
-            new_image_path=(IMAGE_DIR / "boot.img"),
-            patched_image_path=(OUTPUT_ANTI_ROLLBACK_DIR / "boot.img")
+            new_image_path=(const.IMAGE_DIR / "boot.img"),
+            patched_image_path=(const.OUTPUT_ANTI_ROLLBACK_DIR / "boot.img")
         )
         
         print("-" * 20)
@@ -106,16 +106,16 @@ def patch_anti_rollback(comparison_result: Tuple[str, int, int]) -> None:
         patch_vbmeta_image_rollback(
             image_name="vbmeta_system.img",
             current_rb_index=current_vbmeta_rb,
-            new_image_path=(IMAGE_DIR / "vbmeta_system.img"),
-            patched_image_path=(OUTPUT_ANTI_ROLLBACK_DIR / "vbmeta_system.img")
+            new_image_path=(const.IMAGE_DIR / "vbmeta_system.img"),
+            patched_image_path=(const.OUTPUT_ANTI_ROLLBACK_DIR / "vbmeta_system.img")
         )
 
         print("\n" + "=" * 61)
         print(get_string("act_success"))
-        print(get_string("act_arb_patched_ready").format(dir=OUTPUT_ANTI_ROLLBACK_DIR.name))
+        print(get_string("act_arb_patched_ready").format(dir=const.OUTPUT_ANTI_ROLLBACK_DIR.name))
         print(get_string("act_arb_next_step"))
         print("=" * 61)
 
     except Exception as e:
         print(get_string("act_err_arb_patch").format(e=e), file=sys.stderr)
-        shutil.rmtree(OUTPUT_ANTI_ROLLBACK_DIR)
+        shutil.rmtree(const.OUTPUT_ANTI_ROLLBACK_DIR)

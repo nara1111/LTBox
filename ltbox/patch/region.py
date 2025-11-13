@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional, Any, Tuple, Union
 
-from ..constants import *
+from .. import constants as const
 from .. import utils
 from ..i18n import get_string
 
@@ -45,12 +45,12 @@ def detect_region_codes() -> Dict[str, Optional[str]]:
     results: Dict[str, Optional[str]] = {}
     files_to_check = ["devinfo.img", "persist.img"]
 
-    if not COUNTRY_CODES:
+    if not const.COUNTRY_CODES:
         print(get_string("img_det_warn_empty"), file=sys.stderr)
         return {f: None for f in files_to_check}
 
     for filename in files_to_check:
-        file_path = BASE_DIR / filename
+        file_path = const.BASE_DIR / filename
         results[filename] = None
         
         if not file_path.exists():
@@ -58,7 +58,7 @@ def detect_region_codes() -> Dict[str, Optional[str]]:
             
         try:
             content = file_path.read_bytes()
-            for code, _ in COUNTRY_CODES.items():
+            for code, _ in const.COUNTRY_CODES.items():
                 target_bytes = b'\x00\x00\x00' + f"{code.upper()}".encode('ascii') + b'XX\x00\x00\x00'
                 if target_bytes in content:
                     results[filename] = code
@@ -109,8 +109,8 @@ def patch_region_codes(replacement_code: str, target_map: Dict[str, Optional[str
         if filename not in files_to_output:
             continue
             
-        input_file = BASE_DIR / filename
-        output_file = BASE_DIR / files_to_output[filename]
+        input_file = const.BASE_DIR / filename
+        output_file = const.BASE_DIR / files_to_output[filename]
         
         if not input_file.exists():
             continue

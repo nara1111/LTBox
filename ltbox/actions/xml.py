@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-from ..constants import *
+from .. import constants as const
 from .. import utils
 from ..crypto import decrypt_file
 from ..i18n import get_string
@@ -18,21 +18,21 @@ def _modify_xml_algo(wipe: int = 0) -> None:
         if "wipe_partitions" in name or "blank_gpt" in name: return True
         return False
 
-    if OUTPUT_XML_DIR.exists():
-        shutil.rmtree(OUTPUT_XML_DIR)
-    OUTPUT_XML_DIR.mkdir(parents=True, exist_ok=True)
+    if const.OUTPUT_XML_DIR.exists():
+        shutil.rmtree(const.OUTPUT_XML_DIR)
+    const.OUTPUT_XML_DIR.mkdir(parents=True, exist_ok=True)
 
     print(get_string("img_xml_scan"))
     
-    x_files = list(IMAGE_DIR.glob("*.x"))
-    xml_files = list(IMAGE_DIR.glob("*.xml"))
+    x_files = list(const.IMAGE_DIR.glob("*.x"))
+    xml_files = list(const.IMAGE_DIR.glob("*.xml"))
     
     processed_files = False
 
     if x_files:
-        print(get_string("img_xml_found_x").format(count=len(x_files), dir=OUTPUT_XML_DIR.name))
+        print(get_string("img_xml_found_x").format(count=len(x_files), dir=const.OUTPUT_XML_DIR.name))
         for file in x_files:
-            out_file = OUTPUT_XML_DIR / file.with_suffix('.xml').name
+            out_file = const.OUTPUT_XML_DIR / file.with_suffix('.xml').name
             try:
                 if decrypt_file(str(file), str(out_file)):
                     print(get_string("img_xml_decrypt_ok").format(src=file.name, dst=out_file.name))
@@ -43,9 +43,9 @@ def _modify_xml_algo(wipe: int = 0) -> None:
                 print(get_string("img_xml_decrypt_err").format(name=file.name, e=e), file=sys.stderr)
 
     if xml_files:
-        print(get_string("img_xml_found_xml").format(count=len(xml_files), dir=OUTPUT_XML_DIR.name))
+        print(get_string("img_xml_found_xml").format(count=len(xml_files), dir=const.OUTPUT_XML_DIR.name))
         for file in xml_files:
-            out_file = OUTPUT_XML_DIR / file.name
+            out_file = const.OUTPUT_XML_DIR / file.name
             try:
                 if out_file.exists():
                     out_file.unlink()
@@ -56,12 +56,12 @@ def _modify_xml_algo(wipe: int = 0) -> None:
                 print(get_string("img_xml_move_err").format(name=file.name, e=e), file=sys.stderr)
 
     if not processed_files:
-        print(get_string("img_xml_no_files").format(dir=IMAGE_DIR.name))
-        shutil.rmtree(OUTPUT_XML_DIR)
-        raise FileNotFoundError(f"No .x or .xml files in {IMAGE_DIR.name}")
+        print(get_string("img_xml_no_files").format(dir=const.IMAGE_DIR.name))
+        shutil.rmtree(const.OUTPUT_XML_DIR)
+        raise FileNotFoundError(f"No .x or .xml files in {const.IMAGE_DIR.name}")
 
-    rawprogram4 = OUTPUT_XML_DIR / "rawprogram4.xml"
-    rawprogram_unsparse4 = OUTPUT_XML_DIR / "rawprogram_unsparse4.xml"
+    rawprogram4 = const.OUTPUT_XML_DIR / "rawprogram4.xml"
+    rawprogram_unsparse4 = const.OUTPUT_XML_DIR / "rawprogram_unsparse4.xml"
     
     if not rawprogram4.exists() and rawprogram_unsparse4.exists():
         print(get_string("img_xml_copy_raw4"))
@@ -69,10 +69,10 @@ def _modify_xml_algo(wipe: int = 0) -> None:
 
     print(get_string("img_xml_mod_raw"))
     
-    rawprogram_save = OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
+    rawprogram_save = const.OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
 
     if not rawprogram_save.exists():
-        rawprogram_fallback = OUTPUT_XML_DIR / "rawprogram_unsparse0-half.xml"
+        rawprogram_fallback = const.OUTPUT_XML_DIR / "rawprogram_unsparse0-half.xml"
         
         if rawprogram_fallback.exists():
             print(get_string("img_xml_rename_fallback").format(target=rawprogram_save.name, src=rawprogram_fallback.name))
@@ -109,7 +109,7 @@ def _modify_xml_algo(wipe: int = 0) -> None:
     print(get_string("img_xml_cleanup"))
     
     files_to_delete = []
-    for f in OUTPUT_XML_DIR.glob("*.xml"):
+    for f in const.OUTPUT_XML_DIR.glob("*.xml"):
         if is_garbage_file(f):
             files_to_delete.append(f)
 
@@ -123,7 +123,7 @@ def _modify_xml_algo(wipe: int = 0) -> None:
     else:
         print(get_string("img_xml_no_del"))
 
-    print(get_string("img_xml_complete").format(dir=OUTPUT_XML_DIR.name))
+    print(get_string("img_xml_complete").format(dir=const.OUTPUT_XML_DIR.name))
 
 
 def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
@@ -131,22 +131,22 @@ def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
     
     print(get_string("act_wait_image"))
     prompt = get_string("act_prompt_image")
-    utils.wait_for_directory(IMAGE_DIR, prompt)
+    utils.wait_for_directory(const.IMAGE_DIR, prompt)
 
-    if OUTPUT_XML_DIR.exists():
-        shutil.rmtree(OUTPUT_XML_DIR)
-    OUTPUT_XML_DIR.mkdir(exist_ok=True)
+    if const.OUTPUT_XML_DIR.exists():
+        shutil.rmtree(const.OUTPUT_XML_DIR)
+    const.OUTPUT_XML_DIR.mkdir(exist_ok=True)
 
-    with utils.temporary_workspace(WORKING_DIR):
-        print(get_string("act_create_temp").format(dir=WORKING_DIR.name))
+    with utils.temporary_workspace(const.WORKING_DIR):
+        print(get_string("act_create_temp").format(dir=const.WORKING_DIR.name))
         try:
             _modify_xml_algo(wipe=wipe)
 
             if not skip_dp:
                 print(get_string("act_create_write_xml"))
 
-                src_persist_xml = OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
-                dest_persist_xml = OUTPUT_XML_DIR / "rawprogram_write_persist_unsparse0.xml"
+                src_persist_xml = const.OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
+                dest_persist_xml = const.OUTPUT_XML_DIR / "rawprogram_write_persist_unsparse0.xml"
                 
                 if src_persist_xml.exists():
                     try:
@@ -172,8 +172,8 @@ def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
                 else:
                     print(get_string("act_warn_persist_xml_missing").format(name=src_persist_xml.name))
 
-                src_devinfo_xml = OUTPUT_XML_DIR / "rawprogram4.xml"
-                dest_devinfo_xml = OUTPUT_XML_DIR / "rawprogram4_write_devinfo.xml"
+                src_devinfo_xml = const.OUTPUT_XML_DIR / "rawprogram4.xml"
+                dest_devinfo_xml = const.OUTPUT_XML_DIR / "rawprogram4_write_devinfo.xml"
                 
                 if src_devinfo_xml.exists():
                     try:
@@ -203,10 +203,10 @@ def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
             print(get_string("act_err_xml_mod").format(e=e), file=sys.stderr)
             raise
         
-        print(get_string("act_clean_temp").format(dir=WORKING_DIR.name))
+        print(get_string("act_clean_temp").format(dir=const.WORKING_DIR.name))
     
     print("\n" + "=" * 61)
     print(get_string("act_success"))
-    print(get_string("act_xml_ready").format(dir=OUTPUT_XML_DIR.name))
+    print(get_string("act_xml_ready").format(dir=const.OUTPUT_XML_DIR.name))
     print(get_string("act_xml_next_step"))
     print("=" * 61)

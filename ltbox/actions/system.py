@@ -1,7 +1,7 @@
 import subprocess
 from typing import Optional, Dict
 
-from ..constants import *
+from .. import constants as const
 from .. import utils, device
 from ..i18n import get_string
 
@@ -66,7 +66,7 @@ def disable_ota(dev: device.DeviceController) -> None:
     print("="*61)
     
     command = [
-        str(ADB_EXE), 
+        str(const.ADB_EXE), 
         "shell", "pm", "disable-user", "--user", "0", "com.lenovo.ota"
     ]
     

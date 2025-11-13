@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Optional, List, Dict
 
-from ..constants import *
+from .. import constants as const
 from .. import utils, device
 from ..partition import ensure_params_or_fail
 from ..i18n import get_string
@@ -18,11 +18,11 @@ def read_edl(dev: device.DeviceController, skip_reset: bool = False, additional_
     port = dev.setup_edl_connection()
     
     try:
-        dev.load_firehose_programmer_with_stability(EDL_LOADER_FILE, port)
+        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
     except Exception as e:
         print(get_string("act_warn_prog_load").format(e=e))
 
-    BACKUP_DIR.mkdir(exist_ok=True)
+    const.BACKUP_DIR.mkdir(exist_ok=True)
     
     targets = ["devinfo", "persist"]
 
@@ -31,7 +31,7 @@ def read_edl(dev: device.DeviceController, skip_reset: bool = False, additional_
         print(get_string("act_ext_dump_targets").format(targets=', '.join(targets)))
     
     for target in targets:
-        out_file = BACKUP_DIR / f"{target}.img"
+        out_file = const.BACKUP_DIR / f"{target}.img"
         print(get_string("act_prep_dump").format(target=target))
         
         try:
@@ -65,7 +65,7 @@ def read_edl(dev: device.DeviceController, skip_reset: bool = False, additional_
         print(get_string("act_skip_reset"))
 
     print(get_string("act_dump_finish"))
-    print(get_string("act_dump_saved").format(dir=BACKUP_DIR.name))
+    print(get_string("act_dump_saved").format(dir=const.BACKUP_DIR.name))
 
 def read_edl_fhloader(dev: device.DeviceController, skip_reset: bool = False, additional_targets: Optional[List[str]] = None) -> None:
     return read_edl(dev, skip_reset=skip_reset, additional_targets=additional_targets)
@@ -73,23 +73,23 @@ def read_edl_fhloader(dev: device.DeviceController, skip_reset: bool = False, ad
 def write_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False) -> None:
     print(get_string("act_start_write"))
 
-    if not OUTPUT_DP_DIR.exists():
-        print(get_string("act_err_dp_folder").format(dir=OUTPUT_DP_DIR.name), file=sys.stderr)
+    if not const.OUTPUT_DP_DIR.exists():
+        print(get_string("act_err_dp_folder").format(dir=const.OUTPUT_DP_DIR.name), file=sys.stderr)
         print(get_string("act_err_run_patch_first"), file=sys.stderr)
-        raise FileNotFoundError(get_string("act_err_dp_folder_nf").format(dir=OUTPUT_DP_DIR.name))
-    print(get_string("act_found_dp_folder").format(dir=OUTPUT_DP_DIR.name))
+        raise FileNotFoundError(get_string("act_err_dp_folder_nf").format(dir=const.OUTPUT_DP_DIR.name))
+    print(get_string("act_found_dp_folder").format(dir=const.OUTPUT_DP_DIR.name))
 
     port = dev.setup_edl_connection()
 
     try:
-        dev.load_firehose_programmer_with_stability(EDL_LOADER_FILE, port)
+        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
     except Exception as e:
         print(get_string("act_warn_prog_load").format(e=e))
 
     targets = ["devinfo", "persist"]
 
     for target in targets:
-        image_path = OUTPUT_DP_DIR / f"{target}.img"
+        image_path = const.OUTPUT_DP_DIR / f"{target}.img"
 
         if not image_path.exists():
             print(get_string(f"act_skip_{target}"))
@@ -127,14 +127,14 @@ def write_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
 def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) -> None:
     print(get_string("act_start_arb_write"))
 
-    boot_img = OUTPUT_ANTI_ROLLBACK_DIR / "boot.img"
-    vbmeta_img = OUTPUT_ANTI_ROLLBACK_DIR / "vbmeta_system.img"
+    boot_img = const.OUTPUT_ANTI_ROLLBACK_DIR / "boot.img"
+    vbmeta_img = const.OUTPUT_ANTI_ROLLBACK_DIR / "vbmeta_system.img"
 
     if not boot_img.exists() or not vbmeta_img.exists():
-        print(get_string("act_err_patched_missing").format(dir=OUTPUT_ANTI_ROLLBACK_DIR.name), file=sys.stderr)
+        print(get_string("act_err_patched_missing").format(dir=const.OUTPUT_ANTI_ROLLBACK_DIR.name), file=sys.stderr)
         print(get_string("act_err_run_patch_arb"), file=sys.stderr)
-        raise FileNotFoundError(get_string("act_err_patched_missing_exc").format(dir=OUTPUT_ANTI_ROLLBACK_DIR.name))
-    print(get_string("act_found_arb_folder").format(dir=OUTPUT_ANTI_ROLLBACK_DIR.name))
+        raise FileNotFoundError(get_string("act_err_patched_missing_exc").format(dir=const.OUTPUT_ANTI_ROLLBACK_DIR.name))
+    print(get_string("act_found_arb_folder").format(dir=const.OUTPUT_ANTI_ROLLBACK_DIR.name))
     
     print(get_string("act_arb_write_step1"))
     print(get_string("act_boot_fastboot"))
@@ -156,7 +156,7 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
     port = dev.wait_for_edl()
     
     try:
-        dev.load_firehose_programmer_with_stability(EDL_LOADER_FILE, port)
+        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
 
         print(get_string("act_arb_write_step3").format(slot=active_slot))
 
@@ -198,16 +198,16 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
 def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False, skip_dp: bool = False) -> None:
     print(get_string("act_start_flash"))
     
-    if not IMAGE_DIR.is_dir() or not any(IMAGE_DIR.iterdir()):
-        print(get_string("act_err_image_empty").format(dir=IMAGE_DIR.name))
+    if not const.IMAGE_DIR.is_dir() or not any(const.IMAGE_DIR.iterdir()):
+        print(get_string("act_err_image_empty").format(dir=const.IMAGE_DIR.name))
         print(get_string("act_err_run_xml_mod"))
-        raise FileNotFoundError(get_string("act_err_image_empty_exc").format(dir=IMAGE_DIR.name))
+        raise FileNotFoundError(get_string("act_err_image_empty_exc").format(dir=const.IMAGE_DIR.name))
         
-    loader_path = EDL_LOADER_FILE
+    loader_path = const.EDL_LOADER_FILE
     if not loader_path.exists():
-        print(get_string("act_err_loader_missing").format(name=loader_path.name, dir=IMAGE_DIR.name))
+        print(get_string("act_err_loader_missing").format(name=loader_path.name, dir=const.IMAGE_DIR.name))
         print(get_string("act_err_copy_loader"))
-        raise FileNotFoundError(get_string("act_err_loader_missing_exc").format(name=loader_path.name, dir=IMAGE_DIR.name))
+        raise FileNotFoundError(get_string("act_err_loader_missing_exc").format(name=loader_path.name, dir=const.IMAGE_DIR.name))
 
     if not skip_reset_edl:
         print("\n" + "="*61)
@@ -226,31 +226,31 @@ def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
 
     print(get_string("act_copy_patched"))
     output_folders_to_copy = [
-        OUTPUT_DIR, 
-        OUTPUT_ANTI_ROLLBACK_DIR,
-        OUTPUT_XML_DIR
+        const.OUTPUT_DIR, 
+        const.OUTPUT_ANTI_ROLLBACK_DIR,
+        const.OUTPUT_XML_DIR
     ]
     
     copied_count = 0
     for folder in output_folders_to_copy:
         if folder.exists():
             try:
-                shutil.copytree(folder, IMAGE_DIR, dirs_exist_ok=True)
-                print(get_string("act_copied_content").format(src=folder.name, dst=IMAGE_DIR.name))
+                shutil.copytree(folder, const.IMAGE_DIR, dirs_exist_ok=True)
+                print(get_string("act_copied_content").format(src=folder.name, dst=const.IMAGE_DIR.name))
                 copied_count += 1
             except Exception as e:
                 print(get_string("act_err_copy").format(name=folder.name, e=e), file=sys.stderr)
     
     if not skip_dp:
-        if OUTPUT_DP_DIR.exists():
+        if const.OUTPUT_DP_DIR.exists():
             try:
-                shutil.copytree(OUTPUT_DP_DIR, IMAGE_DIR, dirs_exist_ok=True)
-                print(get_string("act_copied_dp").format(src=OUTPUT_DP_DIR.name, dst=IMAGE_DIR.name))
+                shutil.copytree(const.OUTPUT_DP_DIR, const.IMAGE_DIR, dirs_exist_ok=True)
+                print(get_string("act_copied_dp").format(src=const.OUTPUT_DP_DIR.name, dst=const.IMAGE_DIR.name))
                 copied_count += 1
             except Exception as e:
-                print(get_string("act_err_copy_dp").format(name=OUTPUT_DP_DIR.name, e=e), file=sys.stderr)
+                print(get_string("act_err_copy_dp").format(name=const.OUTPUT_DP_DIR.name, e=e), file=sys.stderr)
         else:
-            print(get_string("act_skip_dp_copy").format(dir=OUTPUT_DP_DIR.name))
+            print(get_string("act_skip_dp_copy").format(dir=const.OUTPUT_DP_DIR.name))
     else:
         print(get_string("act_req_skip_dp"))
 
@@ -259,16 +259,16 @@ def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
 
     port = dev.setup_edl_connection()
 
-    raw_xmls = [f for f in IMAGE_DIR.glob("rawprogram*.xml") if f.name != "rawprogram0.xml"]
-    patch_xmls = list(IMAGE_DIR.glob("patch*.xml"))
+    raw_xmls = [f for f in const.IMAGE_DIR.glob("rawprogram*.xml") if f.name != "rawprogram0.xml"]
+    patch_xmls = list(const.IMAGE_DIR.glob("patch*.xml"))
     
-    persist_write_xml = IMAGE_DIR / "rawprogram_write_persist_unsparse0.xml"
-    persist_save_xml = IMAGE_DIR / "rawprogram_save_persist_unsparse0.xml"
-    devinfo_write_xml = IMAGE_DIR / "rawprogram4_write_devinfo.xml"
-    devinfo_original_xml = IMAGE_DIR / "rawprogram4.xml"
+    persist_write_xml = const.IMAGE_DIR / "rawprogram_write_persist_unsparse0.xml"
+    persist_save_xml = const.IMAGE_DIR / "rawprogram_save_persist_unsparse0.xml"
+    devinfo_write_xml = const.IMAGE_DIR / "rawprogram4_write_devinfo.xml"
+    devinfo_original_xml = const.IMAGE_DIR / "rawprogram4.xml"
 
-    has_patched_persist = (OUTPUT_DP_DIR / "persist.img").exists()
-    has_patched_devinfo = (OUTPUT_DP_DIR / "devinfo.img").exists()
+    has_patched_persist = (const.OUTPUT_DP_DIR / "persist.img").exists()
+    has_patched_devinfo = (const.OUTPUT_DP_DIR / "devinfo.img").exists()
 
     if persist_write_xml.exists() and has_patched_persist and not skip_dp:
         print(get_string("act_use_patched_persist"))
@@ -287,9 +287,9 @@ def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
              raw_xmls = [xml for xml in raw_xmls if xml.name != devinfo_write_xml.name]
 
     if not raw_xmls or not patch_xmls:
-        print(get_string("act_err_xml_missing").format(dir=IMAGE_DIR.name))
+        print(get_string("act_err_xml_missing").format(dir=const.IMAGE_DIR.name))
         print(get_string("act_err_flash_aborted"))
-        raise FileNotFoundError(get_string("act_err_xml_missing_exc").format(dir=IMAGE_DIR.name))
+        raise FileNotFoundError(get_string("act_err_xml_missing_exc").format(dir=const.IMAGE_DIR.name))
         
     print(get_string("act_flash_step1"))
     
@@ -303,8 +303,8 @@ def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
     print(get_string("act_flash_step2"))
     if not skip_dp:
         try:
-            (IMAGE_DIR / "devinfo.img").unlink(missing_ok=True)
-            (IMAGE_DIR / "persist.img").unlink(missing_ok=True)
+            (const.IMAGE_DIR / "devinfo.img").unlink(missing_ok=True)
+            (const.IMAGE_DIR / "persist.img").unlink(missing_ok=True)
             print(get_string("act_removed_temp_imgs"))
         except OSError as e:
             print(get_string("act_err_clean_imgs").format(e=e), file=sys.stderr)

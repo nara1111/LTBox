@@ -7,7 +7,7 @@ import serial.tools.list_ports
 from pathlib import Path
 from typing import Optional, List, Dict
 
-from ltbox.constants import *
+from ltbox import constants as const
 from ltbox import utils
 from .i18n import get_string
 
@@ -25,7 +25,7 @@ class DeviceController:
         print(get_string("device_usb_prompt_appear"))
         print(get_string("device_check_always_allow"))
         try:
-            utils.run_command([str(ADB_EXE), "wait-for-device"])
+            utils.run_command([str(const.ADB_EXE), "wait-for-device"])
             print(get_string("device_adb_connected"))
         except Exception as e:
             print(get_string("device_err_wait_adb").format(e=e), file=sys.stderr)
@@ -38,7 +38,7 @@ class DeviceController:
             return None
         print(get_string("device_get_model_adb"))
         try:
-            result = utils.run_command([str(ADB_EXE), "shell", "getprop", "ro.product.model"], capture=True)
+            result = utils.run_command([str(const.ADB_EXE), "shell", "getprop", "ro.product.model"], capture=True)
             model = result.stdout.strip()
             if not model:
                 print(get_string("device_err_model_auth"))
@@ -57,7 +57,7 @@ class DeviceController:
             return None
         print(get_string("device_get_slot_adb"))
         try:
-            result = utils.run_command([str(ADB_EXE), "shell", "getprop", "ro.boot.slot_suffix"], capture=True)
+            result = utils.run_command([str(const.ADB_EXE), "shell", "getprop", "ro.boot.slot_suffix"], capture=True)
             suffix = result.stdout.strip()
             if suffix not in ["_a", "_b"]:
                 print(get_string("device_warn_slot_invalid").format(suffix=suffix))
@@ -72,7 +72,7 @@ class DeviceController:
     def get_active_slot_suffix_from_fastboot(self) -> Optional[str]:
         print(get_string("device_get_slot_fastboot"))
         try:
-            result = utils.run_command([str(FASTBOOT_EXE), "getvar", "current-slot"], capture=True, check=False)
+            result = utils.run_command([str(const.FASTBOOT_EXE), "getvar", "current-slot"], capture=True, check=False)
             output = result.stderr.strip() + "\n" + result.stdout.strip()
             
             match = re.search(r"current-slot:\s*([a-z]+)", output)
@@ -96,7 +96,7 @@ class DeviceController:
             return
         print(get_string("device_reboot_edl_adb"))
         try:
-            utils.run_command([str(ADB_EXE), "reboot", "edl"])
+            utils.run_command([str(const.ADB_EXE), "reboot", "edl"])
             print(get_string("device_reboot_edl_sent"))
         except Exception as e:
             print(get_string("device_err_reboot").format(e=e), file=sys.stderr)
@@ -109,7 +109,7 @@ class DeviceController:
             return
         print(get_string("device_reboot_fastboot_adb"))
         try:
-            utils.run_command([str(ADB_EXE), "reboot", "bootloader"])
+            utils.run_command([str(const.ADB_EXE), "reboot", "bootloader"])
             print(get_string("device_reboot_fastboot_sent"))
         except Exception as e:
             print(get_string("device_err_reboot").format(e=e), file=sys.stderr)
@@ -119,7 +119,7 @@ class DeviceController:
         if not silent:
             print(get_string("device_check_fastboot"))
         try:
-            result = utils.run_command([str(FASTBOOT_EXE), "devices"], capture=True, check=False)
+            result = utils.run_command([str(const.FASTBOOT_EXE), "devices"], capture=True, check=False)
             output = result.stdout.strip()
             
             if output:
@@ -156,7 +156,7 @@ class DeviceController:
     def fastboot_reboot_system(self) -> None:
         print(get_string("device_reboot_sys_fastboot"))
         try:
-            utils.run_command([str(FASTBOOT_EXE), "reboot"])
+            utils.run_command([str(const.FASTBOOT_EXE), "reboot"])
             print(get_string("device_reboot_sent"))
         except Exception as e:
             print(get_string("device_err_reboot").format(e=e), file=sys.stderr)
@@ -182,7 +182,7 @@ class DeviceController:
         
         print(get_string("device_read_rollback"))
         try:
-            result = utils.run_command([str(FASTBOOT_EXE), "getvar", "all"], capture=True, check=False)
+            result = utils.run_command([str(const.FASTBOOT_EXE), "getvar", "all"], capture=True, check=False)
             output = result.stdout + "\n" + result.stderr
             
             if not self.skip_adb:
@@ -260,12 +260,12 @@ class DeviceController:
                 time.sleep(10)
 
         print(get_string("device_wait_loader_title"))
-        required_files = [EDL_LOADER_FILENAME]
-        prompt = get_string("device_loader_prompt").format(loader=EDL_LOADER_FILENAME, folder=IMAGE_DIR.name)
+        required_files = [const.EDL_LOADER_FILENAME]
+        prompt = get_string("device_loader_prompt").format(loader=const.EDL_LOADER_FILENAME, folder=const.IMAGE_DIR.name)
         
-        IMAGE_DIR.mkdir(exist_ok=True)
-        utils.wait_for_files(IMAGE_DIR, required_files, prompt)
-        print(get_string("device_loader_found").format(file=EDL_LOADER_FILE.name, dir=IMAGE_DIR.name))
+        const.IMAGE_DIR.mkdir(exist_ok=True)
+        utils.wait_for_files(const.IMAGE_DIR, required_files, prompt)
+        print(get_string("device_loader_found").format(file=const.EDL_LOADER_FILE.name, dir=const.IMAGE_DIR.name))
 
         port = self.wait_for_edl()
         self.edl_port = port
@@ -273,14 +273,14 @@ class DeviceController:
         return port
 
     def load_firehose_programmer(self, loader_path: Path, port: str) -> None:
-        if not QSAHARASERVER_EXE.exists():
-            raise FileNotFoundError(get_string("device_err_qsahara_missing").format(path=QSAHARASERVER_EXE))
+        if not const.QSAHARASERVER_EXE.exists():
+            raise FileNotFoundError(get_string("device_err_qsahara_missing").format(path=const.QSAHARASERVER_EXE))
             
         port_str = f"\\\\.\\{port}"
         print(get_string("device_upload_programmer").format(port=port))
         
         cmd_sahara = [
-            str(QSAHARASERVER_EXE),
+            str(const.QSAHARASERVER_EXE),
             "-p", port_str,
             "-s", f"13:{loader_path}"
         ]
@@ -308,8 +308,8 @@ class DeviceController:
         num_sectors: str, 
         memory_name: str = "UFS"
     ) -> None:
-        if not FH_LOADER_EXE.exists():
-            raise FileNotFoundError(get_string("device_err_fh_missing").format(path=FH_LOADER_EXE))
+        if not const.FH_LOADER_EXE.exists():
+            raise FileNotFoundError(get_string("device_err_fh_missing").format(path=const.FH_LOADER_EXE))
 
         dest_file = Path(output_filename).resolve()
         dest_dir = dest_file.parent
@@ -318,11 +318,11 @@ class DeviceController:
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         env = os.environ.copy()
-        env['PATH'] = str(TOOLS_DIR) + os.pathsep + str(DOWNLOAD_DIR) + os.pathsep + env['PATH']
+        env['PATH'] = str(const.TOOLS_DIR) + os.pathsep + str(const.DOWNLOAD_DIR) + os.pathsep + env['PATH']
 
         port_str = f"\\\\.\\{port}"
         cmd_fh = [
-            str(FH_LOADER_EXE),
+            str(const.FH_LOADER_EXE),
             f"--port={port_str}",
             "--convertprogram2read",
             f"--sendimage={dest_filename}",
@@ -350,8 +350,8 @@ class DeviceController:
         start_sector: str, 
         memory_name: str = "UFS"
     ) -> None:
-        if not FH_LOADER_EXE.exists():
-            raise FileNotFoundError(get_string("device_err_fh_missing").format(path=FH_LOADER_EXE))
+        if not const.FH_LOADER_EXE.exists():
+            raise FileNotFoundError(get_string("device_err_fh_missing").format(path=const.FH_LOADER_EXE))
 
         image_file = Path(image_path).resolve()
         work_dir = image_file.parent
@@ -360,7 +360,7 @@ class DeviceController:
         port_str = f"\\\\.\\{port}"
         
         cmd_fh = [
-            str(FH_LOADER_EXE),
+            str(const.FH_LOADER_EXE),
             f"--port={port_str}",
             f"--sendimage={filename}",
             f"--lun={lun}",
@@ -373,7 +373,7 @@ class DeviceController:
         print(get_string("device_flashing_part").format(filename=filename, lun=lun, start=start_sector))
         
         env = os.environ.copy()
-        env['PATH'] = str(TOOLS_DIR) + os.pathsep + str(DOWNLOAD_DIR) + os.pathsep + env['PATH']
+        env['PATH'] = str(const.TOOLS_DIR) + os.pathsep + str(const.DOWNLOAD_DIR) + os.pathsep + env['PATH']
 
         try:
             subprocess.run(cmd_fh, cwd=work_dir, env=env, check=True)
@@ -383,14 +383,14 @@ class DeviceController:
             raise
 
     def fh_loader_reset(self, port: str) -> None:
-        if not FH_LOADER_EXE.exists():
-            raise FileNotFoundError(get_string("device_err_fh_missing").format(path=FH_LOADER_EXE))
+        if not const.FH_LOADER_EXE.exists():
+            raise FileNotFoundError(get_string("device_err_fh_missing").format(path=const.FH_LOADER_EXE))
             
         port_str = f"\\\\.\\{port}"
         print(get_string("device_resetting").format(port=port))
         
         cmd_fh = [
-            str(FH_LOADER_EXE),
+            str(const.FH_LOADER_EXE),
             f"--port={port_str}",
             "--reset",
             "--noprompt"
@@ -405,8 +405,8 @@ class DeviceController:
         patch_xmls: List[Path], 
         port: str
     ) -> None:
-        if not QSAHARASERVER_EXE.exists() or not FH_LOADER_EXE.exists():
-            print(get_string("device_err_tools_missing").format(dir=TOOLS_DIR.name))
+        if not const.QSAHARASERVER_EXE.exists() or not const.FH_LOADER_EXE.exists():
+            print(get_string("device_err_tools_missing").format(dir=const.TOOLS_DIR.name))
             raise FileNotFoundError("Missing fh_loader/Qsaharaserver executables")
         
         port_str = f"\\\\.\\{port}"
@@ -420,7 +420,7 @@ class DeviceController:
         patch_xml_str = ",".join([p.name for p in patch_xmls])
 
         cmd_fh = [
-            str(FH_LOADER_EXE),
+            str(const.FH_LOADER_EXE),
             f"--port={port_str}",
             f"--search_path={search_path}",
             f"--sendxml={raw_xml_str}",

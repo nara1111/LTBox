@@ -3,7 +3,7 @@ import sys
 import shutil
 from typing import Optional, Dict
 
-from ltbox.constants import *
+from ltbox import constants as const
 from ltbox import utils, device, actions
 from ltbox.i18n import get_string
 
@@ -11,11 +11,11 @@ def patch_all(dev: device.DeviceController, wipe: int = 0) -> None:
     
     print(get_string('wf_step1_clean'))
     output_folders_to_clean = [
-        OUTPUT_DIR, 
-        OUTPUT_ROOT_DIR, 
-        OUTPUT_DP_DIR, 
-        OUTPUT_ANTI_ROLLBACK_DIR,
-        OUTPUT_XML_DIR
+        const.OUTPUT_DIR, 
+        const.OUTPUT_ROOT_DIR, 
+        const.OUTPUT_DP_DIR, 
+        const.OUTPUT_ANTI_ROLLBACK_DIR,
+        const.OUTPUT_XML_DIR
     ]
     
     for folder in output_folders_to_clean:
@@ -55,7 +55,7 @@ def patch_all(dev: device.DeviceController, wipe: int = 0) -> None:
 
     print(get_string('wf_step3_wait_image'))
     prompt = get_string('wf_step3_prompt')
-    utils.wait_for_directory(IMAGE_DIR, prompt)
+    utils.wait_for_directory(const.IMAGE_DIR, prompt)
     print(get_string('wf_step3_found'))
     
     skip_dp_workflow = False
@@ -114,8 +114,8 @@ def patch_all(dev: device.DeviceController, wipe: int = 0) -> None:
         print("="*61)
         
         print(get_string('wf_step8_use_dumps'))
-        dumped_boot = BACKUP_DIR / f"{boot_target}.img"
-        dumped_vbmeta = BACKUP_DIR / f"{vbmeta_target}.img"
+        dumped_boot = const.BACKUP_DIR / f"{boot_target}.img"
+        dumped_vbmeta = const.BACKUP_DIR / f"{vbmeta_target}.img"
         
         arb_status_result = actions.read_anti_rollback(
             dumped_boot_path=dumped_boot,
