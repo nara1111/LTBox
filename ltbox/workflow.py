@@ -1,14 +1,16 @@
 import subprocess
 import sys
 import shutil
-from typing import Optional
+from typing import Optional, Dict
 
 from ltbox.constants import *
 from ltbox import utils, device, actions
 
-def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
+def patch_all(wipe: int = 0, skip_adb: bool = False, lang: Optional[Dict[str, str]] = None) -> None:
     
-    print("--- [STEP 1/9] Cleaning up previous output folders ---")
+    lang = lang or {}
+    
+    print(lang.get('wf_step1_clean', "--- [STEP 1/9] Cleaning up previous output folders ---"))
     output_folders_to_clean = [
         OUTPUT_DIR, 
         OUTPUT_ROOT_DIR, 
@@ -21,17 +23,17 @@ def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
         if folder.exists():
             try:
                 shutil.rmtree(folder)
-                print(f"  > Removed: {folder.name}")
+                print(lang.get('wf_removed', "  > Removed: {name}").format(name=folder.name))
             except OSError as e:
-                print(f"[!] Error removing {folder.name}: {e}", file=sys.stderr)
+                print(lang.get('wf_remove_error', "[!] Error removing {name}: {e}").format(name=folder.name, e=e), file=sys.stderr)
 
     if wipe == 1:
-        print("\n--- [WIPE MODE] Starting Automated Install & Flash ROW Firmware Process ---")
+        print(lang.get('wf_wipe_mode_start', "\n--- [WIPE MODE] Starting Automated Install & Flash ROW Firmware Process ---"))
     else:
-        print("\n--- [NO WIPE MODE] Starting Automated Update & Flash ROW Firmware Process ---")
+        print(lang.get('wf_nowipe_mode_start', "\n--- [NO WIPE MODE] Starting Automated Update & Flash ROW Firmware Process ---"))
     
     print("\n" + "="*61)
-    print("  STEP 2/9: Waiting for ADB/Fastboot Connection & Getting Device Info")
+    print(lang.get('wf_step2_device_info', "  STEP 2/9: Waiting for ADB/Fastboot Connection & Getting Device Info"))
     print("="*61)
     
     dev = device.DeviceController(skip_adb=skip_adb)
@@ -44,41 +46,43 @@ def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
         try:
             device_model = dev.get_device_model()
             if not device_model:
-                raise SystemExit("CRITICAL ERROR: Failed to get device model via ADB. Aborting for safety.")
+                raise SystemExit(lang.get('wf_err_adb_model', "CRITICAL ERROR: Failed to get device model via ADB. Aborting for safety."))
             else:
-                print(f"[+] Device Model: {device_model}")
+                print(lang.get('wf_device_model', "[+] Device Model: {model}").format(model=device_model))
         except Exception as e:
-             raise SystemExit(f"CRITICAL ERROR: Error getting device model: {e}")
+             raise SystemExit(lang.get('wf_err_get_model', "CRITICAL ERROR: Error getting device model: {e}").format(e=e))
 
-    print(f"[+] Active Slot: {active_slot_suffix if active_slot_suffix else 'Unknown'}")
-    print("\n--- [STEP 2/9] Device Info Check FINISHED ---")
+    active_slot_str = active_slot_suffix if active_slot_suffix else lang.get('wf_active_slot_unknown', 'Unknown')
+    print(lang.get('wf_active_slot', "[+] Active Slot: {slot}").format(slot=active_slot_str))
+    print(lang.get('wf_step2_complete', "\n--- [STEP 2/9] Device Info Check FINISHED ---"))
 
-    print("\n--- [STEP 3/9] Waiting for RSA Firmware 'image' folder ---")
-    prompt = (
-        "Please copy the entire 'image' folder from your\n"
+    print(lang.get('wf_step3_wait_image', "\n--- [STEP 3/9] Waiting for RSA Firmware 'image' folder ---"))
+    prompt = lang.get('wf_step3_prompt', 
+        ("Please copy the entire 'image' folder from your\n"
         "         unpacked Lenovo RSA firmware into the main directory.\n"
         r"         (Typical Location: C:\ProgramData\RSA\Download\RomFiles\...)"
+        )
     )
-    utils.wait_for_directory(IMAGE_DIR, prompt)
-    print("[+] 'image' folder found.")
+    utils.wait_for_directory(IMAGE_DIR, prompt, lang=lang)
+    print(lang.get('wf_step3_found', "[+] 'image' folder found."))
     
     skip_dp_workflow = False
     
     try:
         print("\n" + "="*61)
-        print("  STEP 4/9: Converting Firmware (PRC to ROW) & Validating Model")
+        print(lang.get('wf_step4_convert', "  STEP 4/9: Converting Firmware (PRC to ROW) & Validating Model"))
         print("="*61)
         actions.convert_images(device_model=device_model, skip_adb=skip_adb)
-        print("\n--- [STEP 4/9] Firmware Conversion & Validation SUCCESS ---")
+        print(lang.get('wf_step4_complete', "\n--- [STEP 4/9] Firmware Conversion & Validation SUCCESS ---"))
 
         print("\n" + "="*61)
-        print("  STEP 5/9: Modifying XML Files")
+        print(lang.get('wf_step5_modify_xml', "  STEP 5/9: Modifying XML Files"))
         print("="*61)
         actions.modify_xml(wipe=wipe)
-        print("\n--- [STEP 5/9] XML Modification SUCCESS ---")
+        print(lang.get('wf_step5_complete', "\n--- [STEP 5/9] XML Modification SUCCESS ---"))
         
         print("\n" + "="*61)
-        print("  STEP 6/9: Dumping devinfo/persist for patching (fh_loader)")
+        print(lang.get('wf_step6_dump', "  STEP 6/9: Dumping devinfo/persist for patching (fh_loader)"))
         print("="*61)
 
         suffix = active_slot_suffix if active_slot_suffix else ""
@@ -87,7 +91,7 @@ def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
         
         extra_dumps = [boot_target, vbmeta_target]
         
-        print(f"[*] Scheduled extra dumps for ARB check: {', '.join(extra_dumps)}")
+        print(lang.get('wf_step6_extra_dumps', "[*] Scheduled extra dumps for ARB check: {dumps}").format(dumps=', '.join(extra_dumps)))
         
         dump_status = actions.read_edl_fhloader(
             skip_adb=skip_adb, 
@@ -97,27 +101,27 @@ def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
 
         if dump_status == "SKIP_DP":
             skip_dp_workflow = True
-            print("[!] Skipping devinfo/persist patching and flashing steps.")
-        print("\n--- [STEP 6/9] Dump SUCCESS ---")
+            print(lang.get('wf_skip_dp', "[!] Skipping devinfo/persist patching and flashing steps."))
+        print(lang.get('wf_step6_complete', "\n--- [STEP 6/9] Dump SUCCESS ---"))
         
         
         if not skip_dp_workflow:
             print("\n" + "="*61)
-            print("  STEP 7/9: Patching devinfo/persist")
+            print(lang.get('wf_step7_patch_dp', "  STEP 7/9: Patching devinfo/persist"))
             print("="*61)
             actions.edit_devinfo_persist()
-            print("\n--- [STEP 7/9] Patching SUCCESS ---")
+            print(lang.get('wf_step7_complete', "\n--- [STEP 7/9] Patching SUCCESS ---"))
         else:
             print("\n" + "="*61)
-            print("  STEP 7/9: Patching devinfo/persist (SKIPPED)")
+            print(lang.get('wf_step7_skipped', "  STEP 7/9: Patching devinfo/persist (SKIPPED)"))
             print("="*61)
 
         
         print("\n" + "="*61)
-        print("  STEP 8/9: Checking and Patching Anti-Rollback")
+        print(lang.get('wf_step8_check_arb', "  STEP 8/9: Checking and Patching Anti-Rollback"))
         print("="*61)
         
-        print("[*] Using Dumped Images for ARB Check...")
+        print(lang.get('wf_step8_use_dumps', "[*] Using Dumped Images for ARB Check..."))
         dumped_boot = BACKUP_DIR / f"{boot_target}.img"
         dumped_vbmeta = BACKUP_DIR / f"{vbmeta_target}.img"
         
@@ -128,37 +132,37 @@ def patch_all(wipe: int = 0, skip_adb: bool = False) -> None:
         
         if arb_status_result[0] == 'ERROR':
             print("\n" + "!"*61)
-            print("  CRITICAL ERROR: Anti-Rollback check failed!")
-            print("  Could not determine device security version.")
-            print("  Aborting process to prevent bricking.")
+            print(lang.get('wf_step8_err_arb_check', "  CRITICAL ERROR: Anti-Rollback check failed!"))
+            print(lang.get('wf_step8_err_arb_check_detail', "  Could not determine device security version."))
+            print(lang.get('wf_step8_err_arb_abort', "  Aborting process to prevent bricking."))
             print("!"*61)
             sys.exit(1)
 
         actions.patch_anti_rollback(comparison_result=arb_status_result)
-        print("\n--- [STEP 8/9] Anti-Rollback Check/Patch SUCCESS ---")
+        print(lang.get('wf_step8_complete', "\n--- [STEP 8/9] Anti-Rollback Check/Patch SUCCESS ---"))
         
         print("\n" + "="*61)
-        print("  [FINAL STEP 9/9] Flashing All Images via EDL")
+        print(lang.get('wf_step9_flash', "  [FINAL STEP 9/9] Flashing All Images via EDL"))
         print("="*61)
-        print("The device will now be flashed with all modified images.")
+        print(lang.get('wf_step9_flash_info', "The device will now be flashed with all modified images."))
         actions.flash_edl(skip_reset_edl=True, skip_dp=skip_dp_workflow) 
         
         print("\n" + "=" * 61)
-        print("  FULL PROCESS COMPLETE!")
-        print("  Your device should now reboot with a patched ROW firmware.")
+        print(lang.get('wf_process_complete', "  FULL PROCESS COMPLETE!"))
+        print(lang.get('wf_process_complete_info', "  Your device should now reboot with a patched ROW firmware."))
         print("=" * 61)
 
     except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError, KeyError) as e:
         print("\n" + "!" * 61)
-        print("  AN ERROR OCCURRED: Process Halted.")
-        print(f"  Error details: {e}")
+        print(lang.get('wf_err_halted', "  AN ERROR OCCURRED: Process Halted."))
+        print(lang.get('wf_err_details', "  Error details: {e}").format(e=e))
         print("!" * 61)
         sys.exit(1)
     except SystemExit as e:
         print("\n" + "!" * 61)
-        print(f"  PROCESS HALTED BY SCRIPT: {e}")
+        print(lang.get('wf_err_halted_script', "  PROCESS HALTED BY SCRIPT: {e}").format(e=e))
         print("!" * 61)
     except KeyboardInterrupt:
         print("\n" + "!" * 61)
-        print("  PROCESS CANCELLED BY USER.")
+        print(lang.get('wf_err_cancelled', "  PROCESS CANCELLED BY USER."))
         print("!" * 61)

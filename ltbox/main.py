@@ -235,6 +235,8 @@ def run_task(command, title, skip_adb, lang):
             if "skip_adb" in final_kwargs:
                 final_kwargs["skip_adb"] = skip_adb
             
+            final_kwargs["lang"] = lang
+            
             func(**final_kwargs)
 
     except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError, KeyError) as e:
