@@ -302,7 +302,7 @@ def download_ksu_apk(target_dir: Path, lang: Optional[Dict[str, str]] = None) ->
         print(lang.get('dl_ksu_exists', "[+] KernelSU Next Manager (Spoofed) APK already exists. Skipping download."))
     else:
         ksu_apk_command = [
-            "--repo", f"httpsG://github.com/{KSU_APK_REPO}", "--tag", KSU_APK_TAG,
+            "--repo", f"https://github.com/{KSU_APK_REPO}", "--tag", KSU_APK_TAG,
             "--release-asset", ".*spoofed.*\\.apk", str(target_dir)
         ]
         _run_fetch_command(ksu_apk_command, lang)
