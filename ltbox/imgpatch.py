@@ -13,7 +13,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from ltbox.constants import *
 from ltbox import utils, downloader
 
-def extract_image_avb_info(image_path: Path) -> Dict[str, Any]:
+def extract_image_avb_info(image_path: Path, lang: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    lang = lang or {}
     info_proc = utils.run_command(
         [str(PYTHON_EXE), str(AVBTOOL_PY), "info_image", "--image", str(image_path)],
         capture=True
@@ -51,7 +52,7 @@ def extract_image_avb_info(image_path: Path) -> Dict[str, Any]:
     if flags_match:
         info['flags'] = flags_match.group(1)
         if output: 
-            print(f"[Info] Parsed Flags: {info['flags']}")
+            print(lang.get("img_info_flags", f"[Info] Parsed Flags: {info['flags']}").format(flags=info['flags']))
         
     for key, pattern in patterns.items():
         if key not in info:
@@ -69,7 +70,7 @@ def extract_image_avb_info(image_path: Path) -> Dict[str, Any]:
             
     info['props_args'] = props_args
     if props_args and output: 
-        print(f"[Info] Parsed {len(props_args) // 2} properties.")
+        print(lang.get("img_info_props", f"[Info] Parsed {len(props_args) // 2} properties.").format(count=len(props_args) // 2))
 
     return info
 
@@ -77,12 +78,14 @@ def _apply_hash_footer(
     image_path: Path, 
     image_info: Dict[str, Any], 
     key_file: Path, 
-    new_rollback_index: Optional[str] = None
+    new_rollback_index: Optional[str] = None,
+    lang: Optional[Dict[str, str]] = None
 ) -> None:
+    lang = lang or {}
     rollback_index = new_rollback_index if new_rollback_index is not None else image_info['rollback']
     
-    print(f"\n[*] Adding hash footer to '{image_path.name}'...")
-    print(f"  > Partition: {image_info['name']}, Rollback Index: {rollback_index}")
+    print(lang.get("img_footer_adding", f"\n[*] Adding hash footer to '{image_path.name}'...").format(name=image_path.name))
+    print(lang.get("img_footer_details", f"  > Partition: {image_info['name']}, Rollback Index: {rollback_index}").format(part=image_info['name'], rb=rollback_index))
 
     add_footer_cmd = [
         str(PYTHON_EXE), str(AVBTOOL_PY), "add_hash_footer",
@@ -98,37 +101,39 @@ def _apply_hash_footer(
     
     if 'flags' in image_info:
         add_footer_cmd.extend(["--flags", image_info.get('flags', '0')])
-        print(f"  > Restoring flags: {image_info.get('flags', '0')}")
+        print(lang.get("img_footer_restore_flags", f"  > Restoring flags: {image_info.get('flags', '0')}").format(flags=image_info.get('flags', '0')))
 
     utils.run_command(add_footer_cmd)
-    print(f"[+] Successfully applied hash footer to {image_path.name}.")
+    print(lang.get("img_footer_success", f"[+] Successfully applied hash footer to {image_path.name}.").format(name=image_path.name))
 
 def patch_chained_image_rollback(
     image_name: str, 
     current_rb_index: int, 
     new_image_path: Path, 
-    patched_image_path: Path
+    patched_image_path: Path,
+    lang: Optional[Dict[str, str]] = None
 ) -> None:
+    lang = lang or {}
     try:
-        print(f"[*] Analyzing new {image_name}...")
-        info = extract_image_avb_info(new_image_path)
+        print(lang.get("img_analyze_new", f"[*] Analyzing new {image_name}...").format(name=image_name))
+        info = extract_image_avb_info(new_image_path, lang=lang)
         new_rb_index = int(info.get('rollback', '0'))
-        print(f"  > New index: {new_rb_index}")
+        print(lang.get("img_new_index", f"  > New index: {new_rb_index}").format(index=new_rb_index))
 
         if new_rb_index >= current_rb_index:
-            print(f"[*] {image_name} index is OK. Copying as is.")
+            print(lang.get("img_index_ok", f"[*] {image_name} index is OK. Copying as is.").format(name=image_name))
             shutil.copy(new_image_path, patched_image_path)
             return
 
-        print(f"[!] Anti-Rollback Bypassed: Patching {image_name} from {new_rb_index} to {current_rb_index}...")
+        print(lang.get("img_patch_bypass", f"[!] Anti-Rollback Bypassed: Patching {image_name} from {new_rb_index} to {current_rb_index}...").format(name=image_name, old=new_rb_index, new=current_rb_index))
         
         for key in ['partition_size', 'name', 'salt', 'algorithm', 'pubkey_sha1']:
             if key not in info:
-                raise KeyError(f"Could not find '{key}' in '{new_image_path.name}' AVB info.")
+                raise KeyError(lang.get("img_err_missing_key", f"Could not find '{key}' in '{new_image_path.name}' AVB info.").format(key=key, name=new_image_path.name))
         
         key_file = KEY_MAP.get(info['pubkey_sha1']) 
         if not key_file:
-            raise KeyError(f"Unknown public key SHA1 {info['pubkey_sha1']} in {new_image_path.name}")
+            raise KeyError(lang.get("img_err_unknown_key", f"Unknown public key SHA1 {info['pubkey_sha1']} in {new_image_path.name}").format(key=info['pubkey_sha1'], name=new_image_path.name))
         
         shutil.copy(new_image_path, patched_image_path)
         
@@ -136,39 +141,42 @@ def patch_chained_image_rollback(
             image_path=patched_image_path,
             image_info=info,
             key_file=key_file,
-            new_rollback_index=str(current_rb_index)
+            new_rollback_index=str(current_rb_index),
+            lang=lang
         )
 
     except (KeyError, subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"[!] Error processing {image_name}: {e}", file=sys.stderr)
+        print(lang.get("img_err_processing", f"[!] Error processing {image_name}: {e}").format(name=image_name, e=e), file=sys.stderr)
         raise
 
 def patch_vbmeta_image_rollback(
     image_name: str, 
     current_rb_index: int, 
     new_image_path: Path, 
-    patched_image_path: Path
+    patched_image_path: Path,
+    lang: Optional[Dict[str, str]] = None
 ) -> None:
+    lang = lang or {}
     try:
-        print(f"[*] Analyzing new {image_name}...")
-        info = extract_image_avb_info(new_image_path)
+        print(lang.get("img_analyze_new", f"[*] Analyzing new {image_name}...").format(name=image_name))
+        info = extract_image_avb_info(new_image_path, lang=lang)
         new_rb_index = int(info.get('rollback', '0'))
-        print(f"  > New index: {new_rb_index}")
+        print(lang.get("img_new_index", f"  > New index: {new_rb_index}").format(index=new_rb_index))
 
         if new_rb_index >= current_rb_index:
-            print(f"[*] {image_name} index is OK. Copying as is.")
+            print(lang.get("img_index_ok", f"[*] {image_name} index is OK. Copying as is.").format(name=image_name))
             shutil.copy(new_image_path, patched_image_path)
             return
 
-        print(f"[!] Anti-Rollback Bypassed: Patching {image_name} from {new_rb_index} to {current_rb_index}...")
+        print(lang.get("img_patch_bypass", f"[!] Anti-Rollback Bypassed: Patching {image_name} from {new_rb_index} to {current_rb_index}...").format(name=image_name, old=new_rb_index, new=current_rb_index))
 
         for key in ['algorithm', 'pubkey_sha1']:
             if key not in info:
-                raise KeyError(f"Could not find '{key}' in '{new_image_path.name}' AVB info.")
+                raise KeyError(lang.get("img_err_missing_key", f"Could not find '{key}' in '{new_image_path.name}' AVB info.").format(key=key, name=new_image_path.name))
         
         key_file = KEY_MAP.get(info['pubkey_sha1']) 
         if not key_file:
-            raise KeyError(f"Unknown public key SHA1 {info['pubkey_sha1']} in {new_image_path.name}")
+            raise KeyError(lang.get("img_err_unknown_key", f"Unknown public key SHA1 {info['pubkey_sha1']} in {new_image_path.name}").format(key=info['pubkey_sha1'], name=new_image_path.name))
 
         remake_cmd = [
             str(PYTHON_EXE), str(AVBTOOL_PY), "make_vbmeta_image",
@@ -181,82 +189,85 @@ def patch_vbmeta_image_rollback(
         ]
         
         utils.run_command(remake_cmd)
-        print(f"[+] Successfully patched {image_name}.")
+        print(lang.get("img_patch_success", f"[+] Successfully patched {image_name}.").format(name=image_name))
 
     except (KeyError, subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"[!] Error processing {image_name}: {e}", file=sys.stderr)
+        print(lang.get("img_err_processing", f"[!] Error processing {image_name}: {e}").format(name=image_name, e=e), file=sys.stderr)
         raise
 
-def process_boot_image_avb(image_to_process: Path) -> None:
-    print("\n[*] Verifying boot image key and metadata...") 
+def process_boot_image_avb(image_to_process: Path, lang: Optional[Dict[str, str]] = None) -> None:
+    lang = lang or {}
+    print(lang.get("img_verify_boot", "\n[*] Verifying boot image key and metadata...")) 
     boot_bak_img = BASE_DIR / "boot.bak.img"
     if not boot_bak_img.exists():
-        print(f"[!] Backup file '{boot_bak_img.name}' not found. Cannot process image.", file=sys.stderr)
+        print(lang.get("img_err_boot_bak_missing", f"[!] Backup file '{boot_bak_img.name}' not found. Cannot process image.").format(name=boot_bak_img.name), file=sys.stderr)
         raise FileNotFoundError(f"{boot_bak_img.name} not found.")
         
-    boot_info = extract_image_avb_info(boot_bak_img)
+    boot_info = extract_image_avb_info(boot_bak_img, lang=lang)
     
     for key in ['partition_size', 'name', 'rollback', 'salt', 'algorithm', 'pubkey_sha1']:
         if key not in boot_info:
-            raise KeyError(f"Could not find '{key}' in '{boot_bak_img.name}' AVB info.")
+            raise KeyError(lang.get("img_err_missing_key", f"Could not find '{key}' in '{boot_bak_img.name}' AVB info.").format(key=key, name=boot_bak_img.name))
             
     boot_pubkey = boot_info.get('pubkey_sha1')
     key_file = KEY_MAP.get(boot_pubkey) 
     
     if not key_file:
-        print(f"[!] Public key SHA1 '{boot_pubkey}' from boot.img did not match known keys. Cannot add footer.")
+        print(lang.get("img_err_boot_key_mismatch", f"[!] Public key SHA1 '{boot_pubkey}' from boot.img did not match known keys. Cannot add footer.").format(key=boot_pubkey))
         raise KeyError(f"Unknown boot public key: {boot_pubkey}")
 
-    print(f"[+] Matched {key_file.name}.")
+    print(lang.get("img_key_matched", f"[+] Matched {key_file.name}.").format(name=key_file.name))
     
     _apply_hash_footer(
         image_path=image_to_process,
         image_info=boot_info,
-        key_file=key_file
+        key_file=key_file,
+        lang=lang
     )
 
-def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path) -> Optional[Path]:
+def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path, lang: Optional[Dict[str, str]] = None) -> Optional[Path]:
+    lang = lang or {}
     original_cwd = Path.cwd()
     os.chdir(work_dir)
     
     patched_boot_path = BASE_DIR / "boot.root.img"
     
     try:
-        print("\n[1/8] Unpacking boot image...")
+        print(lang.get("img_root_step1", "\n[1/8] Unpacking boot image..."))
         utils.run_command([str(magiskboot_exe), "unpack", "boot.img"])
         if not (work_dir / "kernel").exists():
-            print("[!] Failed to unpack boot.img. The image might be invalid.")
+            print(lang.get("img_root_unpack_fail", "[!] Failed to unpack boot.img. The image might be invalid."))
             return None
-        print("[+] Unpack successful.")
+        print(lang.get("img_root_unpack_ok", "[+] Unpack successful."))
 
-        print("\n[2/8] Verifying kernel version...")
-        target_kernel_version = get_kernel_version("kernel")
+        print(lang.get("img_root_step2", "\n[2/8] Verifying kernel version..."))
+        target_kernel_version = get_kernel_version("kernel", lang=lang)
 
         if not target_kernel_version:
-             print(f"[!] Failed to get kernel version from 'kernel' file.")
+             print(lang.get("img_root_kernel_ver_fail", "[!] Failed to get kernel version from 'kernel' file."))
              return None
 
         if not re.match(r"\d+\.\d+\.\d+", target_kernel_version):
-             print(f"[!] Invalid kernel version returned from script: '{target_kernel_version}'")
+             print(lang.get("img_root_kernel_invalid", f"[!] Invalid kernel version returned from script: '{target_kernel_version}'").format(ver=target_kernel_version))
              return None
         
-        print(f"[+] Target kernel version for download: {target_kernel_version}")
+        print(lang.get("img_root_target_ver", f"[+] Target kernel version for download: {target_kernel_version}").format(ver=target_kernel_version))
 
-        kernel_image_path = downloader.get_gki_kernel(target_kernel_version, work_dir)
+        kernel_image_path = downloader.get_gki_kernel(target_kernel_version, work_dir, lang=lang)
 
-        print("\n[5/8] Replacing original kernel with the new one...")
+        print(lang.get("img_root_step5", "\n[5/8] Replacing original kernel with the new one..."))
         shutil.move(str(kernel_image_path), "kernel")
-        print("[+] Kernel replaced.")
+        print(lang.get("img_root_kernel_replaced", "[+] Kernel replaced."))
 
-        print("\n[6/8] Repacking boot image...")
+        print(lang.get("img_root_step6", "\n[6/8] Repacking boot image..."))
         utils.run_command([str(magiskboot_exe), "repack", "boot.img"])
         if not (work_dir / "new-boot.img").exists():
-            print("[!] Failed to repack the boot image.")
+            print(lang.get("img_root_repack_fail", "[!] Failed to repack the boot image."))
             return None
         shutil.move("new-boot.img", patched_boot_path)
-        print("[+] Repack successful.")
+        print(lang.get("img_root_repack_ok", "[+] Repack successful."))
 
-        downloader.download_ksu_apk(BASE_DIR)
+        downloader.download_ksu_apk(BASE_DIR, lang=lang)
         
         return patched_boot_path
 
@@ -264,10 +275,11 @@ def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path) -> Optional[
         os.chdir(original_cwd)
         if work_dir.exists():
             shutil.rmtree(work_dir)
-        print("\n--- Cleaning up ---")
+        print(lang.get("img_root_cleanup", "\n--- Cleaning up ---"))
 
 
-def modify_xml_algo(wipe: int = 0) -> None:
+def modify_xml_algo(wipe: int = 0, lang: Optional[Dict[str, str]] = None) -> None:
+    lang = lang or {}
     def is_garbage_file(path: Path) -> bool:
         name = path.name.lower()
         stem = path.stem.lower()
@@ -279,7 +291,7 @@ def modify_xml_algo(wipe: int = 0) -> None:
         shutil.rmtree(OUTPUT_XML_DIR)
     OUTPUT_XML_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("[*] Scanning files in 'image' folder...")
+    print(lang.get("img_xml_scan", "[*] Scanning files in 'image' folder..."))
     
     x_files = list(IMAGE_DIR.glob("*.x"))
     xml_files = list(IMAGE_DIR.glob("*.xml"))
@@ -287,33 +299,33 @@ def modify_xml_algo(wipe: int = 0) -> None:
     processed_files = False
 
     if x_files:
-        print(f"[*] Found {len(x_files)} .x files. Decrypting to '{OUTPUT_XML_DIR.name}'...")
+        print(lang.get("img_xml_found_x", f"[*] Found {len(x_files)} .x files. Decrypting to '{OUTPUT_XML_DIR.name}'...").format(count=len(x_files), dir=OUTPUT_XML_DIR.name))
         for file in x_files:
             out_file = OUTPUT_XML_DIR / file.with_suffix('.xml').name
             try:
-                if decrypt_file(str(file), str(out_file)):
-                    print(f"  > Decrypted: {file.name} -> {out_file.name}")
+                if decrypt_file(str(file), str(out_file), lang=lang):
+                    print(lang.get("img_xml_decrypt_ok", f"  > Decrypted: {file.name} -> {out_file.name}").format(src=file.name, dst=out_file.name))
                     processed_files = True
                 else:
-                    print(f"  [!] Decryption failed for {file.name}")
+                    print(lang.get("img_xml_decrypt_fail", f"  [!] Decryption failed for {file.name}").format(name=file.name))
             except Exception as e:
-                print(f"  [!] Error decrypting {file.name}: {e}", file=sys.stderr)
+                print(lang.get("img_xml_decrypt_err", f"  [!] Error decrypting {file.name}: {e}").format(name=file.name, e=e), file=sys.stderr)
 
     if xml_files:
-        print(f"[*] Found {len(xml_files)} .xml files. Moving to '{OUTPUT_XML_DIR.name}'...")
+        print(lang.get("img_xml_found_xml", f"[*] Found {len(xml_files)} .xml files. Moving to '{OUTPUT_XML_DIR.name}'...").format(count=len(xml_files), dir=OUTPUT_XML_DIR.name))
         for file in xml_files:
             out_file = OUTPUT_XML_DIR / file.name
             try:
                 if out_file.exists():
                     out_file.unlink()
                 shutil.move(str(file), str(out_file))
-                print(f"  > Moved: {file.name}")
+                print(lang.get("img_xml_moved", f"  > Moved: {file.name}").format(name=file.name))
                 processed_files = True
             except Exception as e:
-                print(f"  [!] Error moving {file.name}: {e}", file=sys.stderr)
+                print(lang.get("img_xml_move_err", f"  [!] Error moving {file.name}: {e}").format(name=file.name, e=e), file=sys.stderr)
 
     if not processed_files:
-        print(f"[!] No usable firmware files (.x or .xml) found in '{IMAGE_DIR.name}'. Aborting.")
+        print(lang.get("img_xml_no_files", f"[!] No usable firmware files (.x or .xml) found in '{IMAGE_DIR.name}'. Aborting.").format(dir=IMAGE_DIR.name))
         shutil.rmtree(OUTPUT_XML_DIR)
         raise FileNotFoundError(f"No .x or .xml files in {IMAGE_DIR.name}")
 
@@ -321,10 +333,10 @@ def modify_xml_algo(wipe: int = 0) -> None:
     rawprogram_unsparse4 = OUTPUT_XML_DIR / "rawprogram_unsparse4.xml"
     
     if not rawprogram4.exists() and rawprogram_unsparse4.exists():
-        print(f"[*] 'rawprogram4.xml' not found. Copying 'rawprogram_unsparse4.xml'...")
+        print(lang.get("img_xml_copy_raw4", "[*] 'rawprogram4.xml' not found. Copying 'rawprogram_unsparse4.xml'..."))
         shutil.copy(rawprogram_unsparse4, rawprogram4)
 
-    print("\n[*] Modifying 'rawprogram_save_persist_unsparse0.xml'...")
+    print(lang.get("img_xml_mod_raw", "\n[*] Modifying 'rawprogram_save_persist_unsparse0.xml'..."))
     
     rawprogram_save = OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
 
@@ -332,15 +344,15 @@ def modify_xml_algo(wipe: int = 0) -> None:
         rawprogram_fallback = OUTPUT_XML_DIR / "rawprogram_unsparse0-half.xml"
         
         if rawprogram_fallback.exists():
-            print(f"[*] '{rawprogram_save.name}' not found. Renaming '{rawprogram_fallback.name}'...")
+            print(lang.get("img_xml_rename_fallback", f"[*] '{rawprogram_save.name}' not found. Renaming '{rawprogram_fallback.name}'...").format(target=rawprogram_save.name, src=rawprogram_fallback.name))
             try:
                 rawprogram_fallback.rename(rawprogram_save)
             except OSError as e:
-                print(f"[!] Failed to rename fallback file: {e}", file=sys.stderr)
+                print(lang.get("img_xml_rename_err", f"[!] Failed to rename fallback file: {e}").format(e=e), file=sys.stderr)
                 raise
         else:
-            print(f"[!] Critical Error: Neither '{rawprogram_save.name}' nor '{rawprogram_fallback.name}' found.")
-            print("[!] Cannot proceed with Wipe/No Wipe modification. Aborting.")
+            print(lang.get("img_xml_critical_missing", f"[!] Critical Error: Neither '{rawprogram_save.name}' nor '{rawprogram_fallback.name}' found.").format(f1=rawprogram_save.name, f2=rawprogram_fallback.name))
+            print(lang.get("img_xml_abort_mod", "[!] Cannot proceed with Wipe/No Wipe modification. Aborting."))
             raise FileNotFoundError(f"Critical XML file missing: {rawprogram_save.name} or {rawprogram_fallback.name}")
 
     try:
@@ -348,22 +360,22 @@ def modify_xml_algo(wipe: int = 0) -> None:
             content = f.read()
         
         if wipe == 0:
-            print(f"  > [NO WIPE] Removing metadata and userdata entries...")
+            print(lang.get("img_xml_nowipe", "  > [NO WIPE] Removing metadata and userdata entries..."))
             for i in range(1, 11):
                 content = content.replace(f'filename="metadata_{i}.img"', '')
             for i in range(1, 21):
                 content = content.replace(f'filename="userdata_{i}.img"', '')
         else:
-            print(f"  > [WIPE] Skipping metadata and userdata removal.")
+            print(lang.get("img_xml_wipe", "  > [WIPE] Skipping metadata and userdata removal."))
             
         with open(rawprogram_save, 'w', encoding='utf-8') as f:
             f.write(content)
-        print("  > Patched successfully.")
+        print(lang.get("img_xml_patch_ok", "  > Patched successfully."))
     except Exception as e:
-        print(f"[!] Error patching: {e}", file=sys.stderr)
+        print(lang.get("img_xml_patch_err", f"[!] Error patching: {e}").format(e=e), file=sys.stderr)
         raise
 
-    print("\n[*] Cleaning up unnecessary files in output folder...")
+    print(lang.get("img_xml_cleanup", "\n[*] Cleaning up unnecessary files in output folder..."))
     
     files_to_delete = []
     for f in OUTPUT_XML_DIR.glob("*.xml"):
@@ -374,13 +386,13 @@ def modify_xml_algo(wipe: int = 0) -> None:
         for f in files_to_delete:
             try:
                 f.unlink()
-                print(f"  > Deleted: {f.name}")
+                print(lang.get("img_xml_deleted", f"  > Deleted: {f.name}").format(name=f.name))
             except OSError as e:
-                print(f"  [!] Failed to delete {f.name}: {e}")
+                print(lang.get("img_xml_del_err", f"  [!] Failed to delete {f.name}: {e}").format(name=f.name, e=e))
     else:
-        print("  > No files to delete.")
+        print(lang.get("img_xml_no_del", "  > No files to delete."))
 
-    print(f"[+] XML processing complete. All files are in '{OUTPUT_XML_DIR.name}'.")
+    print(lang.get("img_xml_complete", f"[+] XML processing complete. All files are in '{OUTPUT_XML_DIR.name}'.").format(dir=OUTPUT_XML_DIR.name))
 
 PASSWORD = "OSD"
 
@@ -394,7 +406,8 @@ def PBKDF1(s: str, salt: bytes, lenout: int, hashfunc: Any, iter_: int) -> bytes
 def generate(salt: bytes) -> bytes:
     return PBKDF1(PASSWORD, salt, 32, hashlib.sha256, 1000)
 
-def decrypt_file(fi_path: str, fo_path: str) -> bool:
+def decrypt_file(fi_path: str, fo_path: str, lang: Optional[Dict[str, str]] = None) -> bool:
+    lang = lang or {}
     try:
         with open(fi_path, "rb") as fi:
             iv = fi.read(16)
@@ -410,62 +423,65 @@ def decrypt_file(fi_path: str, fo_path: str) -> bool:
         original_size = struct.unpack('<q', plain[0:8])[0]
         signature = plain[8:16]
         if signature != b'\xcf\x06\x05\x04\x03\x02\x01\xfc':
-            print("Broken file.")
+            print(lang.get("img_decrypt_broken", "Broken file."))
             return False
 
         body = plain[16:16 + original_size]
         digest = hashlib.sha256(body).digest()
         if digest != plain[16 + original_size:16 + original_size + 32]:
-            print("Broken file.")
+            print(lang.get("img_decrypt_broken", "Broken file."))
             return False
 
         with open(fo_path, "wb") as fo:
             fo.write(body)
             
-        print("Successfully decrypted.", original_size, "bytes")
+        print(lang.get("img_decrypt_success", "Successfully decrypted."), original_size, "bytes")
         return True
 
     except Exception as e:
-        print(f"Error decrypting {fi_path}: {e}", file=sys.stderr)
+        print(lang.get("img_decrypt_error", f"Error decrypting {fi_path}: {e}").format(path=fi_path, e=e), file=sys.stderr)
         return False
 
 def _process_binary_file(
     input_path: Union[str, Path], 
     output_path: Union[str, Path], 
     patch_func: Any, 
-    copy_if_unchanged: bool = True, 
+    copy_if_unchanged: bool = True,
+    lang: Optional[Dict[str, str]] = None,
     **kwargs: Any
 ) -> bool:
+    lang = lang or {}
     input_path = Path(input_path)
     output_path = Path(output_path)
     
     if not input_path.exists():
-        print(f"Error: Input file not found at '{input_path}'", file=sys.stderr)
+        print(lang.get("img_proc_err_not_found", f"Error: Input file not found at '{input_path}'").format(path=input_path), file=sys.stderr)
         return False
 
     try:
         content = input_path.read_bytes()
-        modified_content, stats = patch_func(content, **kwargs)
+        modified_content, stats = patch_func(content, lang=lang, **kwargs)
 
         if stats.get('changed', False):
             output_path.write_bytes(modified_content)
-            print(f"\nPatch successful! {stats.get('message', 'Modifications applied.')}")
-            print(f"Saved as '{output_path.name}'")
+            print(lang.get("img_proc_success", f"\nPatch successful! {stats.get('message', 'Modifications applied.')}").format(msg=stats.get('message', 'Modifications applied.')))
+            print(lang.get("img_proc_saved", f"Saved as '{output_path.name}'").format(name=output_path.name))
             return True
         else:
-            print(f"\n[*] No changes needed for {input_path.name} ({stats.get('message', 'No patterns found')}).")
+            print(lang.get("img_proc_no_change", f"\n[*] No changes needed for {input_path.name} ({stats.get('message', 'No patterns found')}).").format(name=input_path.name, msg=stats.get('message', 'No patterns found')))
             if copy_if_unchanged:
-                print(f"[*] Copying original file as '{output_path.name}'...")
+                print(lang.get("img_proc_copying", f"[*] Copying original file as '{output_path.name}'...").format(name=output_path.name))
                 if input_path != output_path:
                     shutil.copy(input_path, output_path)
                 return True
             return False
 
     except Exception as e:
-        print(f"An error occurred while processing '{input_path.name}': {e}", file=sys.stderr)
+        print(lang.get("img_proc_error", f"An error occurred while processing '{input_path.name}': {e}").format(name=input_path.name, e=e), file=sys.stderr)
         return False
 
-def _patch_vendor_boot_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dict[str, Any]]:
+def _patch_vendor_boot_logic(content: bytes, lang: Optional[Dict[str, str]] = None, **kwargs: Any) -> Tuple[bytes, Dict[str, Any]]:
+    lang = lang or {}
     patterns_row = {
         b"\x2E\x52\x4F\x57": b"\x2E\x50\x52\x43",
         b"\x49\x52\x4F\x57": b"\x49\x50\x52\x43"
@@ -478,27 +494,28 @@ def _patch_vendor_boot_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dict
     for target, replacement in patterns_row.items():
         count = content.count(target)
         if count > 0:
-            print(f"Found '{target.hex().upper()}' pattern {count} time(s). Replacing...")
+            print(lang.get("img_vb_found_replace", f"Found '{target.hex().upper()}' pattern {count} time(s). Replacing...").format(pattern=target.hex().upper(), count=count))
             modified_content = modified_content.replace(target, replacement)
             found_row_count += count
 
     if found_row_count > 0:
-        return modified_content, {'changed': True, 'message': f"Total {found_row_count} instance(s) replaced."}
+        return modified_content, {'changed': True, 'message': lang.get("img_vb_replaced_total", f"Total {found_row_count} instance(s) replaced.").format(count=found_row_count)}
     
     found_prc = any(content.count(target) > 0 for target in patterns_prc)
     if found_prc:
-        return content, {'changed': False, 'message': ".PRC patterns found (Already patched)."}
+        return content, {'changed': False, 'message': lang.get("img_vb_already_prc", ".PRC patterns found (Already patched).")}
     
-    return content, {'changed': False, 'message': "No .ROW or .PRC patterns found."}
+    return content, {'changed': False, 'message': lang.get("img_vb_no_patterns", "No .ROW or .PRC patterns found.")}
 
-def edit_vendor_boot(input_file_path: str) -> None:
+def edit_vendor_boot(input_file_path: str, lang: Optional[Dict[str, str]] = None) -> None:
     input_file = Path(input_file_path)
     output_file = input_file.parent / "vendor_boot_prc.img"
     
-    if not _process_binary_file(input_file, output_file, _patch_vendor_boot_logic, copy_if_unchanged=True):
+    if not _process_binary_file(input_file, output_file, _patch_vendor_boot_logic, copy_if_unchanged=True, lang=lang):
         sys.exit(1)
 
-def check_target_exists(target_code: str) -> bool:
+def check_target_exists(target_code: str, lang: Optional[Dict[str, str]] = None) -> bool:
+    lang = lang or {}
     target_bytes = f"{target_code.upper()}XX".encode('ascii')
     files_to_check = [BASE_DIR / "devinfo.img", BASE_DIR / "persist.img"]
     found = False
@@ -512,15 +529,16 @@ def check_target_exists(target_code: str) -> bool:
                 found = True
                 break
         except Exception as e:
-            print(f"[!] Error reading {f.name} for check: {e}", file=sys.stderr)
+            print(lang.get("img_chk_err_read", f"[!] Error reading {f.name} for check: {e}").format(name=f.name, e=e), file=sys.stderr)
     return found
 
-def detect_region_codes() -> Dict[str, Optional[str]]:
+def detect_region_codes(lang: Optional[Dict[str, str]] = None) -> Dict[str, Optional[str]]:
+    lang = lang or {}
     results: Dict[str, Optional[str]] = {}
     files_to_check = ["devinfo.img", "persist.img"]
 
     if not COUNTRY_CODES:
-        print("[!] Warning: COUNTRY_CODES list is empty.", file=sys.stderr)
+        print(lang.get("img_det_warn_empty", "[!] Warning: COUNTRY_CODES list is empty."), file=sys.stderr)
         return {f: None for f in files_to_check}
 
     for filename in files_to_check:
@@ -538,16 +556,17 @@ def detect_region_codes() -> Dict[str, Optional[str]]:
                     results[filename] = code
                     break
         except Exception as e:
-            print(f"[!] Error reading {filename}: {e}", file=sys.stderr)
+            print(lang.get("img_det_err_read", f"[!] Error reading {filename}: {e}").format(name=filename, e=e), file=sys.stderr)
             
     return results
 
-def _patch_region_code_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dict[str, Any]]:
+def _patch_region_code_logic(content: bytes, lang: Optional[Dict[str, str]] = None, **kwargs: Any) -> Tuple[bytes, Dict[str, Any]]:
+    lang = lang or {}
     current_code = kwargs.get('current_code')
     replacement_code = kwargs.get('replacement_code')
     
     if not current_code or not replacement_code:
-        return content, {'changed': False, 'message': "Invalid codes"}
+        return content, {'changed': False, 'message': lang.get("img_code_invalid", "Invalid codes")}
 
     if replacement_code == "00":
         replacement_string = "00000000000000000000"
@@ -560,19 +579,20 @@ def _patch_region_code_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dict
     target_bytes = b'\x00\x00\x00' + f"{current_code.upper()}".encode('ascii') + b'XX\x00\x00\x00'
     
     if target_bytes == replacement_bytes:
-        return content, {'changed': False, 'message': f"File is already '{replacement_code.upper()}'."}
+        return content, {'changed': False, 'message': lang.get("img_code_already", f"File is already '{replacement_code.upper()}'.").format(code=replacement_code.upper())}
 
     count = content.count(target_bytes)
     if count > 0:
-        print(f"Found '{target_string}' pattern {count} time(s). Replacing with '{replacement_string}'...")
+        print(lang.get("img_code_replace", f"Found '{target_string}' pattern {count} time(s). Replacing with '{replacement_string}'...").format(target=target_string, count=count, replacement=replacement_string))
         modified_content = content.replace(target_bytes, replacement_bytes)
-        return modified_content, {'changed': True, 'message': f"Total {count} instance(s) replaced.", 'count': count}
+        return modified_content, {'changed': True, 'message': lang.get("img_code_replaced_total", f"Total {count} instance(s) replaced.").format(count=count), 'count': count}
     
-    return content, {'changed': False, 'message': f"Pattern '{target_string}' NOT found."}
+    return content, {'changed': False, 'message': lang.get("img_code_not_found", f"Pattern '{target_string}' NOT found.").format(target=target_string)}
 
-def patch_region_codes(replacement_code: str, target_map: Dict[str, Optional[str]]) -> int:
+def patch_region_codes(replacement_code: str, target_map: Dict[str, Optional[str]], lang: Optional[Dict[str, str]] = None) -> int:
+    lang = lang or {}
     if not replacement_code or len(replacement_code) != 2:
-        print(f"[!] Error: Invalid replacement code '{replacement_code}'. Aborting.", file=sys.stderr)
+        print(lang.get("img_patch_code_err", f"[!] Error: Invalid replacement code '{replacement_code}'. Aborting.").format(code=replacement_code), file=sys.stderr)
         sys.exit(1)
         
     total_patched = 0
@@ -581,7 +601,7 @@ def patch_region_codes(replacement_code: str, target_map: Dict[str, Optional[str
         "persist.img": "persist_modified.img"
     }
 
-    print(f"[*] Starting patch process (New Region: {replacement_code})...")
+    print(lang.get("img_patch_start", f"[*] Starting patch process (New Region: {replacement_code})...").format(code=replacement_code))
 
     for filename, current_code in target_map.items():
         if filename not in files_to_output:
@@ -593,10 +613,10 @@ def patch_region_codes(replacement_code: str, target_map: Dict[str, Optional[str
         if not input_file.exists():
             continue
             
-        print(f"\n--- Processing '{input_file.name}' ---")
+        print(lang.get("img_patch_processing", f"\n--- Processing '{input_file.name}' ---").format(name=input_file.name))
         
         if not current_code:
-            print(f"[*] No target code specified/detected for '{filename}'. Skipping.")
+            print(lang.get("img_patch_skip", f"[*] No target code specified/detected for '{filename}'. Skipping.").format(name=filename))
             continue
 
         success = _process_binary_file(
@@ -605,19 +625,21 @@ def patch_region_codes(replacement_code: str, target_map: Dict[str, Optional[str
             _patch_region_code_logic, 
             copy_if_unchanged=True,
             current_code=current_code, 
-            replacement_code=replacement_code
+            replacement_code=replacement_code,
+            lang=lang
         )
         
         if success:
              pass
 
-    print(f"\nPatching finished.")
+    print(lang.get("img_patch_finish", f"\nPatching finished."))
     return total_patched
 
-def get_kernel_version(file_path: Union[str, Path]) -> Optional[str]:
+def get_kernel_version(file_path: Union[str, Path], lang: Optional[Dict[str, str]] = None) -> Optional[str]:
+    lang = lang or {}
     kernel_file = Path(file_path)
     if not kernel_file.exists():
-        print(f"Error: Kernel file not found at '{file_path}'", file=sys.stderr)
+        print(lang.get("img_kv_err_not_found", f"Error: Kernel file not found at '{file_path}'").format(path=file_path), file=sys.stderr)
         return None
 
     try:
@@ -632,7 +654,7 @@ def get_kernel_version(file_path: Union[str, Path]) -> Optional[str]:
                     base_version_match = re.search(r'(\d+\.\d+\.\d+)', line)
                     if base_version_match:
                         found_version = base_version_match.group(1)
-                        print(f"Full kernel string found: {line.strip()}", file=sys.stderr)
+                        print(lang.get("img_kv_found", f"Full kernel string found: {line.strip()}").format(line=line.strip()), file=sys.stderr)
                         break
             except UnicodeDecodeError:
                 continue
@@ -640,9 +662,9 @@ def get_kernel_version(file_path: Union[str, Path]) -> Optional[str]:
         if found_version:
             return found_version
         else:
-            print("Error: Could not find or parse 'Linux version' string in the kernel file.", file=sys.stderr)
+            print(lang.get("img_kv_err_parse", "Error: Could not find or parse 'Linux version' string in the kernel file."), file=sys.stderr)
             return None
 
     except Exception as e:
-        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        print(lang.get("img_kv_err_unexpected", f"An unexpected error occurred: {e}").format(e=e), file=sys.stderr)
         return None
