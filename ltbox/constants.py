@@ -59,6 +59,11 @@ FETCH_REPO_URL = "https://github.com/gruntwork-io/fetch"
 PLATFORM_TOOLS_ZIP_URL = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
 AVB_ARCHIVE_URL = "https://android.googlesource.com/platform/external/avb/+archive/refs/heads/main.tar.gz"
 
+# --- Region Patching Magic Bytes ---
+ROW_PATTERN_DOT = b"\x2E\x52\x4F\x57"
+PRC_PATTERN_DOT = b"\x2E\x50\x52\x43"
+ROW_PATTERN_I = b"\x49\x52\x4F\x57"
+PRC_PATTERN_I = b"\x49\x50\x52\x43"
 
 # --- AVB Keys ---
 KEY_MAP = {

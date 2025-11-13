@@ -6,14 +6,15 @@ from typing import Dict, Optional, Any, Tuple, Union
 
 from .. import constants as const
 from .. import utils
+from .. import constants as const
 from ..i18n import get_string
 
 def _patch_vendor_boot_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dict[str, Any]]:
     patterns_row = {
-        b"\x2E\x52\x4F\x57": b"\x2E\x50\x52\x43",
-        b"\x49\x52\x4F\x57": b"\x49\x50\x52\x43"
+        const.ROW_PATTERN_DOT: const.PRC_PATTERN_DOT,
+        const.ROW_PATTERN_I: const.PRC_PATTERN_I
     }
-    patterns_prc = [b"\x2E\x50\x52\x43", b"\x49\x50\x52\x43"]
+    patterns_prc = [const.PRC_PATTERN_DOT, const.PRC_PATTERN_I]
     
     modified_content = content
     found_row_count = 0
