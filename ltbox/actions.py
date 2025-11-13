@@ -459,8 +459,8 @@ def edit_devinfo_persist() -> None:
     print("\nDo you want to change the region code? (y/n)")
     choice = ""
     while choice not in ['y', 'n']:
-        choice = input("Enter choice: ").lower().strip()
-    
+        choice = input("Enter choice (y/n): ").lower().strip()
+
     if choice == 'n':
         print("[*] Operation cancelled. No changes made.")
         
@@ -470,37 +470,37 @@ def edit_devinfo_persist() -> None:
         print("[*] Safety: Removing stock devinfo.img/persist.img from 'image' folder to prevent accidental flash.")
         (IMAGE_DIR / "devinfo.img").unlink(missing_ok=True)
         (IMAGE_DIR / "persist.img").unlink(missing_ok=True)
-        
         return
 
-    target_map = detected_codes.copy()
-    replacement_code = select_country_code("SELECT NEW REGION CODE")
-    imgpatch.patch_region_codes(replacement_code, target_map)
+    if choice == 'y':
+        target_map = detected_codes.copy()
+        replacement_code = select_country_code("SELECT NEW REGION CODE")
+        imgpatch.patch_region_codes(replacement_code, target_map)
 
-    if replacement_code == "00":
-        print("\n" + "=" * 61)
-        print("  NOTE:")
-        print("  After booting, please enter ####5993# in the Settings app")
-        print("  search bar to select your country code.")
-        print("=" * 61)
+        if replacement_code == "00":
+            print("\n" + "=" * 61)
+            print("  NOTE:")
+            print("  After booting, please enter ####5993# in the Settings app")
+            print("  search bar to select your country code.")
+            print("=" * 61)
 
-    modified_devinfo = BASE_DIR / "devinfo_modified.img"
-    modified_persist = BASE_DIR / "persist_modified.img"
-    
-    if modified_devinfo.exists():
-        shutil.move(modified_devinfo, OUTPUT_DP_DIR / "devinfo.img")
-    if modified_persist.exists():
-        shutil.move(modified_persist, OUTPUT_DP_DIR / "persist.img")
+        modified_devinfo = BASE_DIR / "devinfo_modified.img"
+        modified_persist = BASE_DIR / "persist_modified.img"
         
-    print(f"\n[*] Final images have been moved to '{OUTPUT_DP_DIR.name}' folder.")
-    
-    devinfo_img.unlink(missing_ok=True)
-    persist_img.unlink(missing_ok=True)
-    
-    print("\n" + "=" * 61)
-    print("  SUCCESS!")
-    print(f"  Modified images are ready in the '{OUTPUT_DP_DIR.name}' folder.")
-    print("=" * 61)
+        if modified_devinfo.exists():
+            shutil.move(modified_devinfo, OUTPUT_DP_DIR / "devinfo.img")
+        if modified_persist.exists():
+            shutil.move(modified_persist, OUTPUT_DP_DIR / "persist.img")
+            
+        print(f"\n[*] Final images have been moved to '{OUTPUT_DP_DIR.name}' folder.")
+        
+        devinfo_img.unlink(missing_ok=True)
+        persist_img.unlink(missing_ok=True)
+        
+        print("\n" + "=" * 61)
+        print("  SUCCESS!")
+        print(f"  Modified images are ready in the '{OUTPUT_DP_DIR.name}' folder.")
+        print("=" * 61)
 
 def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
     print("--- Starting XML Modification Process ---")
