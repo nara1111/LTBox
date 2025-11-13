@@ -4,16 +4,61 @@ import os
 import platform
 import subprocess
 import sys
+import json
 from contextlib import contextmanager
 from pathlib import Path
 from datetime import datetime
-import json
 
 APP_DIR = Path(__file__).parent.resolve()
 LANG_DIR = APP_DIR / "lang"
 BASE_DIR = APP_DIR.parent
 PYTHON_EXE = BASE_DIR / "python3" / "python.exe"
 DOWNLOADER_PY = APP_DIR / "downloader.py"
+
+class TeeLogger:
+    def __init__(self, original_stream, logger, log_level):
+        self.original_stream = original_stream
+        self.logger = logger
+        self.log_level = log_level
+
+    def write(self, message):
+        self.original_stream.write(message)
+        if message and message.strip():
+            self.logger.log(self.log_level, message.rstrip())
+
+    def flush(self):
+        self.original_stream.flush()
+        for handler in self.logger.handlers:
+            handler.flush()
+
+@contextmanager
+def logging_context(log_filename=None):
+    logger = logging.getLogger("ltbox_logger")
+    logger.setLevel(logging.INFO)
+    
+    handlers = []
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+    
+    try:
+        if log_filename:
+            file_handler = logging.FileHandler(log_filename, encoding='utf-8')
+            file_handler.setFormatter(logging.Formatter('%(message)s'))
+            logger.addHandler(file_handler)
+            handlers.append(file_handler)
+
+            sys.stdout = TeeLogger(original_stdout, logger, logging.INFO)
+            sys.stderr = TeeLogger(original_stderr, logger, logging.ERROR)
+        
+        yield logger
+
+    finally:
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+        
+        for handler in handlers:
+            handler.close()
+            logger.removeHandler(handler)
 
 def select_language():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -160,42 +205,6 @@ def check_path_encoding():
             input(get_string("press_enter_to_exit"))
         sys.exit(1)
 
-@contextmanager
-def capture_output_to_log(log_filename):
-    logger = logging.getLogger("task_logger")
-    logger.setLevel(logging.INFO)
-    logger.handlers = [] 
-
-    file_handler = logging.FileHandler(log_filename, encoding='utf-8')
-    file_handler.setFormatter(logging.Formatter('%(message)s'))
-    logger.addHandler(file_handler)
-
-    class StreamLogger:
-        def __init__(self, original_stream):
-            self.original_stream = original_stream
-
-        def write(self, message):
-            self.original_stream.write(message)
-            if message.strip():
-                logger.info(message.rstrip())
-
-        def flush(self):
-            self.original_stream.flush()
-            file_handler.flush()
-
-    original_stdout = sys.stdout
-    original_stderr = sys.stderr
-
-    try:
-        sys.stdout = StreamLogger(original_stdout)
-        sys.stderr = StreamLogger(original_stderr)
-        yield
-    finally:
-        sys.stdout = original_stdout
-        sys.stderr = original_stderr
-        logger.removeHandler(file_handler)
-        file_handler.close()
-
 def run_task(command, title, dev):
     os.system('cls' if os.name == 'nt' else 'clear')
     
@@ -203,23 +212,15 @@ def run_task(command, title, dev):
     print(get_string("starting_task").format(title=title))
     print("  " + "=" * 58, "\n")
 
-    needs_logging = command in ["patch_all", "patch_all_wipe"]
-    log_context = None
     log_file = None
-
-    if needs_logging:
+    if command in ["patch_all", "patch_all_wipe"]:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_file = f"log_{timestamp}.txt"
         print(get_string("logging_enabled").format(log_file=log_file))
         print(get_string("logging_command").format(command=command))
-        log_context = capture_output_to_log(log_file)
-    else:
-        @contextmanager
-        def no_op(): yield
-        log_context = no_op()
 
     try:
-        with log_context:
+        with logging_context(log_file):
             func_tuple = COMMAND_MAP.get(command)
             if not func_tuple:
                 print(get_string("unknown_command").format(command=command), file=sys.stderr)
@@ -247,7 +248,7 @@ def run_task(command, title, dev):
         print(get_string("process_cancelled"), file=sys.stderr)
     finally:
         print()
-        if needs_logging and log_file:
+        if log_file:
             print(get_string("logging_finished").format(log_file=log_file))
 
         print("  " + "=" * 58)
@@ -267,12 +268,8 @@ def run_task(command, title, dev):
 def run_info_scan(paths):
     print(get_string("scan_start"))
     
-    PYTHON_EXE = constants.PYTHON_EXE
-    AVBTOOL_PY = constants.AVBTOOL_PY
-    BASE_DIR = constants.BASE_DIR
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = BASE_DIR / f"image_info_{timestamp}.txt"
+    log_filename = constants.BASE_DIR / f"image_info_{timestamp}.txt"
     
     files_to_scan = []
     for path_str in paths:
@@ -287,32 +284,23 @@ def run_info_scan(paths):
         return
 
     print(get_string("scan_found_files").format(count=len(files_to_scan)))
-    
-    logger = logging.getLogger("scan_logger")
-    logger.setLevel(logging.INFO)
-    fh = logging.FileHandler(log_filename, encoding='utf-8')
-    fh.setFormatter(logging.Formatter('%(message)s'))
-    logger.addHandler(fh)
 
-    try:
+    with logging_context(log_filename) as logger:
         for f in files_to_scan:
-            cmd = [str(PYTHON_EXE), str(AVBTOOL_PY), "info_image", "--image", str(f)]
+            cmd = [str(PYTHON_EXE), str(constants.AVBTOOL_PY), "info_image", "--image", str(f)]
             header = f"--- Info for: {f.resolve()} ---\n"
             logger.info(header)
             print(get_string("scan_scanning_file").format(filename=f.name))
             
             try:
                 result = utils.run_command(cmd, capture=True, check=False)
-                logger.info(result.stdout)
-                logger.info(result.stderr)
+                if result.stdout: logger.info(result.stdout)
+                if result.stderr: logger.info(result.stderr)
                 logger.info("\n" + "="*70 + "\n")
             except Exception as e:
                 error_msg = get_string("scan_failed").format(filename=f.name, e=e)
                 print(error_msg, file=sys.stderr)
                 logger.info(error_msg)
-    finally:
-        logger.removeHandler(fh)
-        fh.close()
     
     print(get_string("scan_complete"))
     print(get_string("scan_saved_to").format(filename=log_filename.name))
@@ -452,7 +440,6 @@ def main():
                 input(get_string("press_enter_to_continue"))
 
 if __name__ == "__main__":
-    
     check_path_encoding()
     
     if len(sys.argv) > 1 and sys.argv[1].lower() == 'info':
