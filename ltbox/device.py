@@ -9,68 +9,68 @@ from typing import Optional, List, Dict
 
 from ltbox.constants import *
 from ltbox import utils
+from .i18n import get_string
 
 class DeviceController:
-    def __init__(self, skip_adb: bool = False, lang: Optional[Dict[str, str]] = None):
+    def __init__(self, skip_adb: bool = False):
         self.skip_adb = skip_adb
         self.edl_port: Optional[str] = None
-        self.lang = lang or {}
 
     def wait_for_adb(self) -> None:
         if self.skip_adb:
-            print(self.lang.get("device_skip_adb", "[!] Skipping ADB connection as requested."))
+            print(get_string("device_skip_adb"))
             return
-        print(self.lang.get("device_wait_adb_title", "\n--- WAITING FOR ADB DEVICE ---"))
-        print(self.lang.get("device_enable_usb_debug", "[!] Please enable USB Debugging on your device, connect it via USB."))
-        print(self.lang.get("device_usb_prompt_appear", "[!] A 'Allow USB debugging?' prompt will appear on your device."))
-        print(self.lang.get("device_check_always_allow", "[!] Please check 'Always allow from this computer' and tap 'OK'."))
+        print(get_string("device_wait_adb_title"))
+        print(get_string("device_enable_usb_debug"))
+        print(get_string("device_usb_prompt_appear"))
+        print(get_string("device_check_always_allow"))
         try:
             utils.run_command([str(ADB_EXE), "wait-for-device"])
-            print(self.lang.get("device_adb_connected", "[+] ADB device connected."))
+            print(get_string("device_adb_connected"))
         except Exception as e:
-            print(self.lang.get("device_err_wait_adb", f"[!] Error waiting for ADB device: {e}").format(e=e), file=sys.stderr)
+            print(get_string("device_err_wait_adb").format(e=e), file=sys.stderr)
             raise
 
     def get_device_model(self) -> Optional[str]:
         self.wait_for_adb()
         if self.skip_adb:
-            print(self.lang.get("device_skip_model_check", "[!] Skipping device model check as requested."))
+            print(get_string("device_skip_model_check"))
             return None
-        print(self.lang.get("device_get_model_adb", "[*] Getting device model via ADB..."))
+        print(get_string("device_get_model_adb"))
         try:
             result = utils.run_command([str(ADB_EXE), "shell", "getprop", "ro.product.model"], capture=True)
             model = result.stdout.strip()
             if not model:
-                print(self.lang.get("device_err_model_auth", "[!] Could not get device model. Is the device authorized?"))
+                print(get_string("device_err_model_auth"))
                 return None
-            print(self.lang.get("device_found_model", f"[+] Found device model: {model}").format(model=model))
+            print(get_string("device_found_model").format(model=model))
             return model
         except Exception as e:
-            print(self.lang.get("device_err_get_model", f"[!] Error getting device model: {e}").format(e=e), file=sys.stderr)
-            print(self.lang.get("device_ensure_connect", "[!] Please ensure the device is connected and authorized."))
+            print(get_string("device_err_get_model").format(e=e), file=sys.stderr)
+            print(get_string("device_ensure_connect"))
             return None
 
     def get_active_slot_suffix(self) -> Optional[str]:
         self.wait_for_adb()
         if self.skip_adb:
-            print(self.lang.get("device_skip_slot", "[!] Skipping active slot check as requested."))
+            print(get_string("device_skip_slot"))
             return None
-        print(self.lang.get("device_get_slot_adb", "[*] Getting active slot suffix via ADB..."))
+        print(get_string("device_get_slot_adb"))
         try:
             result = utils.run_command([str(ADB_EXE), "shell", "getprop", "ro.boot.slot_suffix"], capture=True)
             suffix = result.stdout.strip()
             if suffix not in ["_a", "_b"]:
-                print(self.lang.get("device_warn_slot_invalid", f"[!] Warning: Could not get valid slot suffix (got '{suffix}'). Assuming non-A/B device.").format(suffix=suffix))
+                print(get_string("device_warn_slot_invalid").format(suffix=suffix))
                 return None
-            print(self.lang.get("device_found_slot", f"[+] Found active slot suffix: {suffix}").format(suffix=suffix))
+            print(get_string("device_found_slot").format(suffix=suffix))
             return suffix
         except Exception as e:
-            print(self.lang.get("device_err_get_slot", f"[!] Error getting active slot suffix: {e}").format(e=e), file=sys.stderr)
-            print(self.lang.get("device_ensure_connect", "[!] Please ensure the device is connected and authorized."))
+            print(get_string("device_err_get_slot").format(e=e), file=sys.stderr)
+            print(get_string("device_ensure_connect"))
             return None
 
     def get_active_slot_suffix_from_fastboot(self) -> Optional[str]:
-        print(self.lang.get("device_get_slot_fastboot", "[*] Getting active slot suffix via Fastboot..."))
+        print(get_string("device_get_slot_fastboot"))
         try:
             result = utils.run_command([str(FASTBOOT_EXE), "getvar", "current-slot"], capture=True, check=False)
             output = result.stderr.strip() + "\n" + result.stdout.strip()
@@ -80,99 +80,99 @@ class DeviceController:
                 slot = match.group(1).strip()
                 if slot in ['a', 'b']:
                     suffix = f"_{slot}"
-                    print(self.lang.get("device_found_slot_fastboot", f"[+] Found active slot suffix (Fastboot): {suffix}").format(suffix=suffix))
+                    print(get_string("device_found_slot_fastboot").format(suffix=suffix))
                     return suffix
             
-            print(self.lang.get("device_warn_slot_fastboot", f"[!] Warning: Could not get valid slot suffix from Fastboot. (Output snippet: {output.splitlines()[0] if output else 'None'})").format(snippet=output.splitlines()[0] if output else 'None'))
+            print(get_string("device_warn_slot_fastboot").format(snippet=output.splitlines()[0] if output else 'None'))
             return None
         except Exception as e:
-            print(self.lang.get("device_err_get_slot_fastboot", f"[!] Error getting active slot suffix via Fastboot: {e}").format(e=e), file=sys.stderr)
+            print(get_string("device_err_get_slot_fastboot").format(e=e), file=sys.stderr)
             return None
 
     def reboot_to_edl(self) -> None:
         self.wait_for_adb()
         if self.skip_adb:
-            print(self.lang.get("device_manual_edl_req", "[!] You requested Skip ADB, so please reboot to EDL manually."))
+            print(get_string("device_manual_edl_req"))
             return
-        print(self.lang.get("device_reboot_edl_adb", "[*] Attempting to reboot device to EDL mode via ADB..."))
+        print(get_string("device_reboot_edl_adb"))
         try:
             utils.run_command([str(ADB_EXE), "reboot", "edl"])
-            print(self.lang.get("device_reboot_edl_sent", "[+] Reboot command sent. Please wait for the device to enter EDL mode."))
+            print(get_string("device_reboot_edl_sent"))
         except Exception as e:
-            print(self.lang.get("device_err_reboot", f"[!] Failed to send reboot command: {e}").format(e=e), file=sys.stderr)
-            print(self.lang.get("device_manual_edl_fail", "[!] Please reboot to EDL manually if it fails."))
+            print(get_string("device_err_reboot").format(e=e), file=sys.stderr)
+            print(get_string("device_manual_edl_fail"))
 
     def reboot_to_bootloader(self) -> None:
         self.wait_for_adb()
         if self.skip_adb:
-            print(self.lang.get("device_skip_adb", "[!] Skipping ADB connection as requested."))
+            print(get_string("device_skip_adb"))
             return
-        print(self.lang.get("device_reboot_fastboot_adb", "[*] Attempting to reboot device to Fastboot mode via ADB..."))
+        print(get_string("device_reboot_fastboot_adb"))
         try:
             utils.run_command([str(ADB_EXE), "reboot", "bootloader"])
-            print(self.lang.get("device_reboot_fastboot_sent", "[+] Reboot command sent. Please wait for the device to enter Fastboot mode."))
+            print(get_string("device_reboot_fastboot_sent"))
         except Exception as e:
-            print(self.lang.get("device_err_reboot", f"[!] Failed to send reboot command: {e}").format(e=e), file=sys.stderr)
+            print(get_string("device_err_reboot").format(e=e), file=sys.stderr)
             raise
 
     def check_fastboot_device(self, silent: bool = False) -> bool:
         if not silent:
-            print(self.lang.get("device_check_fastboot", "[*] Checking for fastboot device..."))
+            print(get_string("device_check_fastboot"))
         try:
             result = utils.run_command([str(FASTBOOT_EXE), "devices"], capture=True, check=False)
             output = result.stdout.strip()
             
             if output:
                 if not silent:
-                    print(self.lang.get("device_found_fastboot", f"[+] Fastboot device found:\n{output}").format(output=output))
+                    print(get_string("device_found_fastboot").format(output=output))
                 return True
             
             if not silent:
-                print(self.lang.get("device_no_fastboot", "[!] No fastboot device found."))
-                print(self.lang.get("device_connect_fastboot", "[!] Please connect your device in fastboot/bootloader mode."))
+                print(get_string("device_no_fastboot"))
+                print(get_string("device_connect_fastboot"))
             return False
         
         except Exception as e:
             if not silent:
-                print(self.lang.get("device_err_check_fastboot", f"[!] Error checking for fastboot device: {e}").format(e=e), file=sys.stderr)
+                print(get_string("device_err_check_fastboot").format(e=e), file=sys.stderr)
             return False
 
     def wait_for_fastboot(self) -> bool:
-        print(self.lang.get("device_wait_fastboot_title", "\n--- WAITING FOR FASTBOOT DEVICE ---"))
+        print(get_string("device_wait_fastboot_title"))
         if self.check_fastboot_device(silent=True):
-            print(self.lang.get("device_fastboot_connected", "[+] Fastboot device connected."))
+            print(get_string("device_fastboot_connected"))
             return True
         
         while not self.check_fastboot_device(silent=True):
-            print(self.lang.get("device_wait_fastboot_loop", "[*] Waiting for fastboot device... (Press Ctrl+C to cancel)"))
+            print(get_string("device_wait_fastboot_loop"))
             try:
                 time.sleep(2)
             except KeyboardInterrupt:
-                print(self.lang.get("device_wait_fastboot_cancel", "\n[!] Fastboot wait cancelled by user."))
+                print(get_string("device_wait_fastboot_cancel"))
                 raise
-        print(self.lang.get("device_fastboot_connected", f"[+] Fastboot device connected."))
+        print(get_string("device_fastboot_connected"))
         return True
 
     def fastboot_reboot_system(self) -> None:
-        print(self.lang.get("device_reboot_sys_fastboot", "[*] Attempting to reboot device to System via Fastboot..."))
+        print(get_string("device_reboot_sys_fastboot"))
         try:
             utils.run_command([str(FASTBOOT_EXE), "reboot"])
-            print(self.lang.get("device_reboot_sent", "[+] Reboot command sent."))
+            print(get_string("device_reboot_sent"))
         except Exception as e:
-            print(self.lang.get("device_err_reboot", f"[!] Failed to send reboot command: {e}").format(e=e), file=sys.stderr)
+            print(get_string("device_err_reboot").format(e=e), file=sys.stderr)
             
     def get_fastboot_vars(self) -> str:
-        print(self.lang.get("device_rollback_header", "\n" + "="*61 + "\n  Rollback Check (Fastboot)\n" + "="*61))
+        print(get_string("device_rollback_header"))
 
         if not self.skip_adb:
-            print(self.lang.get("device_rebooting_fastboot", "  Rebooting to Fastboot mode..."))
+            print(get_string("device_rebooting_fastboot"))
             self.reboot_to_bootloader()
-            print(self.lang.get("device_wait_10s_fastboot", "[*] Waiting for 10 seconds for device to enter Fastboot mode..."))
+            print(get_string("device_wait_10s_fastboot"))
             time.sleep(10)
         else:
-            print(self.lang.get("device_skip_adb_on", "[!] Skip ADB is ON."))
-            print(self.lang.get("device_manual_reboot_fastboot", "[!] Please manually reboot your device to Fastboot mode."))
-            print(self.lang.get("device_press_enter_fastboot", "[!] Press Enter when the device is in Fastboot mode..."))
+            print(get_string("device_skip_adb_on"))
+            print(get_string("device_manual_reboot_fastboot"))
+            print(get_string("device_press_enter_fastboot"))
             try:
                 input()
             except EOFError:
@@ -180,24 +180,24 @@ class DeviceController:
         
         self.wait_for_fastboot()
         
-        print(self.lang.get("device_read_rollback", "[*] Reading rollback indices via fastboot..."))
+        print(get_string("device_read_rollback"))
         try:
             result = utils.run_command([str(FASTBOOT_EXE), "getvar", "all"], capture=True, check=False)
             output = result.stdout + "\n" + result.stderr
             
             if not self.skip_adb:
-                print(self.lang.get("device_reboot_back_sys", "[*] Rebooting back to system..."))
+                print(get_string("device_reboot_back_sys"))
                 self.fastboot_reboot_system()
             else:
-                print(self.lang.get("device_skip_adb_leave_fastboot", "[!] Skip ADB is ON. Leaving device in Fastboot mode."))
-                print(self.lang.get("device_manual_next_steps", "[!] (You may need to manually reboot to EDL or System for the next steps)"))
+                print(get_string("device_skip_adb_leave_fastboot"))
+                print(get_string("device_manual_next_steps"))
             
             return output
         except Exception as e:
-            print(self.lang.get("device_err_fastboot_vars", f"[!] Failed to get fastboot variables: {e}").format(e=e), file=sys.stderr)
+            print(get_string("device_err_fastboot_vars").format(e=e), file=sys.stderr)
             
             if not self.skip_adb:
-                print(self.lang.get("device_attempt_reboot_sys", "[!] Attempting to reboot system anyway..."))
+                print(get_string("device_attempt_reboot_sys"))
                 try:
                     self.fastboot_reboot_system()
                 except Exception:
@@ -206,7 +206,7 @@ class DeviceController:
 
     def check_edl_device(self, silent: bool = False) -> Optional[str]:
         if not silent:
-            print(self.lang.get("device_check_edl", "[*] Checking for Qualcomm EDL (9008) device..."))
+            print(get_string("device_check_edl"))
         
         try:
             ports = serial.tools.list_ports.comports()
@@ -216,71 +216,68 @@ class DeviceController:
                 
                 if is_qualcomm_port:
                     if not silent:
-                        print(self.lang.get("device_found_edl", f"[+] Qualcomm EDL device found: {port.device}").format(device=port.device))
+                        print(get_string("device_found_edl").format(device=port.device))
                     return port.device
             
             if not silent:
-                print(self.lang.get("device_no_edl", "[!] No Qualcomm EDL (9008) device found."))
-                print(self.lang.get("device_connect_edl", "[!] Please connect your device in EDL mode."))
+                print(get_string("device_no_edl"))
+                print(get_string("device_connect_edl"))
             return None
         
         except Exception as e:
             if not silent:
-                print(self.lang.get("device_err_check_edl", f"[!] Error checking for EDL device: {e}").format(e=e), file=sys.stderr)
+                print(get_string("device_err_check_edl").format(e=e), file=sys.stderr)
             return None
 
     def wait_for_edl(self) -> str:
-        print(self.lang.get("device_wait_edl_title", "\n--- WAITING FOR EDL DEVICE ---"))
+        print(get_string("device_wait_edl_title"))
         port_name = self.check_edl_device()
         if port_name:
             return port_name
         
         while not (port_name := self.check_edl_device(silent=True)):
-            print(self.lang.get("device_wait_edl_loop", "[*] Waiting for Qualcomm EDL (9008) device... (Press Ctrl+C to cancel)"))
+            print(get_string("device_wait_edl_loop"))
             try:
                 time.sleep(2)
             except KeyboardInterrupt:
-                print(self.lang.get("device_wait_edl_cancel", "\n[!] EDL wait cancelled by user."))
+                print(get_string("device_wait_edl_cancel"))
                 raise
-        print(self.lang.get("device_edl_connected", f"[+] EDL device connected on {port_name}.").format(port=port_name))
+        print(get_string("device_edl_connected").format(port=port_name))
         return port_name
 
     def setup_edl_connection(self) -> str:
         if self.check_edl_device(silent=True):
-            print(self.lang.get("device_already_edl", "[+] Device is already in EDL mode. Skipping ADB reboot."))
+            print(get_string("device_already_edl"))
         else:
             if not self.skip_adb:
                 self.wait_for_adb()
             
-            print(self.lang.get("device_edl_setup_title", "\n--- [EDL Setup] Rebooting to EDL Mode ---"))
+            print(get_string("device_edl_setup_title"))
             self.reboot_to_edl()
             
             if not self.skip_adb:
-                print(self.lang.get("device_wait_10s_edl", "[*] Waiting for 10 seconds for device to enter EDL mode..."))
+                print(get_string("device_wait_10s_edl"))
                 time.sleep(10)
 
-        print(self.lang.get("device_wait_loader_title", f"--- [EDL Setup] Waiting for EDL Loader File ---"))
+        print(get_string("device_wait_loader_title"))
         required_files = [EDL_LOADER_FILENAME]
-        prompt = self.lang.get("device_loader_prompt",
-            f"[STEP 1] Place the EDL loader file ('{EDL_LOADER_FILENAME}')\n"
-            f"         into the '{IMAGE_DIR.name}' folder to proceed."
-        ).format(loader=EDL_LOADER_FILENAME, folder=IMAGE_DIR.name)
+        prompt = get_string("device_loader_prompt").format(loader=EDL_LOADER_FILENAME, folder=IMAGE_DIR.name)
         
         IMAGE_DIR.mkdir(exist_ok=True)
-        utils.wait_for_files(IMAGE_DIR, required_files, prompt, lang=self.lang)
-        print(self.lang.get("device_loader_found", f"[+] Loader file '{EDL_LOADER_FILE.name}' found in '{IMAGE_DIR.name}'.").format(file=EDL_LOADER_FILE.name, dir=IMAGE_DIR.name))
+        utils.wait_for_files(IMAGE_DIR, required_files, prompt)
+        print(get_string("device_loader_found").format(file=EDL_LOADER_FILE.name, dir=IMAGE_DIR.name))
 
         port = self.wait_for_edl()
         self.edl_port = port
-        print(self.lang.get("device_edl_setup_done", "--- [EDL Setup] Device Connected ---"))
+        print(get_string("device_edl_setup_done"))
         return port
 
     def load_firehose_programmer(self, loader_path: Path, port: str) -> None:
         if not QSAHARASERVER_EXE.exists():
-            raise FileNotFoundError(self.lang.get("device_err_qsahara_missing", f"QSaharaServer.exe not found at {QSAHARASERVER_EXE}").format(path=QSAHARASERVER_EXE))
+            raise FileNotFoundError(get_string("device_err_qsahara_missing").format(path=QSAHARASERVER_EXE))
             
         port_str = f"\\\\.\\{port}"
-        print(self.lang.get("device_upload_programmer", f"[*] Uploading programmer via QSaharaServer to {port}...").format(port=port))
+        print(get_string("device_upload_programmer").format(port=port))
         
         cmd_sahara = [
             str(QSAHARASERVER_EXE),
@@ -291,11 +288,11 @@ class DeviceController:
         try:
             utils.run_command(cmd_sahara, check=True)
         except subprocess.CalledProcessError as e:
-            print(self.lang.get("device_fatal_programmer", "\n[!] FATAL ERROR: Failed to load Firehose programmer."), file=sys.stderr)
-            print(self.lang.get("device_fatal_causes", "[!] Possible causes:"), file=sys.stderr)
-            print(self.lang.get("device_cause_1", "    1. Connection instability (Try a different USB cable/port)."), file=sys.stderr)
-            print(self.lang.get("device_cause_2", "    2. Driver issue (Check Qualcomm HS-USB QDLoader 9008 in Device Manager)."), file=sys.stderr)
-            print(self.lang.get("device_cause_3", "    3. Device is hung (Hold Power+Vol- for 10s to force reboot, then try again)."), file=sys.stderr)
+            print(get_string("device_fatal_programmer"), file=sys.stderr)
+            print(get_string("device_fatal_causes"), file=sys.stderr)
+            print(get_string("device_cause_1"), file=sys.stderr)
+            print(get_string("device_cause_2"), file=sys.stderr)
+            print(get_string("device_cause_3"), file=sys.stderr)
             raise e
 
     def fh_loader_read_part(
@@ -308,7 +305,7 @@ class DeviceController:
         memory_name: str = "UFS"
     ) -> None:
         if not FH_LOADER_EXE.exists():
-            raise FileNotFoundError(self.lang.get("device_err_fh_missing", f"fh_loader.exe not found at {FH_LOADER_EXE}").format(path=FH_LOADER_EXE))
+            raise FileNotFoundError(get_string("device_err_fh_missing").format(path=FH_LOADER_EXE))
 
         dest_file = Path(output_filename).resolve()
         dest_dir = dest_file.parent
@@ -333,12 +330,12 @@ class DeviceController:
             "--zlpawarehost=1"
         ]
         
-        print(self.lang.get("device_dumping_part", f"[*] Dumping -> LUN:{lun}, Start:{start_sector}, Num:{num_sectors}...").format(lun=lun, start=start_sector, num=num_sectors))
+        print(get_string("device_dumping_part").format(lun=lun, start=start_sector, num=num_sectors))
         
         try:
             subprocess.run(cmd_fh, cwd=dest_dir, env=env, check=True)
         except subprocess.CalledProcessError as e:
-            print(self.lang.get("device_err_fh_exec", f"[!] Error executing fh_loader: {e}").format(e=e), file=sys.stderr)
+            print(get_string("device_err_fh_exec").format(e=e), file=sys.stderr)
             raise
 
     def fh_loader_write_part(
@@ -350,7 +347,7 @@ class DeviceController:
         memory_name: str = "UFS"
     ) -> None:
         if not FH_LOADER_EXE.exists():
-            raise FileNotFoundError(self.lang.get("device_err_fh_missing", f"fh_loader.exe not found at {FH_LOADER_EXE}").format(path=FH_LOADER_EXE))
+            raise FileNotFoundError(get_string("device_err_fh_missing").format(path=FH_LOADER_EXE))
 
         image_file = Path(image_path).resolve()
         work_dir = image_file.parent
@@ -369,24 +366,24 @@ class DeviceController:
             "--zlpawarehost=1"
         ]
         
-        print(self.lang.get("device_flashing_part", f"[*] Flashing -> {filename} to LUN:{lun}, Start:{start_sector}...").format(filename=filename, lun=lun, start=start_sector))
+        print(get_string("device_flashing_part").format(filename=filename, lun=lun, start=start_sector))
         
         env = os.environ.copy()
         env['PATH'] = str(TOOLS_DIR) + os.pathsep + str(DOWNLOAD_DIR) + os.pathsep + env['PATH']
 
         try:
             subprocess.run(cmd_fh, cwd=work_dir, env=env, check=True)
-            print(self.lang.get("device_flash_success", f"[+] Successfully flashed '{filename}'.").format(filename=filename))
+            print(get_string("device_flash_success").format(filename=filename))
         except subprocess.CalledProcessError as e:
-            print(self.lang.get("device_err_flash_exec", f"[!] Error executing fh_loader write: {e}").format(e=e), file=sys.stderr)
+            print(get_string("device_err_flash_exec").format(e=e), file=sys.stderr)
             raise
 
     def fh_loader_reset(self, port: str) -> None:
         if not FH_LOADER_EXE.exists():
-            raise FileNotFoundError(self.lang.get("device_err_fh_missing", f"fh_loader.exe not found at {FH_LOADER_EXE}").format(path=FH_LOADER_EXE))
+            raise FileNotFoundError(get_string("device_err_fh_missing").format(path=FH_LOADER_EXE))
             
         port_str = f"\\\\.\\{port}"
-        print(self.lang.get("device_resetting", f"[*] Resetting device via fh_loader on {port}...").format(port=port))
+        print(get_string("device_resetting").format(port=port))
         
         cmd_fh = [
             str(FH_LOADER_EXE),
@@ -405,16 +402,16 @@ class DeviceController:
         port: str
     ) -> None:
         if not QSAHARASERVER_EXE.exists() or not FH_LOADER_EXE.exists():
-            print(self.lang.get("device_err_tools_missing", f"[!] Error: Qsaharaserver.exe or fh_loader.exe not found in {TOOLS_DIR.name} folder.").format(dir=TOOLS_DIR.name))
+            print(get_string("device_err_tools_missing").format(dir=TOOLS_DIR.name))
             raise FileNotFoundError("Missing fh_loader/Qsaharaserver executables")
         
         port_str = f"\\\\.\\{port}"
         search_path = str(loader_path.parent)
 
-        print(self.lang.get("device_step1_load", "[*] STEP 1/2: Loading programmer with Qsaharaserver..."))
+        print(get_string("device_step1_load"))
         self.load_firehose_programmer(loader_path, port)
 
-        print(self.lang.get("device_step2_flash", "\n[*] STEP 2/2: Flashing firmware with fh_loader..."))
+        print(get_string("device_step2_flash"))
         raw_xml_str = ",".join([p.name for p in raw_xmls])
         patch_xml_str = ",".join([p.name for p in patch_xmls])
 

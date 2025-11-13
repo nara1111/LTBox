@@ -3,9 +3,9 @@ from typing import Optional, Dict
 
 from ..constants import *
 from .. import utils, device
+from ..i18n import get_string
 
-def detect_active_slot_robust(dev: device.DeviceController, skip_adb: bool, lang: Optional[Dict[str, str]] = None) -> Optional[str]:
-    lang = lang or {}
+def detect_active_slot_robust(dev: device.DeviceController, skip_adb: bool) -> Optional[str]:
     active_slot = None
 
     if not skip_adb:
@@ -15,56 +15,55 @@ def detect_active_slot_robust(dev: device.DeviceController, skip_adb: bool, lang
             pass
 
     if not active_slot:
-        print(lang.get("act_slot_adb_fail", "\n[!] Active slot not detected via ADB. Trying Fastboot..."))
+        print(get_string("act_slot_adb_fail"))
         
         if not skip_adb:
-            print(lang.get("act_reboot_bootloader", "[*] Rebooting to Bootloader..."))
+            print(get_string("act_reboot_bootloader"))
             try:
                 dev.reboot_to_bootloader()
             except Exception as e:
-                print(lang.get("act_err_reboot_bl", "[!] Failed to reboot to bootloader: {e}").format(e=e))
+                print(get_string("act_err_reboot_bl").format(e=e))
         else:
             print("\n" + "="*60)
-            print(lang.get("act_manual_fastboot", "  [ACTION REQUIRED] Please manually boot into FASTBOOT mode."))
+            print(get_string("act_manual_fastboot"))
             print("="*60 + "\n")
 
         dev.wait_for_fastboot()
         active_slot = dev.get_active_slot_suffix_from_fastboot()
 
         if not skip_adb:
-            print(lang.get("act_slot_detected_sys", "[*] Slot detected. Rebooting to System to prepare for EDL..."))
+            print(get_string("act_slot_detected_sys"))
             dev.fastboot_reboot_system()
-            print(lang.get("act_wait_adb", "[*] Waiting for ADB connection..."))
+            print(get_string("act_wait_adb"))
             dev.wait_for_adb()
         else:
             print("\n" + "="*60)
-            print(lang.get("act_detect_complete", "  [ACTION REQUIRED] Detection complete."))
-            print(lang.get("act_manual_edl", "  [ACTION REQUIRED] Please manually boot your device into EDL mode."))
+            print(get_string("act_detect_complete"))
+            print(get_string("act_manual_edl"))
             print("="*60 + "\n")
 
     return active_slot
 
-def disable_ota(skip_adb: bool = False, lang: Optional[Dict[str, str]] = None) -> None:
-    lang = lang or {}
-    dev = device.DeviceController(skip_adb=skip_adb, lang=lang)
+def disable_ota(skip_adb: bool = False) -> None:
+    dev = device.DeviceController(skip_adb=skip_adb)
     if dev.skip_adb:
-        print(lang.get("act_ota_skip_adb", "[!] 'Disable OTA' was skipped as requested by Skip ADB setting."))
+        print(get_string("act_ota_skip_adb"))
         return
     
-    print(lang.get("act_start_ota", "--- Starting Disable OTA Process ---"))
+    print(get_string("act_start_ota"))
     
     print("\n" + "="*61)
-    print(lang.get("act_ota_step1", "  STEP 1/2: Waiting for ADB Connection"))
+    print(get_string("act_ota_step1"))
     print("="*61)
     try:
         dev.wait_for_adb()
-        print(lang.get("act_adb_ok", "[+] ADB device connected."))
+        print(get_string("act_adb_ok"))
     except Exception as e:
-        print(lang.get("act_err_wait_adb", "[!] Error waiting for ADB device: {e}").format(e=e), file=sys.stderr)
+        print(get_string("act_err_wait_adb").format(e=e), file=sys.stderr)
         raise
 
     print("\n" + "="*61)
-    print(lang.get("act_ota_step2", "  STEP 2/2: Disabling Lenovo OTA Service"))
+    print(get_string("act_ota_step2"))
     print("="*61)
     
     command = [
@@ -72,19 +71,19 @@ def disable_ota(skip_adb: bool = False, lang: Optional[Dict[str, str]] = None) -
         "shell", "pm", "disable-user", "--user", "0", "com.lenovo.ota"
     ]
     
-    print(lang.get("act_run_cmd", "[*] Running command: {cmd}").format(cmd=' '.join(command)))
+    print(get_string("act_run_cmd").format(cmd=' '.join(command)))
     try:
         result = utils.run_command(command, capture=True)
         if "disabled" in result.stdout.lower() or "already disabled" in result.stdout.lower():
-            print(lang.get("act_ota_disabled", "[+] Success: OTA service (com.lenovo.ota) is now disabled."))
+            print(get_string("act_ota_disabled"))
             print(result.stdout.strip())
         else:
-            print(lang.get("act_ota_unexpected", "[!] Command executed, but result was unexpected."))
+            print(get_string("act_ota_unexpected"))
             print(f"Stdout: {result.stdout.strip()}")
             if result.stderr:
                 print(f"Stderr: {result.stderr.strip()}", file=sys.stderr)
     except Exception as e:
-        print(lang.get("act_err_ota_cmd", "[!] An error occurred while running the command: {e}").format(e=e), file=sys.stderr)
+        print(get_string("act_err_ota_cmd").format(e=e), file=sys.stderr)
         raise
 
-    print(lang.get("act_ota_finished", "\n--- Disable OTA Process Finished ---"))
+    print(get_string("act_ota_finished"))

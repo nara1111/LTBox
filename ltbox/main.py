@@ -60,23 +60,7 @@ def select_language():
         if choice not in available_languages:
             print(f"    [!] Invalid choice. Please enter a number from 1 to {len(available_languages)}.")
     
-    selected_lang_code = available_languages[choice]
-    lang_file_path = LANG_DIR / f"{selected_lang_code}.json"
-
-    try:
-        with open(lang_file_path, 'r', encoding='utf-8') as f:
-            lang_data = json.load(f)
-        return lang_data, selected_lang_code
-    except json.JSONDecodeError:
-        print(f"[!] Error: Failed to parse language file: {lang_file_path.name}", file=sys.stderr)
-    except FileNotFoundError:
-        print(f"[!] Error: Language file not found: {lang_file_path.name}", file=sys.stderr)
-    except Exception as e:
-        print(f"[!] An unexpected error occurred while loading language file: {e}", file=sys.stderr)
-    
-    if platform.system() == "Windows":
-        os.system("pause")
-    sys.exit(1)
+    return available_languages[choice]
 
 def setup_console():
     system = platform.system()
@@ -88,10 +72,27 @@ def setup_console():
             print(f"[!] Warning: Failed to set console title: {e}", file=sys.stderr)
 
 setup_console()
-lang, lang_code = select_language()
+lang_code = select_language()
+
+sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
+
+if platform.system() == "Windows":
+    import ctypes
+
+try:
+    from ltbox import i18n
+    i18n.load_lang(lang_code)
+    from ltbox.i18n import get_string
+except ImportError as e:
+    print(f"[!] Error: Failed to import 'ltbox' package.", file=sys.stderr)
+    print(f"[!] Details: {e}", file=sys.stderr)
+    print(f"[!] Please ensure the 'ltbox' folder and its files are present.", file=sys.stderr)
+    if platform.system() == "Windows":
+        os.system("pause")
+    sys.exit(1)
 
 os.system('cls' if os.name == 'nt' else 'clear')
-print(lang.get("dl_base_installing", "\n[*] Installing external tools (fetch, adb, avbtool)..."))
+print(get_string("dl_base_installing"))
 try:
     subprocess.run(
         [str(PYTHON_EXE), str(DOWNLOADER_PY), "install_base_tools", "--lang", lang_code],
@@ -105,11 +106,6 @@ except (subprocess.CalledProcessError, FileNotFoundError) as e:
     if platform.system() == "Windows":
         os.system("pause")
     sys.exit(1)
-
-sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
-
-if platform.system() == "Windows":
-    import ctypes
 
 try:
     from ltbox import utils, actions, workflow
@@ -141,26 +137,26 @@ COMMAND_MAP = {
     "patch_all_wipe": (workflow.patch_all, {"wipe": 1, "skip_adb": True}),
 }
 
-def check_path_encoding(lang):
+def check_path_encoding():
     current_path = str(Path(__file__).parent.parent.resolve())
     if not current_path.isascii():
         os.system('cls' if os.name == 'nt' else 'clear')
         print("\n" + "!" * 65)
-        print(lang["critical_error_path_encoding"])
+        print(get_string("critical_error_path_encoding"))
         print("  " + "-" * 60)
-        print(lang["current_path"].format(current_path=current_path))
+        print(get_string("current_path").format(current_path=current_path))
         print("  " + "-" * 60)
-        print(lang["path_encoding_details_1"])
-        print(lang["path_encoding_details_2"])
-        print("\n" + lang["action_required"])
-        print(lang["action_required_details"])
-        print(lang["example_path"])
+        print(get_string("path_encoding_details_1"))
+        print(get_string("path_encoding_details_2"))
+        print("\n" + get_string("action_required"))
+        print(get_string("action_required_details"))
+        print(get_string("example_path"))
         print("!" * 65 + "\n")
         
         if platform.system() == "Windows":
             os.system("pause")
         else:
-            input(lang["press_enter_to_exit"])
+            input(get_string("press_enter_to_exit"))
         sys.exit(1)
 
 @contextmanager
@@ -199,13 +195,13 @@ def capture_output_to_log(log_filename):
         logger.removeHandler(file_handler)
         file_handler.close()
 
-def run_task(command, title, skip_adb, lang):
+def run_task(command, title, skip_adb):
     os.environ['SKIP_ADB'] = '1' if skip_adb else '0'
     
     os.system('cls' if os.name == 'nt' else 'clear')
     
     print("  " + "=" * 58)
-    print(lang["starting_task"].format(title=title))
+    print(get_string("starting_task").format(title=title))
     print("  " + "=" * 58, "\n")
 
     needs_logging = command in ["patch_all", "patch_all_wipe"]
@@ -215,8 +211,8 @@ def run_task(command, title, skip_adb, lang):
     if needs_logging:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_file = f"log_{timestamp}.txt"
-        print(lang["logging_enabled"].format(log_file=log_file))
-        print(lang["logging_command"].format(command=command))
+        print(get_string("logging_enabled").format(log_file=log_file))
+        print(get_string("logging_command").format(command=command))
         log_context = capture_output_to_log(log_file)
     else:
         @contextmanager
@@ -227,7 +223,7 @@ def run_task(command, title, skip_adb, lang):
         with log_context:
             func_tuple = COMMAND_MAP.get(command)
             if not func_tuple:
-                print(lang["unknown_command"].format(command=command), file=sys.stderr)
+                print(get_string("unknown_command").format(command=command), file=sys.stderr)
                 return
             
             func, base_kwargs = func_tuple
@@ -235,38 +231,36 @@ def run_task(command, title, skip_adb, lang):
             if "skip_adb" in final_kwargs:
                 final_kwargs["skip_adb"] = skip_adb
             
-            final_kwargs["lang"] = lang
-            
             func(**final_kwargs)
 
     except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError, KeyError) as e:
         if not isinstance(e, SystemExit):
-            print(lang["unexpected_error"].format(e=e), file=sys.stderr)
+            print(get_string("unexpected_error").format(e=e), file=sys.stderr)
     except SystemExit:
-        print(lang["process_halted"], file=sys.stderr)
+        print(get_string("process_halted"), file=sys.stderr)
     except KeyboardInterrupt:
-        print(lang["process_cancelled"], file=sys.stderr)
+        print(get_string("process_cancelled"), file=sys.stderr)
     finally:
         print()
         if needs_logging and log_file:
-            print(lang["logging_finished"].format(log_file=log_file))
+            print(get_string("logging_finished").format(log_file=log_file))
 
         print("  " + "=" * 58)
-        print(lang["task_completed"].format(title=title))
+        print(get_string("task_completed").format(title=title))
         print("  " + "=" * 58, "\n")
         
         if command == "clean":
-            print(lang["press_any_key_to_exit"])
+            print(get_string("press_any_key_to_exit"))
         else:
-            print(lang["press_any_key_to_return"])
+            print(get_string("press_any_key_to_return"))
 
         if platform.system() == "Windows":
-            os.system(f"pause > nul & echo {lang['press_any_key']}...")
+            os.system(f"pause > nul & echo {get_string('press_any_key')}...")
         else:
             input()
 
-def run_info_scan(paths, lang):
-    print(lang["scan_start"])
+def run_info_scan(paths):
+    print(get_string("scan_start"))
     
     PYTHON_EXE = constants.PYTHON_EXE
     AVBTOOL_PY = constants.AVBTOOL_PY
@@ -284,10 +278,10 @@ def run_info_scan(paths, lang):
             files_to_scan.append(p)
     
     if not files_to_scan:
-        print(lang["scan_no_files"], file=sys.stderr)
+        print(get_string("scan_no_files"), file=sys.stderr)
         return
 
-    print(lang["scan_found_files"].format(count=len(files_to_scan)))
+    print(get_string("scan_found_files").format(count=len(files_to_scan)))
     
     logger = logging.getLogger("scan_logger")
     logger.setLevel(logging.INFO)
@@ -300,7 +294,7 @@ def run_info_scan(paths, lang):
             cmd = [str(PYTHON_EXE), str(AVBTOOL_PY), "info_image", "--image", str(f)]
             header = f"--- Info for: {f.resolve()} ---\n"
             logger.info(header)
-            print(lang["scan_scanning_file"].format(filename=f.name))
+            print(get_string("scan_scanning_file").format(filename=f.name))
             
             try:
                 result = utils.run_command(cmd, capture=True, check=False)
@@ -308,127 +302,127 @@ def run_info_scan(paths, lang):
                 logger.info(result.stderr)
                 logger.info("\n" + "="*70 + "\n")
             except Exception as e:
-                error_msg = lang["scan_failed"].format(filename=f.name, e=e)
+                error_msg = get_string("scan_failed").format(filename=f.name, e=e)
                 print(error_msg, file=sys.stderr)
                 logger.info(error_msg)
     finally:
         logger.removeHandler(fh)
         fh.close()
     
-    print(lang["scan_complete"])
-    print(lang["scan_saved_to"].format(filename=log_filename.name))
+    print(get_string("scan_complete"))
+    print(get_string("scan_saved_to").format(filename=log_filename.name))
 
-def print_main_menu(skip_adb, lang):
+def print_main_menu(skip_adb):
     skip_adb_state = "ON" if skip_adb else "OFF"
     os.system('cls' if os.name == 'nt' else 'clear')
     print("\n  " + "=" * 58)
-    print(lang["menu_main_title"])
+    print(get_string("menu_main_title"))
     print("  " + "=" * 58 + "\n")
-    print(lang["menu_main_1"])
-    print(lang["menu_main_2"])
-    print(lang["menu_main_3"])
-    print(lang["menu_main_4"])
-    print(lang["menu_main_5"])
-    print(lang["menu_main_6"].format(skip_adb_state=skip_adb_state))
-    print("\n" + lang["menu_main_a"])
-    print(lang["menu_main_x"])
+    print(get_string("menu_main_1"))
+    print(get_string("menu_main_2"))
+    print(get_string("menu_main_3"))
+    print(get_string("menu_main_4"))
+    print(get_string("menu_main_5"))
+    print(get_string("menu_main_6").format(skip_adb_state=skip_adb_state))
+    print("\n" + get_string("menu_main_a"))
+    print(get_string("menu_main_x"))
     print("\n  " + "=" * 58 + "\n")
 
-def print_advanced_menu(lang):
+def print_advanced_menu():
     os.system('cls' if os.name == 'nt' else 'clear')
     print("\n  " + "=" * 58)
-    print(lang["menu_adv_title"])
+    print(get_string("menu_adv_title"))
     print("  " + "=" * 58 + "\n")
-    print(lang["menu_adv_1"])
-    print(lang["menu_adv_2"])
-    print(lang["menu_adv_3"])
-    print(lang["menu_adv_4"])
-    print(lang["menu_adv_5"])
-    print(lang["menu_adv_6"])
-    print(lang["menu_adv_7"])
-    print(lang["menu_adv_8"])
-    print(lang["menu_adv_9"])
-    print(lang["menu_adv_10"])
-    print("\n" + lang["menu_adv_11"])
-    print(lang["menu_adv_m"])
+    print(get_string("menu_adv_1"))
+    print(get_string("menu_adv_2"))
+    print(get_string("menu_adv_3"))
+    print(get_string("menu_adv_4"))
+    print(get_string("menu_adv_5"))
+    print(get_string("menu_adv_6"))
+    print(get_string("menu_adv_7"))
+    print(get_string("menu_adv_8"))
+    print(get_string("menu_adv_9"))
+    print(get_string("menu_adv_10"))
+    print("\n" + get_string("menu_adv_11"))
+    print(get_string("menu_adv_m"))
     print("\n  " + "=" * 58 + "\n")
 
-def advanced_menu(skip_adb, lang):
+def advanced_menu(skip_adb):
     actions_map = {
-        "1": ("convert", lang["task_title_convert_rom"]),
-        "2": ("read_edl", lang["task_title_dump_devinfo"]),
-        "3": ("edit_dp", lang["task_title_patch_devinfo"]),
-        "4": ("write_edl", lang["task_title_write_devinfo"]),
-        "5": ("read_anti_rollback", lang["task_title_read_arb"]),
-        "6": ("patch_anti_rollback", lang["task_title_patch_arb"]),
-        "7" : ("write_anti_rollback", lang["task_title_write_arb"]),
-        "8": ("modify_xml_wipe", lang["task_title_modify_xml_wipe"]),
-        "9": ("modify_xml", lang["task_title_modify_xml_nowipe"]),
-        "10": ("flash_edl", lang["task_title_flash_edl"]),
-        "11": ("clean", lang["task_title_clean"])
+        "1": ("convert", get_string("task_title_convert_rom")),
+        "2": ("read_edl", get_string("task_title_dump_devinfo")),
+        "3": ("edit_dp", get_string("task_title_patch_devinfo")),
+        "4": ("write_edl", get_string("task_title_write_devinfo")),
+        "5": ("read_anti_rollback", get_string("task_title_read_arb")),
+        "6": ("patch_anti_rollback", get_string("task_title_patch_arb")),
+        "7" : ("write_anti_rollback", get_string("task_title_write_arb")),
+        "8": ("modify_xml_wipe", get_string("task_title_modify_xml_wipe")),
+        "9": ("modify_xml", get_string("task_title_modify_xml_nowipe")),
+        "10": ("flash_edl", get_string("task_title_flash_edl")),
+        "11": ("clean", get_string("task_title_clean"))
     }
 
     while True:
-        print_advanced_menu(lang)
-        choice = input(lang["menu_adv_prompt"]).strip().lower()
+        print_advanced_menu()
+        choice = input(get_string("menu_adv_prompt")).strip().lower()
 
         if choice in actions_map:
             cmd, title = actions_map[choice]
-            run_task(cmd, title, skip_adb, lang)
+            run_task(cmd, title, skip_adb)
             if choice == "11":
                 sys.exit()
         elif choice == "m":
             return
         else:
-            print(lang["menu_adv_invalid"])
+            print(get_string("menu_adv_invalid"))
             if platform.system() == "Windows":
-                os.system(f"pause > nul & echo {lang['press_any_key']}...")
+                os.system(f"pause > nul & echo {get_string('press_any_key')}...")
             else:
-                input(lang["press_enter_to_continue"])
+                input(get_string("press_enter_to_continue"))
 
-def main(lang):
+def main():
     skip_adb = False
     
     actions_map = {
-        "1": ("patch_all_wipe", lang["task_title_install_wipe"]),
-        "2": ("patch_all", lang["task_title_install_nowipe"]),
-        "3": ("disable_ota", lang["task_title_disable_ota"]),
-        "4": ("root_device", lang["task_title_root"]),
-        "5": ("unroot_device", lang["task_title_unroot"]),
+        "1": ("patch_all_wipe", get_string("task_title_install_wipe")),
+        "2": ("patch_all", get_string("task_title_install_nowipe")),
+        "3": ("disable_ota", get_string("task_title_disable_ota")),
+        "4": ("root_device", get_string("task_title_root")),
+        "5": ("unroot_device", get_string("task_title_unroot")),
     }
 
     while True:
-        print_main_menu(skip_adb, lang)
-        choice = input(lang["menu_main_prompt"]).strip().lower()
+        print_main_menu(skip_adb)
+        choice = input(get_string("menu_main_prompt")).strip().lower()
 
         if choice in actions_map:
             cmd, title = actions_map[choice]
-            run_task(cmd, title, skip_adb, lang)
+            run_task(cmd, title, skip_adb)
         elif choice == "6":
             skip_adb = not skip_adb
         elif choice == "a":
-            advanced_menu(skip_adb, lang)
+            advanced_menu(skip_adb)
         elif choice == "x":
             break
         else:
-            print(lang["menu_main_invalid"])
+            print(get_string("menu_main_invalid"))
             if platform.system() == "Windows":
-                os.system(f"pause > nul & echo {lang['press_any_key']}...")
+                os.system(f"pause > nul & echo {get_string('press_any_key')}...")
             else:
-                input(lang["press_enter_to_continue"])
+                input(get_string("press_enter_to_continue"))
 
 if __name__ == "__main__":
     
-    check_path_encoding(lang)
+    check_path_encoding()
     
     if len(sys.argv) > 1 and sys.argv[1].lower() == 'info':
         if len(sys.argv) > 2:
-            run_info_scan(sys.argv[2:], lang)
+            run_info_scan(sys.argv[2:])
         else:
-            print(lang["info_no_files_dragged"], file=sys.stderr)
-            print(lang["info_drag_files_prompt"], file=sys.stderr)
+            print(get_string("info_no_files_dragged"), file=sys.stderr)
+            print(get_string("info_drag_files_prompt"), file=sys.stderr)
         
         if platform.system() == "Windows":
             os.system("pause")
     else:
-        main(lang)
+        main()
