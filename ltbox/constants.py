@@ -89,3 +89,4 @@ KEY_MAP = {
 if not _config:
     load_config()
 COUNTRY_CODES = _config.get("country_codes", {})
+SORTED_COUNTRY_CODES = sorted(COUNTRY_CODES.items(), key=lambda item: item[1])

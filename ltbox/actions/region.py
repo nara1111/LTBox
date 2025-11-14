@@ -156,11 +156,11 @@ def convert_images(dev: device.DeviceController, device_model: Optional[str] = N
 def select_country_code(prompt_message: str = "Please select a country from the list below:") -> str:
     print(get_string("act_prompt_msg").format(msg=prompt_message.upper()))
 
-    if not const.COUNTRY_CODES:
+    if not const.SORTED_COUNTRY_CODES:
         print(get_string("act_err_codes_missing"), file=sys.stderr)
         raise ImportError(get_string("act_err_codes_missing_exc"))
 
-    sorted_countries = sorted(const.COUNTRY_CODES.items(), key=lambda item: item[1])
+    sorted_countries = const.SORTED_COUNTRY_CODES
     
     num_cols = 3
     col_width = 38 
