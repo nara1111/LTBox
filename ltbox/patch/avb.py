@@ -89,18 +89,6 @@ def extract_image_avb_info(image_path: Path) -> Dict[str, Any]:
 
     return info
 
-def _run_avbtool_main(args: List[str]) -> None:
-    avbtool = _load_avbtool()
-    if not avbtool:
-        raise RuntimeError(get_string("err_avbtool_not_loaded"))
-    
-    original_argv = sys.argv
-    try:
-        sys.argv = ["avbtool"] + args
-        avbtool.main()
-    finally:
-        sys.argv = original_argv
-
 def _apply_hash_footer(
     image_path: Path, 
     image_info: Dict[str, Any], 
@@ -128,7 +116,7 @@ def _apply_hash_footer(
         add_footer_cmd.extend(["--flags", image_info.get('flags', '0')])
         print(get_string("img_footer_restore_flags").format(flags=image_info.get('flags', '0')))
 
-    _run_avbtool_main(add_footer_cmd)
+    utils.run_command([str(const.PYTHON_EXE), str(const.AVBTOOL_PY)] + add_footer_cmd)
     print(get_string("img_footer_success").format(name=image_path.name))
 
 def patch_chained_image_rollback(
@@ -208,7 +196,7 @@ def patch_vbmeta_image_rollback(
             "--include_descriptors_from_image", str(new_image_path)
         ]
         
-        _run_avbtool_main(remake_cmd)
+        utils.run_command([str(const.PYTHON_EXE), str(const.AVBTOOL_PY)] + remake_cmd)
         print(get_string("img_patch_success").format(name=image_name))
 
     except (KeyError, subprocess.CalledProcessError, FileNotFoundError) as e:
