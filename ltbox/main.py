@@ -20,6 +20,7 @@ actions = None
 workflow = None
 device = None
 constants = None
+avb_patch = None
 
 COMMAND_MAP = {}
 
@@ -138,15 +139,14 @@ def run_info_scan(paths):
 
     with logging_context(log_filename) as logger:
         for f in files_to_scan:
-            cmd = [str(PYTHON_EXE), str(constants.AVBTOOL_PY), "info_image", "--image", str(f)]
             header = f"--- Info for: {f.resolve()} ---\n"
             logger.info(header)
             print(get_string("scan_scanning_file").format(filename=f.name))
             
             try:
-                result = utils.run_command(cmd, capture=True, check=False)
-                if result.stdout: logger.info(result.stdout)
-                if result.stderr: logger.info(result.stderr)
+                info = avb_patch.extract_image_avb_info(f)
+                info_str = json.dumps(info, indent=2)
+                logger.info(info_str)
                 logger.info("\n" + "="*70 + "\n")
             except Exception as e:
                 error_msg = get_string("scan_failed").format(filename=f.name, e=e)
@@ -291,7 +291,7 @@ def main_loop():
                 input(get_string("press_enter_to_continue"))
 
 def entry_point():
-    global utils, actions, workflow, device, constants, COMMAND_MAP
+    global utils, actions, workflow, device, constants, COMMAND_MAP, avb_patch
     
     setup_console()
     
@@ -323,8 +323,9 @@ def entry_point():
     try:
         from ltbox import utils as u, actions as a, workflow as w, device as d
         from ltbox import constants as c
+        from ltbox.patch import avb as avb
         
-        utils, actions, workflow, device, constants = u, a, w, d, c
+        utils, actions, workflow, device, constants, avb_patch = u, a, w, d, c, avb
         
         COMMAND_MAP.update({
             "convert": (actions.convert_images, {}),

@@ -89,6 +89,18 @@ def extract_image_avb_info(image_path: Path) -> Dict[str, Any]:
 
     return info
 
+def _run_avbtool_main(args: List[str]) -> None:
+    avbtool = _load_avbtool()
+    if not avbtool:
+        raise RuntimeError("avbtool module not loaded")
+    
+    original_argv = sys.argv
+    try:
+        sys.argv = ["avbtool"] + args
+        avbtool.main()
+    finally:
+        sys.argv = original_argv
+
 def _apply_hash_footer(
     image_path: Path, 
     image_info: Dict[str, Any], 
@@ -101,7 +113,7 @@ def _apply_hash_footer(
     print(get_string("img_footer_details").format(part=image_info['name'], rb=rollback_index))
 
     add_footer_cmd = [
-        str(const.PYTHON_EXE), str(const.AVBTOOL_PY), "add_hash_footer",
+        "add_hash_footer",
         "--image", str(image_path), 
         "--key", str(key_file),
         "--algorithm", image_info['algorithm'], 
@@ -116,7 +128,7 @@ def _apply_hash_footer(
         add_footer_cmd.extend(["--flags", image_info.get('flags', '0')])
         print(get_string("img_footer_restore_flags").format(flags=image_info.get('flags', '0')))
 
-    utils.run_command(add_footer_cmd)
+    _run_avbtool_main(add_footer_cmd)
     print(get_string("img_footer_success").format(name=image_path.name))
 
 def patch_chained_image_rollback(
@@ -187,7 +199,7 @@ def patch_vbmeta_image_rollback(
             raise KeyError(get_string("img_err_unknown_key").format(key=info['pubkey_sha1'], name=new_image_path.name))
 
         remake_cmd = [
-            str(const.PYTHON_EXE), str(const.AVBTOOL_PY), "make_vbmeta_image",
+            "make_vbmeta_image",
             "--output", str(patched_image_path),
             "--key", str(key_file),
             "--algorithm", info['algorithm'],
@@ -196,7 +208,7 @@ def patch_vbmeta_image_rollback(
             "--include_descriptors_from_image", str(new_image_path)
         ]
         
-        utils.run_command(remake_cmd)
+        _run_avbtool_main(remake_cmd)
         print(get_string("img_patch_success").format(name=image_name))
 
     except (KeyError, subprocess.CalledProcessError, FileNotFoundError) as e:
