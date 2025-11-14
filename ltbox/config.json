@@ -20,6 +20,16 @@
   "edl": {
     "loader_filename": "xbl_s_devprg_ns.melf"
   },
+  "patterns": {
+    "row_dot": "2E524F57",
+    "prc_dot": "2E505243",
+    "row_i": "49524F57",
+    "prc_i": "49505243"
+  },
+  "key_map": {
+    "2597c218aae470a130f61162feaae70afd97f011": "testkey_rsa4096.pem",
+    "cdbb77177f731920bbe0a0f94f84d9038ae0617d": "testkey_rsa2048.pem"
+  },
   "country_codes": {
     "AE": "United Arab Emirates", "AM": "Armenia", "AR": "Argentina", "AT": "Austria", "AU": "Australia",
     "AZ": "Azerbaijan", "BE": "Belgium", "BG": "Bulgaria", "BH": "Bahrain", "BR": "Brazil",

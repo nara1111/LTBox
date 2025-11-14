@@ -73,15 +73,21 @@ FETCH_REPO_URL = _get_cfg("tools", "fetch_repo_url")
 PLATFORM_TOOLS_ZIP_URL = _get_cfg("tools", "platform_tools_url")
 AVB_ARCHIVE_URL = _get_cfg("tools", "avb_archive_url")
 
-ROW_PATTERN_DOT = b"\x2E\x52\x4F\x57"
-PRC_PATTERN_DOT = b"\x2E\x50\x52\x43"
-ROW_PATTERN_I = b"\x49\x52\x4F\x57"
-PRC_PATTERN_I = b"\x49\x50\x52\x43"
+ROW_PATTERN_DOT = bytes.fromhex(_get_cfg("patterns", "row_dot"))
+PRC_PATTERN_DOT = bytes.fromhex(_get_cfg("patterns", "prc_dot"))
+ROW_PATTERN_I = bytes.fromhex(_get_cfg("patterns", "row_i"))
+PRC_PATTERN_I = bytes.fromhex(_get_cfg("patterns", "prc_i"))
 
-KEY_MAP = {
-    "2597c218aae470a130f61162feaae70afd97f011": DOWNLOAD_DIR / "testkey_rsa4096.pem",
-    "cdbb77177f731920bbe0a0f94f84d9038ae0617d": DOWNLOAD_DIR / "testkey_rsa2048.pem"
-}
+def _build_key_map() -> dict[str, Path]:
+    if not _config:
+        load_config()
+    try:
+        cfg_map = _config["key_map"]
+        return {key: DOWNLOAD_DIR / filename for key, filename in cfg_map.items()}
+    except KeyError:
+         raise RuntimeError(f"[!] Critical Error: Missing configuration section: [key_map]")
+
+KEY_MAP = _build_key_map()
 
 if not _config:
     load_config()
