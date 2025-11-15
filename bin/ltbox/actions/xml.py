@@ -206,6 +206,37 @@ def _modify_xml_algo(output_dir: Path, wipe: int = 0) -> None:
 
     print(get_string("img_xml_complete").format(dir=output_dir.name))
 
+def _create_write_xml(
+    src_xml_path: Path, 
+    dest_xml_path: Path, 
+    target_label: str, 
+    new_filename: str, 
+    success_key: str, 
+    error_key: str, 
+    warn_file_missing_key: str,
+    warn_label_missing_key: str
+) -> None:
+    if not src_xml_path.exists():
+        print(get_string(warn_file_missing_key).format(name=src_xml_path.name))
+        return
+
+    try:
+        tree = ET.parse(src_xml_path)
+        root = tree.getroot()
+        modified = False
+        for prog in root.findall('program'):
+            if prog.get('label', '').lower() == target_label:
+                prog.set('filename', new_filename)
+                modified = True
+        
+        tree.write(dest_xml_path, encoding='utf-8', xml_declaration=True)
+        
+        if modified:
+            print(get_string(success_key).format(name=dest_xml_path.name, parent=dest_xml_path.parent.name))
+        else:
+            print(get_string(warn_label_missing_key).format(name=src_xml_path.name))
+    except Exception as e:
+        print(get_string(error_key).format(name=dest_xml_path.name, e=e), file=sys.stderr)
 
 def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
     print(get_string("act_start_xml_mod"))
@@ -223,51 +254,27 @@ def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
             if not skip_dp:
                 print(get_string("act_create_write_xml"))
 
-                src_persist_xml = const.OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"
-                dest_persist_xml = const.OUTPUT_XML_DIR / "rawprogram_write_persist_unsparse0.xml"
-                
-                if src_persist_xml.exists():
-                    try:
-                        tree = ET.parse(src_persist_xml)
-                        root = tree.getroot()
-                        modified = False
-                        for prog in root.findall('program'):
-                            if prog.get('label', '').lower() == 'persist':
-                                prog.set('filename', 'persist.img')
-                                modified = True
-                        
-                        tree.write(dest_persist_xml, encoding='utf-8', xml_declaration=True)
-                        if modified:
-                            print(get_string("act_created_persist_xml").format(name=dest_persist_xml.name, parent=dest_persist_xml.parent.name))
-                        else:
-                            print(get_string("act_warn_persist_label_missing").format(name=src_persist_xml.name))
-                    except Exception as e:
-                        print(get_string("act_err_create_persist_xml").format(name=dest_persist_xml.name, e=e), file=sys.stderr)
-                else:
-                    print(get_string("act_warn_persist_xml_missing").format(name=src_persist_xml.name))
+                _create_write_xml(
+                    src_xml_path=(const.OUTPUT_XML_DIR / "rawprogram_save_persist_unsparse0.xml"),
+                    dest_xml_path=(const.OUTPUT_XML_DIR / "rawprogram_write_persist_unsparse0.xml"),
+                    target_label='persist',
+                    new_filename='persist.img',
+                    success_key="act_created_persist_xml",
+                    error_key="act_err_create_persist_xml",
+                    warn_file_missing_key="act_warn_persist_xml_missing",
+                    warn_label_missing_key="act_warn_persist_label_missing"
+                )
 
-                src_devinfo_xml = const.OUTPUT_XML_DIR / "rawprogram4.xml"
-                dest_devinfo_xml = const.OUTPUT_XML_DIR / "rawprogram4_write_devinfo.xml"
-                
-                if src_devinfo_xml.exists():
-                    try:
-                        tree = ET.parse(src_devinfo_xml)
-                        root = tree.getroot()
-                        modified = False
-                        for prog in root.findall('program'):
-                            if prog.get('label', '').lower() == 'devinfo':
-                                prog.set('filename', 'devinfo.img')
-                                modified = True
-
-                        tree.write(dest_devinfo_xml, encoding='utf-8', xml_declaration=True)
-                        if modified:
-                            print(get_string("act_created_devinfo_xml").format(name=dest_devinfo_xml.name, parent=dest_devinfo_xml.parent.name))
-                        else:
-                            print(get_string("act_warn_devinfo_label_missing").format(name=src_devinfo_xml.name))
-                    except Exception as e:
-                        print(get_string("act_err_create_devinfo_xml").format(name=dest_devinfo_xml.name, e=e), file=sys.stderr)
-                else:
-                    print(get_string("act_warn_devinfo_xml_missing").format(name=src_devinfo_xml.name))
+                _create_write_xml(
+                    src_xml_path=(const.OUTPUT_XML_DIR / "rawprogram4.xml"),
+                    dest_xml_path=(const.OUTPUT_XML_DIR / "rawprogram4_write_devinfo.xml"),
+                    target_label='devinfo',
+                    new_filename='devinfo.img',
+                    success_key="act_created_devinfo_xml",
+                    error_key="act_err_create_devinfo_xml",
+                    warn_file_missing_key="act_warn_devinfo_xml_missing",
+                    warn_label_missing_key="act_warn_devinfo_label_missing"
+                )
 
         except Exception as e:
             print(get_string("act_err_xml_mod").format(e=e), file=sys.stderr)
