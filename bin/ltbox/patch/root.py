@@ -9,46 +9,81 @@ from .. import constants as const
 from .. import utils, downloader
 from ..i18n import get_string
 
-def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path) -> Optional[Path]:
-    patched_boot_path = const.BASE_DIR / "boot.root.img"
+def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path, gki: bool = False) -> Optional[Path]:
     
-    print(get_string("img_root_step1"))
-    utils.run_command([str(magiskboot_exe), "unpack", "boot.img"], cwd=work_dir)
-    if not (work_dir / "kernel").exists():
-        print(get_string("img_root_unpack_fail"))
+    img_name = "boot.img" if gki else "init_boot.img"
+    out_img_name = "boot.root.img" if gki else "init_boot.root.img"
+    
+    patched_boot_path = const.BASE_DIR / out_img_name
+    work_img_path = work_dir / img_name
+
+    if not work_img_path.exists():
+        print(f"[!] Image '{img_name}' not found in working directory.", file=sys.stderr)
         return None
-    print(get_string("img_root_unpack_ok"))
 
-    print(get_string("img_root_step2"))
-    target_kernel_version = get_kernel_version(work_dir / "kernel")
-
-    if not target_kernel_version:
-            print(get_string("img_root_kernel_ver_fail"))
+    if gki:
+        print(get_string("img_root_step1").format(name=img_name))
+        utils.run_command([str(magiskboot_exe), "unpack", img_name], cwd=work_dir)
+        if not (work_dir / "kernel").exists():
+            print(get_string("img_root_unpack_fail"))
             return None
+        print(get_string("img_root_unpack_ok"))
 
-    if not re.match(r"\d+\.\d+\.\d+", target_kernel_version):
-            print(get_string("img_root_kernel_invalid").format(ver=target_kernel_version))
+        print(get_string("img_root_step2"))
+        target_kernel_version = get_kernel_version(work_dir / "kernel")
+
+        if not target_kernel_version:
+                print(get_string("img_root_kernel_ver_fail"))
+                return None
+
+        if not re.match(r"\d+\.\d+\.\d+", target_kernel_version):
+                print(get_string("img_root_kernel_invalid").format(ver=target_kernel_version))
+                return None
+        
+        print(get_string("img_root_target_ver").format(ver=target_kernel_version))
+
+        kernel_image_path = downloader.get_gki_kernel(target_kernel_version, work_dir)
+
+        print(get_string("img_root_step5"))
+        shutil.move(str(kernel_image_path), work_dir / "kernel")
+        print(get_string("img_root_kernel_replaced"))
+
+        print(get_string("img_root_step6").format(name=img_name))
+        utils.run_command([str(magiskboot_exe), "repack", img_name], cwd=work_dir)
+        if not (work_dir / "new-boot.img").exists():
+            print(get_string("img_root_repack_fail"))
             return None
+        shutil.move(work_dir / "new-boot.img", patched_boot_path)
+        print(get_string("img_root_repack_ok"))
+
+        downloader.download_ksu_apk(const.BASE_DIR)
+        
+        return patched_boot_path
     
-    print(get_string("img_root_target_ver").format(ver=target_kernel_version))
+    else:
+        # LKM Mode (init_boot)
+        print(get_string("img_root_step1_init_boot").format(name=img_name))
+        utils.run_command([str(magiskboot_exe), "unpack", img_name], cwd=work_dir)
+        if not (work_dir / "ramdisk.cpio").exists():
+            print(get_string("img_root_unpack_fail"))
+            return None
+        print(get_string("img_root_unpack_ok"))
 
-    kernel_image_path = downloader.get_gki_kernel(target_kernel_version, work_dir)
+        print(get_string("act_root_lkm_stub"))
+        
+        # TODO: Add LKM patch logic here in the future
+        # For now, just repacking
+        
+        print(get_string("img_root_step6_init_boot").format(name=img_name))
+        utils.run_command([str(magiskboot_exe), "repack", img_name], cwd=work_dir)
+        if not (work_dir / "new-boot.img").exists():
+            print(get_string("img_root_repack_fail"))
+            return None
+        shutil.move(work_dir / "new-boot.img", patched_boot_path)
+        print(get_string("img_root_repack_ok"))
 
-    print(get_string("img_root_step5"))
-    shutil.move(str(kernel_image_path), work_dir / "kernel")
-    print(get_string("img_root_kernel_replaced"))
+        return patched_boot_path
 
-    print(get_string("img_root_step6"))
-    utils.run_command([str(magiskboot_exe), "repack", "boot.img"], cwd=work_dir)
-    if not (work_dir / "new-boot.img").exists():
-        print(get_string("img_root_repack_fail"))
-        return None
-    shutil.move(work_dir / "new-boot.img", patched_boot_path)
-    print(get_string("img_root_repack_ok"))
-
-    downloader.download_ksu_apk(const.BASE_DIR)
-    
-    return patched_boot_path
 
 def get_kernel_version(file_path: Union[str, Path]) -> Optional[str]:
     kernel_file = Path(file_path)

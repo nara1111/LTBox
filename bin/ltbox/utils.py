@@ -152,10 +152,13 @@ def clean_workspace() -> None:
     folders_to_remove = [
         const.INPUT_CURRENT_DIR, const.INPUT_NEW_DIR,
         const.OUTPUT_DIR, const.OUTPUT_ROOT_DIR, const.OUTPUT_DP_DIR, const.OUTPUT_ANTI_ROLLBACK_DIR,
+        const.OUTPUT_ROOT_LKM_DIR,
         const.WORK_DIR,
         const.IMAGE_DIR,
         const.WORKING_DIR,
         const.OUTPUT_XML_DIR,
+        const.BACKUP_INIT_BOOT_DIR,
+        const.WORKING_BOOT_DIR,
     ]
     
     ui.echo(get_string('utils_removing_dirs'))
@@ -199,7 +202,8 @@ def clean_workspace() -> None:
         "KernelSU*.apk",
         "devinfo.img", 
         "persist.img", 
-        "boot.img", 
+        "boot.img",
+        "init_boot.img",
         "vbmeta.img",
         "platform-tools.zip"
     ]

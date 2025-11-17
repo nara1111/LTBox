@@ -83,7 +83,8 @@ def run_task(command, title, dev, command_map):
             final_kwargs = base_kwargs.copy()
             
             no_dev_needed = {
-                "root_boot_only", "edit_dp", "read_anti_rollback", 
+                "root_boot_only_gki", "root_boot_only_lkm", 
+                "edit_dp", "read_anti_rollback", 
                 "patch_anti_rollback", "clean", "modify_xml", "modify_xml_wipe",
                 "decrypt_xml"
             }
@@ -204,7 +205,7 @@ def print_advanced_menu():
     print(get_string("menu_adv_11"))
     print(get_string("menu_adv_12"))
     print("\n" + get_string("menu_adv_m"))
-    print("\n" + "=" * 58 + "\n")
+    print("\n  " + "=" * 58 + "\n")
 
 def advanced_menu(dev, command_map):
     actions_map = {
@@ -240,24 +241,62 @@ def advanced_menu(dev, command_map):
             else:
                 input(get_string("press_enter_to_continue"))
 
-def print_root_menu():
+def print_root_mode_selection_menu():
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("\n  " + "=" * 58)
+    print(get_string("menu_root_mode_title"))
+    print("  " + "=" * 58 + "\n")
+    print(get_string("menu_root_mode_1"))
+    print(get_string("menu_root_mode_2"))
+    print("\n" + get_string("menu_root_m"))
+    print("\n  " + "=" * 58 + "\n")
+
+def root_mode_selection_menu(dev, command_map):
+    while True:
+        print_root_mode_selection_menu()
+        choice = input(get_string("menu_root_mode_prompt")).strip().lower()
+
+        if choice == "1":
+            root_menu(dev, command_map, gki=False)
+        elif choice == "2":
+            root_menu(dev, command_map, gki=True)
+        elif choice == "m":
+            return
+        else:
+            print(get_string("menu_root_mode_invalid"))
+            if platform.system() == "Windows":
+                os.system(f"pause > nul & echo {get_string('press_any_key')}...")
+            else:
+                input(get_string("press_enter_to_continue"))
+
+def print_root_menu(gki: bool):
     os.system('cls' if os.name == 'nt' else 'clear')
     print("\n  " + "=" * 58)
     print(get_string("menu_root_title"))
     print("  " + "=" * 58 + "\n")
-    print(get_string("menu_root_1"))
-    print(get_string("menu_root_2"))
+    if gki:
+        print(get_string("menu_root_1_gki"))
+        print(get_string("menu_root_2_gki"))
+    else:
+        print(get_string("menu_root_1_lkm"))
+        print(get_string("menu_root_2_lkm"))
     print("\n" + get_string("menu_root_m"))
     print("\n  " + "=" * 58 + "\n")
 
-def root_menu(dev, command_map):
-    actions_map = {
-        "1": ("root_boot_only", get_string("task_title_root_file")),
-        "2": ("root_device", get_string("task_title_root")),
-    }
+def root_menu(dev, command_map, gki: bool):
+    if gki:
+        actions_map = {
+            "1": ("root_boot_only_gki", get_string("task_title_root_file_gki")),
+            "2": ("root_device_gki", get_string("task_title_root_gki")),
+        }
+    else:
+        actions_map = {
+            "1": ("root_boot_only_lkm", get_string("task_title_root_file_lkm")),
+            "2": ("root_device_lkm", get_string("task_title_root_lkm")),
+        }
 
     while True:
-        print_root_menu()
+        print_root_menu(gki)
         choice = input(get_string("menu_root_prompt")).strip().lower()
 
         if choice in actions_map:
@@ -291,7 +330,7 @@ def main_loop(device_controller_class, command_map):
             cmd, title = actions_map[choice]
             run_task(cmd, title, dev, command_map)
         elif choice == "4":
-            root_menu(dev, command_map)
+            root_mode_selection_menu(dev, command_map)
         elif choice == "6":
             skip_adb = not skip_adb
             dev.skip_adb = skip_adb
@@ -384,8 +423,10 @@ def entry_point():
             
             COMMAND_MAP = {
                 "convert": (a.convert_images, {}),
-                "root_device": (a.root_device, {}),
-                "root_boot_only": (a.root_boot_only, {}),
+                "root_device_gki": (a.root_device, {"gki": True}),
+                "root_boot_only_gki": (a.root_boot_only, {"gki": True}),
+                "root_device_lkm": (a.root_device, {"gki": False}),
+                "root_boot_only_lkm": (a.root_boot_only, {"gki": False}),
                 "unroot_device": (a.unroot_device, {}),
                 "disable_ota": (a.disable_ota, {}),
                 "edit_dp": (a.edit_devinfo_persist, {}),

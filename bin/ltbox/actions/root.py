@@ -17,11 +17,20 @@ from ..patch.root import patch_boot_with_root_algo
 from ..patch.avb import process_boot_image_avb
 from ..i18n import get_string
 
-def root_boot_only() -> None:
-    print(get_string("act_clean_root_out").format(dir=const.OUTPUT_ROOT_DIR.name))
-    if const.OUTPUT_ROOT_DIR.exists():
-        shutil.rmtree(const.OUTPUT_ROOT_DIR)
-    const.OUTPUT_ROOT_DIR.mkdir(exist_ok=True)
+def root_boot_only(gki: bool = False) -> None:
+    img_name = "boot.img" if gki else "init_boot.img"
+    bak_name = "boot.bak.img" if gki else "init_boot.bak.img"
+    out_dir = const.OUTPUT_ROOT_DIR if gki else const.OUTPUT_ROOT_LKM_DIR
+    out_dir_name = const.OUTPUT_ROOT_DIR.name if gki else const.OUTPUT_ROOT_LKM_DIR.name
+    wait_prompt = get_string("act_prompt_boot") if gki else get_string("act_prompt_init_boot")
+    err_missing = get_string("act_err_boot_missing") if gki else get_string("act_err_init_boot_missing")
+    success_msg = get_string("act_root_saved") if gki else get_string("act_root_saved_lkm")
+    fail_msg = get_string("act_err_root_fail") if gki else get_string("act_err_root_fail_lkm")
+
+    print(get_string("act_clean_root_out").format(dir=out_dir_name))
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(exist_ok=True)
     print()
     
     utils.check_dependencies()
@@ -31,14 +40,14 @@ def root_boot_only() -> None:
     if platform.system() != "Windows":
         os.chmod(magiskboot_exe, 0o755)
 
-    print(get_string("act_wait_boot"))
+    print(get_string("act_wait_boot") if gki else get_string("act_wait_init_boot"))
     const.IMAGE_DIR.mkdir(exist_ok=True) 
-    required_files = ["boot.img"]
-    prompt = get_string("act_prompt_boot").format(name=const.IMAGE_DIR.name)
+    required_files = [img_name]
+    prompt = wait_prompt.format(name=const.IMAGE_DIR.name)
     utils.wait_for_files(const.IMAGE_DIR, required_files, prompt)
     
-    boot_img_src = const.IMAGE_DIR / "boot.img"
-    boot_img = const.BASE_DIR / "boot.img" 
+    boot_img_src = const.IMAGE_DIR / img_name
+    boot_img = const.BASE_DIR / img_name
     
     try:
         shutil.copy(boot_img_src, boot_img)
@@ -48,47 +57,52 @@ def root_boot_only() -> None:
         raise ToolError(get_string("act_err_copy_boot").format(name=boot_img_src.name, e=e))
 
     if not boot_img.exists():
-        print(get_string("act_err_boot_missing"))
-        raise ToolError(get_string("act_err_boot_missing"))
+        print(err_missing)
+        raise ToolError(err_missing)
 
-    shutil.copy(boot_img, const.BASE_DIR / "boot.bak.img")
+    shutil.copy(boot_img, const.BASE_DIR / bak_name)
     print(get_string("act_backup_boot"))
 
     with utils.temporary_workspace(const.WORK_DIR):
-        shutil.copy(boot_img, const.WORK_DIR / "boot.img")
+        shutil.copy(boot_img, const.WORK_DIR / img_name)
         boot_img.unlink()
         
-        patched_boot_path = patch_boot_with_root_algo(const.WORK_DIR, magiskboot_exe)
+        patched_boot_path = patch_boot_with_root_algo(const.WORK_DIR, magiskboot_exe, gki=gki)
 
         if patched_boot_path and patched_boot_path.exists():
             print(get_string("act_finalize_root"))
-            final_boot_img = const.OUTPUT_ROOT_DIR / "boot.img"
+            final_boot_img = out_dir / img_name
             
-            process_boot_image_avb(patched_boot_path)
+            process_boot_image_avb(patched_boot_path, gki=gki)
 
-            print(get_string("act_move_root_final").format(dir=const.OUTPUT_ROOT_DIR.name))
+            print(get_string("act_move_root_final").format(dir=out_dir_name))
             shutil.move(patched_boot_path, final_boot_img)
 
             print(get_string("act_move_root_backup").format(dir=const.BACKUP_DIR.name))
             const.BACKUP_DIR.mkdir(exist_ok=True)
-            for bak_file in const.BASE_DIR.glob("boot.bak.img"):
+            for bak_file in const.BASE_DIR.glob(bak_name):
                 shutil.move(bak_file, const.BACKUP_DIR / bak_file.name)
             print()
 
             print("=" * 61)
             print(get_string("act_success"))
-            print(get_string("act_root_saved").format(dir=const.OUTPUT_ROOT_DIR.name))
+            print(success_msg.format(dir=out_dir_name))
             print("=" * 61)
         else:
-            print(get_string("act_err_root_fail"), file=sys.stderr)
+            print(fail_msg, file=sys.stderr)
 
-def root_device(dev: device.DeviceController) -> None:
+def root_device(dev: device.DeviceController, gki: bool = False) -> None:
     print(get_string("act_start_root"))
     
-    if const.OUTPUT_ROOT_DIR.exists():
-        shutil.rmtree(const.OUTPUT_ROOT_DIR)
-    const.OUTPUT_ROOT_DIR.mkdir(exist_ok=True)
-    const.BACKUP_BOOT_DIR.mkdir(exist_ok=True)
+    img_name = "boot.img" if gki else "init_boot.img"
+    bak_name = "boot.bak.img" if gki else "init_boot.bak.img"
+    out_dir = const.OUTPUT_ROOT_DIR if gki else const.OUTPUT_ROOT_LKM_DIR
+    bak_dir = const.BACKUP_BOOT_DIR if gki else const.BACKUP_INIT_BOOT_DIR
+    
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(exist_ok=True)
+    bak_dir.mkdir(exist_ok=True)
 
     utils.check_dependencies()
     
@@ -103,12 +117,12 @@ def root_device(dev: device.DeviceController) -> None:
 
     if active_slot:
         print(get_string("act_slot_confirmed").format(slot=active_slot))
-        target_partition = f"boot{active_slot}"
+        target_partition = f"boot{active_slot}" if gki else f"init_boot{active_slot}"
     else:
         print(get_string("act_warn_root_slot"))
-        target_partition = "boot"
+        target_partition = "boot" if gki else "init_boot"
 
-    if not dev.skip_adb:
+    if not dev.skip_adb and gki:
         print(get_string("act_check_ksu"))
         downloader.download_ksu_apk(const.BASE_DIR)
         
@@ -133,15 +147,18 @@ def root_device(dev: device.DeviceController) -> None:
     except Exception as e:
         print(get_string("act_warn_prog_load").format(e=e))
 
-    print(get_string("act_root_step3").format(part=target_partition))
+    if gki:
+        print(get_string("act_root_step3").format(part=target_partition))
+    else:
+        print(get_string("act_root_step3_init_boot").format(part=target_partition))
     
     params = None
-    final_boot_img = const.OUTPUT_ROOT_DIR / "boot.img"
+    final_boot_img = out_dir / img_name
     
     with utils.temporary_workspace(const.WORKING_BOOT_DIR):
-        dumped_boot_img = const.WORKING_BOOT_DIR / "boot.img"
-        backup_boot_img = const.BACKUP_BOOT_DIR / "boot.img"
-        base_boot_bak = const.BASE_DIR / "boot.bak.img"
+        dumped_boot_img = const.WORKING_BOOT_DIR / img_name
+        backup_boot_img = bak_dir / img_name
+        base_boot_bak = const.BASE_DIR / bak_name
 
         try:
             params = ensure_params_or_fail(target_partition)
@@ -167,8 +184,11 @@ def root_device(dev: device.DeviceController) -> None:
                 except (ValueError, OSError) as e:
                     print(get_string("act_err_dump").format(part=target_partition, e=f"Size validation error: {e}"), file=sys.stderr)
                     raise
-
-            print(get_string("act_read_boot_ok").format(part=target_partition, file=dumped_boot_img))
+            
+            if gki:
+                print(get_string("act_read_boot_ok").format(part=target_partition, file=dumped_boot_img))
+            else:
+                print(get_string("act_read_init_boot_ok").format(part=target_partition, file=dumped_boot_img))
         except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
             print(get_string("act_err_dump").format(part=target_partition, e=e), file=sys.stderr)
             raise
@@ -182,8 +202,12 @@ def root_device(dev: device.DeviceController) -> None:
         print(get_string("act_dump_reset"))
         dev.fh_loader_reset(port)
         
-        print(get_string("act_root_step4"))
-        patched_boot_path = patch_boot_with_root_algo(const.WORKING_BOOT_DIR, magiskboot_exe)
+        if gki:
+            print(get_string("act_root_step4"))
+        else:
+            print(get_string("act_root_step4_init_boot"))
+            
+        patched_boot_path = patch_boot_with_root_algo(const.WORKING_BOOT_DIR, magiskboot_exe, gki=gki)
 
         if not (patched_boot_path and patched_boot_path.exists()):
             print(get_string("act_err_root_fail"), file=sys.stderr)
@@ -192,7 +216,7 @@ def root_device(dev: device.DeviceController) -> None:
 
         print(get_string("act_root_step5"))
         try:
-            process_boot_image_avb(patched_boot_path)
+            process_boot_image_avb(patched_boot_path, gki=gki)
         except Exception as e:
             print(get_string("act_err_avb_footer").format(e=e), file=sys.stderr)
             base_boot_bak.unlink(missing_ok=True)
@@ -203,7 +227,10 @@ def root_device(dev: device.DeviceController) -> None:
 
         base_boot_bak.unlink(missing_ok=True)
 
-    print(get_string("act_root_step6").format(part=target_partition))
+    if gki:
+        print(get_string("act_root_step6").format(part=target_partition))
+    else:
+        print(get_string("act_root_step6_init_boot").format(part=target_partition))
     
     if not dev.skip_adb:
         print(get_string("act_wait_sys_adb"))
@@ -230,8 +257,11 @@ def root_device(dev: device.DeviceController) -> None:
             lun=params['lun'],
             start_sector=params['start_sector']
         )
-        print(get_string("act_flash_boot_ok").format(part=target_partition))
-        
+        if gki:
+            print(get_string("act_flash_boot_ok").format(part=target_partition))
+        else:
+            print(get_string("act_flash_init_boot_ok").format(part=target_partition))
+
         print(get_string("act_reset_sys"))
         dev.fh_loader_reset(port)
     except (subprocess.CalledProcessError, FileNotFoundError) as e:

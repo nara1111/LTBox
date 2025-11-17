@@ -183,9 +183,12 @@ def patch_vbmeta_image_rollback(
         print(get_string("img_err_processing").format(name=image_name, e=e), file=sys.stderr)
         raise
 
-def process_boot_image_avb(image_to_process: Path) -> None:
-    print(get_string("img_verify_boot")) 
-    boot_bak_img = const.BASE_DIR / "boot.bak.img"
+def process_boot_image_avb(image_to_process: Path, gki: bool = False) -> None:
+    print(get_string("img_verify_boot"))
+    
+    bak_name = "boot.bak.img" if gki else "init_boot.bak.img"
+    boot_bak_img = const.BASE_DIR / bak_name
+    
     if not boot_bak_img.exists():
         print(get_string("img_err_boot_bak_missing").format(name=boot_bak_img.name), file=sys.stderr)
         raise FileNotFoundError(get_string("img_err_boot_bak_missing").format(name=boot_bak_img.name))
@@ -193,28 +196,17 @@ def process_boot_image_avb(image_to_process: Path) -> None:
     print(f"[*] Extracting AVB info from original '{boot_bak_img.name}'...")
     boot_info = extract_image_avb_info(boot_bak_img)
     
-    required_keys = ['partition_size', 'name', 'rollback', 'salt', 'algorithm', 'pubkey_sha1']
+    required_keys = ['partition_size', 'name', 'rollback', 'salt', 'algorithm']
+    if gki:
+        required_keys.append('pubkey_sha1')
+        
     for key in required_keys:
         if key not in boot_info:
             if key == 'partition_size' and 'data_size' in boot_info:
                  boot_info['partition_size'] = boot_info['data_size']
             else:
                 raise KeyError(get_string("img_err_missing_key").format(key=key, name=boot_bak_img.name))
-            
-    boot_pubkey = boot_info.get('pubkey_sha1')
-    key_file = const.KEY_MAP.get(boot_pubkey) 
-    
-    if not key_file:
-        key_file_sha1 = "2597c218aae470a130f61162feaae70afd97f011"
-        key_file = const.KEY_MAP.get(key_file_sha1)
-        if not key_file:
-            print(get_string("img_err_boot_key_mismatch").format(key=boot_pubkey))
-            raise KeyError(get_string("img_err_boot_key_mismatch").format(key=boot_pubkey))
-        else:
-            print(f"[!] Warning: Original key SHA1 '{boot_pubkey}' not in key_map. Falling back to '{key_file.name}'.")
 
-    print(get_string("img_key_matched").format(name=key_file.name))
-    
     try:
         print(f"[*] Erasing any existing footer from '{image_to_process.name}' (pre-signing step)...")
         utils.run_command(
@@ -225,9 +217,48 @@ def process_boot_image_avb(image_to_process: Path) -> None:
         print(f"[*] Note: 'erase_footer' complete. Errors are ignored as image may not have a footer.")
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"[*] Note: 'erase_footer' failed, likely because no footer was present. This is expected. ({e})")
+            
+    if gki:
+        boot_pubkey = boot_info.get('pubkey_sha1')
+        key_file = const.KEY_MAP.get(boot_pubkey) 
+        
+        if not key_file:
+            key_file_sha1 = "2597c218aae470a130f61162feaae70afd97f011"
+            key_file = const.KEY_MAP.get(key_file_sha1)
+            if not key_file:
+                print(get_string("img_err_boot_key_mismatch").format(key=boot_pubkey))
+                raise KeyError(get_string("img_err_boot_key_mismatch").format(key=boot_pubkey))
+            else:
+                print(f"[!] Warning: Original key SHA1 '{boot_pubkey}' not in key_map. Falling back to '{key_file.name}'.")
 
-    _apply_hash_footer(
-        image_path=image_to_process,
-        image_info=boot_info,
-        key_file=key_file
-    )
+        print(get_string("img_key_matched").format(name=key_file.name))
+        
+        _apply_hash_footer(
+            image_path=image_to_process,
+            image_info=boot_info,
+            key_file=key_file
+        )
+    else:
+        # LKM Mode (init_boot)
+        if boot_info.get('algorithm', 'NONE') != 'NONE':
+            print(f"[!] Warning: '{bak_name}' algorithm is '{boot_info.get('algorithm')}', not 'NONE'. Overriding to NONE.")
+        
+        print(f"[*] Applying hash footer for '{image_to_process.name}' with Algorithm=NONE (no signing)...")
+        
+        add_footer_cmd = [
+            str(const.PYTHON_EXE), str(const.AVBTOOL_PY), "add_hash_footer",
+            "--image", str(image_to_process), 
+            "--algorithm", "NONE",
+            "--partition_size", boot_info['partition_size'],
+            "--partition_name", boot_info['name'], 
+            "--rollback_index", str(boot_info['rollback']),
+            "--salt", boot_info['salt'], 
+            *boot_info.get('props_args', [])
+        ]
+        
+        if 'flags' in boot_info:
+            add_footer_cmd.extend(["--flags", boot_info.get('flags', '0')])
+            print(get_string("img_footer_restore_flags").format(flags=boot_info.get('flags', '0')))
+
+        utils.run_command(add_footer_cmd)
+        print(get_string("img_footer_success").format(name=image_to_process.name))
