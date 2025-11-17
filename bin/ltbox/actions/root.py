@@ -15,7 +15,7 @@ from ..errors import ToolError
 from ..partition import ensure_params_or_fail
 from .system import detect_active_slot_robust
 from ..patch.root import patch_boot_with_root_algo
-from ..patch.avb import process_boot_image_avb
+from ..patch.avb import process_boot_image_avb, extract_image_avb_info
 from ..i18n import get_string
 
 def _patch_lkm_via_app(
@@ -96,6 +96,9 @@ def root_boot_only(gki: bool = False) -> None:
     out_dir = const.OUTPUT_ROOT_DIR if gki else const.OUTPUT_ROOT_LKM_DIR
     out_dir_name = const.OUTPUT_ROOT_DIR.name if gki else const.OUTPUT_ROOT_LKM_DIR.name
     
+    vbmeta_img_name = "vbmeta.img"
+    vbmeta_bak_name = "vbmeta.bak.img"
+
     if gki:
         wait_prompt_key = "act_prompt_boot"
         success_msg_key = "act_root_saved"
@@ -123,6 +126,11 @@ def root_boot_only(gki: bool = False) -> None:
     print(get_string("act_wait_boot") if gki else get_string("act_wait_init_boot"))
     const.IMAGE_DIR.mkdir(exist_ok=True) 
     required_files = [img_name]
+    
+    if not gki:
+        required_files.append(vbmeta_img_name)
+        wait_prompt = wait_prompt.replace(f"'{img_name}'", f"'{img_name}' and '{vbmeta_img_name}'")
+
     prompt = wait_prompt.format(name=const.IMAGE_DIR.name)
     utils.wait_for_files(const.IMAGE_DIR, required_files, prompt)
     
@@ -136,18 +144,34 @@ def root_boot_only(gki: bool = False) -> None:
         print(get_string("act_err_copy_boot").format(name=boot_img_src.name, e=e), file=sys.stderr)
         raise ToolError(get_string("act_err_copy_boot").format(name=boot_img_src.name, e=e))
 
+    if not gki:
+        vbmeta_img_src = const.IMAGE_DIR / vbmeta_img_name
+        vbmeta_img = const.BASE_DIR / vbmeta_img_name
+        try:
+            shutil.copy(vbmeta_img_src, vbmeta_img)
+            print(get_string("act_copy_boot").format(name=vbmeta_img_src.name))
+        except (IOError, OSError) as e:
+            print(get_string("act_err_copy_boot").format(name=vbmeta_img_src.name, e=e), file=sys.stderr)
+            raise ToolError(get_string("act_err_copy_boot").format(name=vbmeta_img_src.name, e=e))
+
     if not boot_img.exists():
         print(err_missing)
         raise ToolError(err_missing)
 
     shutil.copy(boot_img, const.BASE_DIR / bak_name)
     print(get_string("act_backup_boot"))
+    if not gki:
+        shutil.copy(vbmeta_img, const.BASE_DIR / vbmeta_bak_name)
+        print(get_string("act_backup_boot"))
 
     patched_boot_path = None
+    patched_vbmeta_path = None
 
     with utils.temporary_workspace(const.WORK_DIR):
         shutil.copy(boot_img, const.WORK_DIR / img_name)
         boot_img.unlink()
+        if not gki:
+            vbmeta_img.unlink()
         
         if gki:
             magiskboot_exe = utils.get_platform_executable("magiskboot")
@@ -170,18 +194,52 @@ def root_boot_only(gki: bool = False) -> None:
         
         process_boot_image_avb(patched_boot_path, gki=gki)
 
+        if not gki:
+            print(get_string("act_remake_vbmeta"))
+            vbmeta_bak = const.BASE_DIR / vbmeta_bak_name
+            vbmeta_info = extract_image_avb_info(vbmeta_bak)
+            
+            vbmeta_pubkey = vbmeta_info.get('pubkey_sha1')
+            key_file = const.KEY_MAP.get(vbmeta_pubkey) 
+
+            print(get_string("act_verify_vbmeta_key"))
+            if not key_file:
+                print(get_string("act_err_vbmeta_key_mismatch").format(key=vbmeta_pubkey))
+                raise KeyError(get_string("act_err_unknown_key").format(key=vbmeta_pubkey))
+            print(get_string("act_key_matched").format(name=key_file.name))
+            
+            print(get_string("act_remaking_vbmeta"))
+            patched_vbmeta_path = const.BASE_DIR / "vbmeta.root.img"
+            remake_cmd = [
+                str(const.PYTHON_EXE), str(const.AVBTOOL_PY), "make_vbmeta_image",
+                "--output", str(patched_vbmeta_path),
+                "--key", str(key_file),
+                "--algorithm", vbmeta_info['algorithm'],
+                "--padding_size", "8192",
+                "--flags", vbmeta_info.get('flags', '0'),
+                "--rollback_index", vbmeta_info.get('rollback', '0'),
+                "--include_descriptors_from_image", str(vbmeta_bak),
+                "--include_descriptors_from_image", str(patched_boot_path) 
+            ]
+            utils.run_command(remake_cmd)
+            print()
+
         print(get_string("act_move_root_final").format(dir=out_dir_name))
         shutil.move(patched_boot_path, final_boot_img)
+        if patched_vbmeta_path and patched_vbmeta_path.exists():
+            shutil.move(patched_vbmeta_path, out_dir / vbmeta_img_name)
 
         print(get_string("act_move_root_backup").format(dir=const.BACKUP_DIR.name))
         const.BACKUP_DIR.mkdir(exist_ok=True)
-        for bak_file in const.BASE_DIR.glob(bak_name):
+        for bak_file in const.BASE_DIR.glob("*.bak.img"):
             shutil.move(bak_file, const.BACKUP_DIR / bak_file.name)
         print()
 
         print("=" * 61)
         print(get_string("act_success"))
         print(success_msg.format(dir=out_dir_name))
+        if not gki:
+            print(f"  Patched {vbmeta_img_name} saved to '{out_dir_name}'.")
         print("=" * 61)
     else:
         print(fail_msg, file=sys.stderr)
@@ -193,6 +251,9 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
     bak_name = "boot.bak.img" if gki else "init_boot.bak.img"
     out_dir = const.OUTPUT_ROOT_DIR if gki else const.OUTPUT_ROOT_LKM_DIR
     bak_dir = const.BACKUP_BOOT_DIR if gki else const.BACKUP_INIT_BOOT_DIR
+    
+    vbmeta_img_name = "vbmeta.img"
+    vbmeta_bak_name = "vbmeta.bak.img"
     
     if out_dir.exists():
         shutil.rmtree(out_dir)
@@ -210,12 +271,15 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
 
     active_slot = detect_active_slot_robust(dev)
 
+    target_partition = ""
     if active_slot:
         print(get_string("act_slot_confirmed").format(slot=active_slot))
         target_partition = f"boot{active_slot}" if gki else f"init_boot{active_slot}"
     else:
         print(get_string("act_warn_root_slot"))
         target_partition = "boot" if gki else "init_boot"
+    
+    target_vbmeta_partition = "vbmeta"
 
     if not dev.skip_adb and gki:
         print(get_string("act_check_ksu"))
@@ -248,12 +312,18 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
         print(get_string("act_root_step3_init_boot").format(part=target_partition))
     
     params = None
+    params_vbmeta = None
     final_boot_img = out_dir / img_name
+    final_vbmeta_img = out_dir / vbmeta_img_name
     
     with utils.temporary_workspace(const.WORKING_BOOT_DIR):
         dumped_boot_img = const.WORKING_BOOT_DIR / img_name
         backup_boot_img = bak_dir / img_name
         base_boot_bak = const.BASE_DIR / bak_name
+
+        dumped_vbmeta_img = const.WORKING_BOOT_DIR / vbmeta_img_name
+        backup_vbmeta_img = bak_dir / vbmeta_img_name
+        base_vbmeta_bak = const.BASE_DIR / vbmeta_bak_name
 
         try:
             params = ensure_params_or_fail(target_partition)
@@ -266,6 +336,17 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
                 num_sectors=params['num_sectors']
             )
             
+            if not gki:
+                params_vbmeta = ensure_params_or_fail(target_vbmeta_partition)
+                print(get_string("act_found_dump_info").format(xml=params_vbmeta['source_xml'], lun=params_vbmeta['lun'], start=params_vbmeta['start_sector']))
+                dev.fh_loader_read_part(
+                    port=port,
+                    output_filename=str(dumped_vbmeta_img),
+                    lun=params_vbmeta['lun'],
+                    start_sector=params_vbmeta['start_sector'],
+                    num_sectors=params_vbmeta['num_sectors']
+                )
+
             if params.get('size_in_kb'):
                 try:
                     expected_size_bytes = int(float(params['size_in_kb']) * 1024)
@@ -284,6 +365,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
                 print(get_string("act_read_boot_ok").format(part=target_partition, file=dumped_boot_img))
             else:
                 print(get_string("act_read_init_boot_ok").format(part=target_partition, file=dumped_boot_img))
+                print(get_string("act_read_boot_ok").format(part=target_vbmeta_partition, file=dumped_vbmeta_img))
         except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
             print(get_string("act_err_dump").format(part=target_partition, e=e), file=sys.stderr)
             raise
@@ -292,6 +374,9 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
         shutil.copy(dumped_boot_img, backup_boot_img)
         print(get_string("act_temp_backup_avb"))
         shutil.copy(dumped_boot_img, base_boot_bak)
+        if not gki:
+            shutil.copy(dumped_vbmeta_img, backup_vbmeta_img)
+            shutil.copy(dumped_vbmeta_img, base_vbmeta_bak)
         print(get_string("act_backups_done"))
 
         print(get_string("act_dump_reset"))
@@ -307,6 +392,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
         if not (patched_boot_path and patched_boot_path.exists()):
             print(get_string("act_err_root_fail"), file=sys.stderr)
             base_boot_bak.unlink(missing_ok=True)
+            if not gki: base_vbmeta_bak.unlink(missing_ok=True)
             raise ToolError(get_string("act_err_root_fail"))
 
         print(get_string("act_root_step5"))
@@ -315,12 +401,46 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
         except Exception as e:
             print(get_string("act_err_avb_footer").format(e=e), file=sys.stderr)
             base_boot_bak.unlink(missing_ok=True)
+            if not gki: base_vbmeta_bak.unlink(missing_ok=True)
             raise
+
+        if not gki:
+            print(get_string("act_remake_vbmeta"))
+            vbmeta_bak = base_vbmeta_bak
+            vbmeta_info = extract_image_avb_info(vbmeta_bak)
+            
+            vbmeta_pubkey = vbmeta_info.get('pubkey_sha1')
+            key_file = const.KEY_MAP.get(vbmeta_pubkey) 
+
+            print(get_string("act_verify_vbmeta_key"))
+            if not key_file:
+                print(get_string("act_err_vbmeta_key_mismatch").format(key=vbmeta_pubkey))
+                raise KeyError(get_string("act_err_unknown_key").format(key=vbmeta_pubkey))
+            print(get_string("act_key_matched").format(name=key_file.name))
+            
+            print(get_string("act_remaking_vbmeta"))
+            patched_vbmeta_path = const.BASE_DIR / "vbmeta.root.img"
+            remake_cmd = [
+                str(const.PYTHON_EXE), str(const.AVBTOOL_PY), "make_vbmeta_image",
+                "--output", str(patched_vbmeta_path),
+                "--key", str(key_file),
+                "--algorithm", vbmeta_info['algorithm'],
+                "--padding_size", "8192",
+                "--flags", vbmeta_info.get('flags', '0'),
+                "--rollback_index", vbmeta_info.get('rollback', '0'),
+                "--include_descriptors_from_image", str(vbmeta_bak),
+                "--include_descriptors_from_image", str(patched_boot_path) 
+            ]
+            utils.run_command(remake_cmd)
+            print()
+            shutil.move(patched_vbmeta_path, final_vbmeta_img)
+            print(get_string("act_patched_boot_saved").format(dir=final_vbmeta_img.parent.name))
 
         shutil.move(patched_boot_path, final_boot_img)
         print(get_string("act_patched_boot_saved").format(dir=final_boot_img.parent.name))
 
         base_boot_bak.unlink(missing_ok=True)
+        if not gki: base_vbmeta_bak.unlink(missing_ok=True)
 
     if gki:
         print(get_string("act_root_step6").format(part=target_partition))
@@ -344,6 +464,8 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
 
     if not params:
          params = ensure_params_or_fail(target_partition)
+    if not gki and not params_vbmeta:
+        params_vbmeta = ensure_params_or_fail(target_vbmeta_partition)
 
     try:
         dev.fh_loader_write_part(
@@ -356,6 +478,14 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
             print(get_string("act_flash_boot_ok").format(part=target_partition))
         else:
             print(get_string("act_flash_init_boot_ok").format(part=target_partition))
+            
+            dev.fh_loader_write_part(
+                port=port,
+                image_path=final_vbmeta_img,
+                lun=params_vbmeta['lun'],
+                start_sector=params_vbmeta['start_sector']
+            )
+            print(get_string("act_flash_boot_ok").format(part=target_vbmeta_partition))
 
         print(get_string("act_reset_sys"))
         dev.fh_loader_reset(port)
