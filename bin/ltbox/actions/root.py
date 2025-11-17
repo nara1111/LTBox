@@ -58,7 +58,7 @@ def _patch_lkm_via_app(
     
     print(get_string("act_find_patched_file"))
     try:
-        list_cmd = [str(const.ADB_EXE), "shell", "ls", "-t", "/sdcard/Downloads/kernelsu_patched_*.img"]
+        list_cmd = [str(const.ADB_EXE), "shell", "ls", "-t", "/sdcard/Download/kernelsu_next_patched_*.img"]
         result = utils.run_command(list_cmd, capture=True, check=False)
         
         if result.returncode != 0 or not result.stdout.strip():
