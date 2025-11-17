@@ -146,9 +146,21 @@ def run_info_scan(paths, constants, avb_patch):
             print(get_string("scan_scanning_file").format(filename=f.name))
             
             try:
-                info = avb_patch.extract_image_avb_info(f)
-                info_str = json.dumps(info, indent=2)
-                logger.info(info_str)
+                cmd = [
+                    str(constants.PYTHON_EXE), 
+                    str(constants.AVBTOOL_PY), 
+                    "info_image", 
+                    "--image", 
+                    str(f)
+                ]
+                
+                result = avb_patch.utils.run_command(cmd, capture=True, check=False)
+                
+                logger.info(result.stdout.strip())
+                
+                if result.stderr:
+                     logger.info(f"\n[Errors]\n{result.stderr.strip()}")
+
                 logger.info("\n" + "="*70 + "\n")
             except Exception as e:
                 error_msg = get_string("scan_failed").format(filename=f.name, e=e)
@@ -192,7 +204,7 @@ def print_advanced_menu():
     print(get_string("menu_adv_11"))
     print(get_string("menu_adv_12"))
     print("\n" + get_string("menu_adv_m"))
-    print("\n  " + "=" * 58 + "\n")
+    print("\n" + "=" * 58 + "\n")
 
 def advanced_menu(dev, command_map):
     actions_map = {
