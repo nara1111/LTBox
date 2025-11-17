@@ -684,4 +684,16 @@
   "err_load_fallback_lang": "[!] 폴백 언어 en.json 로드 실패: {e}",
   "err_load_lang": "[!] 언어 {lang_code} 로드 실패, 폴백 사용: {e}",
   "wf_notice_widevine": "만약 Widevine이 L3로 나타난다면, 시스템 재부팅을 한 번 하고 스트리밍 앱을 삭제 및 재설치 후 다시 확인해보세요."
+  "img_root_lkm_no_dev": "[!] LKM 패치에는 기기 연결(ADB)이 필요합니다. 중단합니다.",
+  "img_root_lkm_download": "[*] LKM 패치 파일(ksuinit, kernelsu.ko)을 다운로드 중입니다...",
+  "img_root_lkm_download_fail": "[!] LKM 파일 다운로드 실패: {e}",
+  "img_root_lkm_patch": "[*] LKM을 위해 램디스크를 패치 중입니다...",
+  "img_root_lkm_backup_init": "  > 'init'을(를) 발견했습니다. 'init.real'(으)로 백업 중...",
+  "img_root_lkm_add_files": "  > 'init'(ksuinit) 및 'kernelsu.ko' 파일을 램디스크에 추가 중...",
+  "dl_lkm_get_kver": "[*] ADB를 통해 기기에서 커널 버전을 가져오는 중...",
+  "dl_lkm_kver_fail": "[!] 다음에서 커널 버전을 파싱하지 못했습니다: {ver}",
+  "dl_lkm_kver_found": "[+] 커널 버전: {ver}",
+  "dl_lkm_downloading": "[*] LKM 커널 모듈 다운로드 중: {asset}...",
+  "dl_lkm_download_fail": "[!] {asset} 다운로드 실패. GitHub에 일치하는 커널 모듈이 있는지 확인하세요.",
+  "dl_lkm_download_ok": "[+] LKM 커널 모듈 다운로드 완료."
 }

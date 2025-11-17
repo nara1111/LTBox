@@ -683,5 +683,17 @@
   "menu_lang_invalid": "    [!] Invalid choice. Please enter a number from 1 to {len}.",
   "err_load_fallback_lang": "[!] Failed to load fallback language en.json: {e}",
   "err_load_lang": "[!] Failed to load language {lang_code}, using fallback: {e}",
-  "wf_notice_widevine": "If Widevine appears as L3, please reboot the system once, uninstall and reinstall the streaming app, and then check again."
+  "wf_notice_widevine": "If Widevine appears as L3, please reboot the system once, uninstall and reinstall the streaming app, and then check again.",
+  "img_root_lkm_no_dev": "[!] LKM patch requires a device connection (for ADB). Aborting.",
+  "img_root_lkm_download": "[*] Downloading LKM patch files (ksuinit, kernelsu.ko)...",
+  "img_root_lkm_download_fail": "[!] LKM file download failed: {e}",
+  "img_root_lkm_patch": "[*] Patching ramdisk for LKM...",
+  "img_root_lkm_backup_init": "  > Found 'init', backing up to 'init.real'...",
+  "img_root_lkm_add_files": "  > Adding 'init' (ksuinit) and 'kernelsu.ko' to ramdisk...",
+  "dl_lkm_get_kver": "[*] Getting kernel version from device via ADB...",
+  "dl_lkm_kver_fail": "[!] Failed to parse kernel version from: {ver}",
+  "dl_lkm_kver_found": "[+] Kernel version: {ver}",
+  "dl_lkm_downloading": "[*] Downloading LKM kernel module: {asset}...",
+  "dl_lkm_download_fail": "[!] Failed to download {asset}. Ensure a matching kernel module exists on GitHub.",
+  "dl_lkm_download_ok": "[+] LKM kernel module downloaded."
 }

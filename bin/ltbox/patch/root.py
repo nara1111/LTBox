@@ -6,10 +6,15 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 
 from .. import constants as const
-from .. import utils, downloader
+from .. import utils, downloader, device
 from ..i18n import get_string
 
-def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path, gki: bool = False) -> Optional[Path]:
+def patch_boot_with_root_algo(
+    work_dir: Path, 
+    magiskboot_exe: Path, 
+    dev: Optional[device.DeviceController] = None, 
+    gki: bool = False
+) -> Optional[Path]:
     
     img_name = "boot.img" if gki else "init_boot.img"
     out_img_name = "boot.root.img" if gki else "init_boot.root.img"
@@ -61,7 +66,6 @@ def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path, gki: bool = 
         return patched_boot_path
     
     else:
-        # LKM Mode (init_boot)
         print(get_string("img_root_step1_init_boot").format(name=img_name))
         utils.run_command([str(magiskboot_exe), "unpack", img_name], cwd=work_dir)
         if not (work_dir / "ramdisk.cpio").exists():
@@ -69,10 +73,32 @@ def patch_boot_with_root_algo(work_dir: Path, magiskboot_exe: Path, gki: bool = 
             return None
         print(get_string("img_root_unpack_ok"))
 
-        print(get_string("act_root_lkm_stub"))
+        if dev is None:
+            print(get_string("img_root_lkm_no_dev"), file=sys.stderr)
+            return None
         
-        # TODO: Add LKM patch logic here in the future
-        # For now, just repacking
+        print(get_string("img_root_lkm_download"))
+        try:
+            ksuinit_path = work_dir / "init"
+            kmod_path = work_dir / "kernelsu.ko"
+            downloader.download_ksuinit(ksuinit_path)
+            downloader.get_lkm_kernel(dev, kmod_path)
+        except Exception as e:
+            print(get_string("img_root_lkm_download_fail").format(e=e), file=sys.stderr)
+            return None
+
+        print(get_string("img_root_lkm_patch"))
+        
+        check_init_cmd = [str(magiskboot_exe), "cpio", "ramdisk.cpio", "exists init"]
+        init_exists_proc = utils.run_command(check_init_cmd, cwd=work_dir, check=False, capture=True)
+        
+        if init_exists_proc.returncode == 0:
+            print(get_string("img_root_lkm_backup_init"))
+            utils.run_command([str(magiskboot_exe), "cpio", "ramdisk.cpio", "mv init init.real"], cwd=work_dir)
+
+        print(get_string("img_root_lkm_add_files"))
+        utils.run_command([str(magiskboot_exe), "cpio", "ramdisk.cpio", "add 0755 init init"], cwd=work_dir)
+        utils.run_command([str(magiskboot_exe), "cpio", "ramdisk.cpio", "add 0755 kernelsu.ko kernelsu.ko"], cwd=work_dir)
         
         print(get_string("img_root_step6_init_boot").format(name=img_name))
         utils.run_command([str(magiskboot_exe), "repack", img_name], cwd=work_dir)

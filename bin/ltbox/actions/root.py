@@ -67,7 +67,7 @@ def root_boot_only(gki: bool = False) -> None:
         shutil.copy(boot_img, const.WORK_DIR / img_name)
         boot_img.unlink()
         
-        patched_boot_path = patch_boot_with_root_algo(const.WORK_DIR, magiskboot_exe, gki=gki)
+        patched_boot_path = patch_boot_with_root_algo(const.WORK_DIR, magiskboot_exe, dev=None, gki=gki)
 
         if patched_boot_path and patched_boot_path.exists():
             print(get_string("act_finalize_root"))
@@ -207,7 +207,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
         else:
             print(get_string("act_root_step4_init_boot"))
             
-        patched_boot_path = patch_boot_with_root_algo(const.WORKING_BOOT_DIR, magiskboot_exe, gki=gki)
+        patched_boot_path = patch_boot_with_root_algo(const.WORKING_BOOT_DIR, magiskboot_exe, dev=dev, gki=gki)
 
         if not (patched_boot_path and patched_boot_path.exists()):
             print(get_string("act_err_root_fail"), file=sys.stderr)
