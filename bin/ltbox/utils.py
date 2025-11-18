@@ -107,7 +107,6 @@ def wait_for_directory(directory: Path, prompt_message: str) -> bool:
     )
 
 def check_dependencies() -> None:
-    ui.echo(get_string('utils_check_deps'))
     dependencies = {
         "Python Environment": const.PYTHON_EXE,
         "ADB": const.ADB_EXE,
