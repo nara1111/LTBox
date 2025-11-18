@@ -44,7 +44,7 @@ def setup_console():
     if system == "Windows":
         try:
             import ctypes
-            ctypes.windll.kernel32.SetConsoleTitleW(get_string("app_title"))
+            ctypes.windll.kernel32.SetConsoleTitleW(u"LTBox")
         except Exception as e:
             print(get_string("warn_set_console_title").format(e=e), file=sys.stderr)
 
