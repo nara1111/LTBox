@@ -712,7 +712,7 @@
   "act_unroot_menu_invalid": "\n  [!] Некорретный выбор. Введите 1, 2 или m.",
   "act_unroot_lkm_detected": "[+] Обнаружена резервная копия LKM (init_boot.img, vbmeta.img). Продолжение в режиме LKM.",
   "act_unroot_gki_detected": "[+] Обнаружена резервная копия GKI (boot.img). Продолжение в режиме GKI.",
-  "act_unroot_prompt_all": "[!] Резервные копии образа boot не обнаружены.\n\n    [Для режима LKM]\n    Поместите файлы 'init_boot.img' и 'vbmeta.img'\n    в папку {lkm_dir}.\n\n    [Для режима GKI]\n    Поместите 'boot.img' в папку '{gki_dir}'.",
+  "act_unroot_prompt_all": "[!] Резервные копии образа boot не обнаружены.\n\n    [Для режима LKM]\n    Поместите файлы 'init_boot.img' и 'vbmeta.img'\n    в папку '{lkm_dir}'.\n\n    [Для режима GKI]\n    Поместите 'boot.img' в папку '{gki_dir}'.",
   "act_unroot_step4_lkm": "--- [ШАГ 4/4] Прошивка оригинального init_boot/vbmeta ---",
   "act_unroot_step4_gki": "--- [ШАГ 4/4] Прошивка оригинального boot.img в {part} ---",
   "act_flash_stock_init_boot_ok": "[+] Прошивка оригинального 'init_boot.img' в {part}.",
@@ -745,4 +745,3 @@
   "img_avb_warn_algo_override": "[!] Предупреждение: алгоритм '{name}' - это '{algo}', а не 'NONE'. Переопределяем на NONE.",
   "img_avb_apply_footer": "[*] Примяем хеш footer для '{name}' с алгоритмом={algo}..."
 }
-
