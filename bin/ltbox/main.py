@@ -401,14 +401,9 @@ def entry_point():
         i18n.load_lang(lang_code)
         
         os.system('cls' if os.name == 'nt' else 'clear')
-        print(get_string("dl_base_installing"))
+
         try:
-            subprocess.run(
-                [str(PYTHON_EXE), str(DOWNLOADER_PY), "install_base_tools", "--lang", lang_code],
-                check=True,
-                encoding='utf-8',
-                errors='ignore'
-            )
+            downloader.install_base_tools(lang_code)
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             print(get_string("critical_err_base_tools").format(e=e), file=sys.stderr)
             print(get_string("err_run_install_manually"), file=sys.stderr)

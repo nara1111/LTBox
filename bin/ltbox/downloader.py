@@ -364,6 +364,30 @@ def get_lkm_kernel(dev: "device.DeviceController", target_path: Path, kernel_ver
     shutil.move(downloaded_file, target_path)
     print(get_string("dl_lkm_download_ok"))
 
+def install_base_tools(lang_code: str = "en"):
+    i18n_load_lang(lang_code)
+    
+    print(get_string("dl_base_installing"))
+    const.DOWNLOAD_DIR.mkdir(exist_ok=True)
+    try:
+        print(get_string("utils_check_deps"))
+        req_path = const.BASE_DIR / "bin" / "requirements.txt"
+        subprocess.run(
+            [str(const.PYTHON_EXE), "-m", "pip", "install", "-r", str(req_path)],
+            check=True
+        )
+        
+        ensure_fetch()
+        ensure_platform_tools()
+        ensure_avb_tools()
+        print(get_string("dl_base_complete"))
+    except Exception as e:
+        msg = get_string("dl_base_error").format(error=e)
+        print(msg, file=sys.stderr)
+        if platform.system() == "Windows":
+            os.system("pause")
+        sys.exit(1)
+
 if __name__ == "__main__":
     lang_code = "en" 
     if "--lang" in sys.argv:
@@ -372,26 +396,5 @@ if __name__ == "__main__":
         except (IndexError, ValueError):
             pass 
     
-    i18n_load_lang(lang_code) 
-    
     if len(sys.argv) > 1 and "install_base_tools" in sys.argv:
-        print(get_string("dl_base_installing"))
-        const.DOWNLOAD_DIR.mkdir(exist_ok=True)
-        try:
-            print(get_string("utils_check_deps"))
-            req_path = const.BASE_DIR / "bin" / "requirements.txt"
-            subprocess.run(
-                [str(const.PYTHON_EXE), "-m", "pip", "install", "-r", str(req_path)],
-                check=True
-            )
-            
-            ensure_fetch()
-            ensure_platform_tools()
-            ensure_avb_tools()
-            print(get_string("dl_base_complete"))
-        except Exception as e:
-            msg = get_string("dl_base_error").format(error=e)
-            print(msg, file=sys.stderr)
-            if platform.system() == "Windows":
-                os.system("pause")
-            sys.exit(1)
+        install_base_tools(lang_code)
