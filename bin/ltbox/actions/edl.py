@@ -11,7 +11,7 @@ from .. import utils, device
 from ..partition import ensure_params_or_fail
 from ..i18n import get_string
 
-def read_edl(dev: device.DeviceController, skip_reset: bool = False, additional_targets: Optional[List[str]] = None, default_targets: bool = True) -> None:
+def dump_partitions(dev: device.DeviceController, skip_reset: bool = False, additional_targets: Optional[List[str]] = None, default_targets: bool = True) -> None:
     print(get_string("act_start_dump"))
     
     if not const.EDL_LOADER_FILE.exists():
@@ -50,7 +50,7 @@ def read_edl(dev: device.DeviceController, skip_reset: bool = False, additional_
             print(get_string("act_found_dump_info").format(xml=params['source_xml'], lun=params['lun'], start=params['start_sector']))
             
             print(get_string("device_dumping_part").format(lun=params['lun'], start=params['start_sector'], num=params['num_sectors']))
-            dev.fh_loader_read_part(
+            dev.edl_write_partition(
                 port=port,
                 output_filename=str(out_file),
                 lun=params['lun'],
@@ -87,7 +87,7 @@ def read_edl(dev: device.DeviceController, skip_reset: bool = False, additional_
     if not skip_reset:
         print(get_string("act_reset_sys"))
         print(get_string("device_resetting"))
-        dev.fh_loader_reset(port)
+        dev.edl_reset(port)
         print(get_string("act_reset_sent"))
         print(get_string("act_wait_stability_long"))
         time.sleep(10)
@@ -97,7 +97,7 @@ def read_edl(dev: device.DeviceController, skip_reset: bool = False, additional_
     print(get_string("act_dump_finish"))
     print(get_string("act_dump_saved").format(dir=const.BACKUP_DIR.name))
 
-def write_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False) -> None:
+def flash_partitions(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False) -> None:
     print(get_string("act_start_write"))
 
     if not const.OUTPUT_DP_DIR.exists():
@@ -139,7 +139,7 @@ def write_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
             print(get_string("act_found_boot_info").format(lun=params['lun'], start=params['start_sector']))
             
             print(get_string("device_flashing_part").format(filename=image_path.name, lun=params['lun'], start=params['start_sector']))
-            dev.fh_loader_write_part(
+            dev.edl_write_partition(
                 port=port,
                 image_path=image_path,
                 lun=params['lun'],
@@ -155,7 +155,7 @@ def write_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
         print(get_string("act_reboot_device"))
         try:
             print(get_string("device_resetting"))
-            dev.fh_loader_reset(port)
+            dev.edl_reset(port)
         except Exception as e:
             print(get_string("act_warn_reboot").format(e=e))
     else:
@@ -215,7 +215,7 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
         print(get_string("act_found_boot_info").format(lun=params_boot['lun'], start=params_boot['start_sector']))
         
         print(get_string("device_flashing_part").format(filename=boot_img.name, lun=params_boot['lun'], start=params_boot['start_sector']))
-        dev.fh_loader_write_part(
+        dev.edl_write_partition(
             port=port,
             image_path=boot_img,
             lun=params_boot['lun'],
@@ -228,7 +228,7 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
         print(get_string("act_found_vbmeta_info").format(lun=params_vbmeta['lun'], start=params_vbmeta['start_sector']))
         
         print(get_string("device_flashing_part").format(filename=vbmeta_img.name, lun=params_vbmeta['lun'], start=params_vbmeta['start_sector']))
-        dev.fh_loader_write_part(
+        dev.edl_write_partition(
             port=port,
             image_path=vbmeta_img,
             lun=params_vbmeta['lun'],
@@ -239,7 +239,7 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
         if not skip_reset:
             print(get_string("act_arb_reset"))
             print(get_string("device_resetting"))
-            dev.fh_loader_reset(port)
+            dev.edl_reset(port)
             print(get_string("act_reset_sent"))
         else:
             print(get_string("act_arb_skip_reset"))
@@ -319,7 +319,7 @@ def _select_flash_xmls(skip_dp: bool = False) -> Tuple[List[Path], List[Path]]:
     
     return raw_xmls, patch_xmls
 
-def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False, skip_dp: bool = False) -> None:
+def flash_full_firmware(dev: device.DeviceController, skip_reset: bool = False, skip_reset_edl: bool = False, skip_dp: bool = False) -> None:
     print(get_string("act_start_flash"))
     
     if not const.IMAGE_DIR.is_dir() or not any(const.IMAGE_DIR.iterdir()):
@@ -380,7 +380,7 @@ def flash_edl(dev: device.DeviceController, skip_reset: bool = False, skip_reset
             
             print(get_string("act_reset_sys"))
             print(get_string("device_resetting"))
-            dev.fh_loader_reset(port)
+            dev.edl_reset(port)
             print(get_string("act_reset_sent"))
         except (subprocess.CalledProcessError, FileNotFoundError, Exception) as e:
              print(get_string("act_err_reset").format(e=e), file=sys.stderr)

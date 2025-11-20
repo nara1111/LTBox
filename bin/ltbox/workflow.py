@@ -42,8 +42,8 @@ def _wait_for_input_images() -> None:
     prompt = get_string('wf_step3_prompt')
     utils.wait_for_directory(const.IMAGE_DIR, prompt)
 
-def _convert_images(dev: device.DeviceController, device_model: Optional[str]) -> None:
-    actions.convert_images(dev=dev, device_model=device_model)
+def _convert_region_images(dev: device.DeviceController, device_model: Optional[str]) -> None:
+    actions.convert_region_images(dev=dev, device_model=device_model)
 
 def _decrypt_and_modify_xml(wipe: int) -> None:
     actions.decrypt_x_files()
@@ -58,7 +58,7 @@ def _dump_images(dev: device.DeviceController, active_slot_suffix: str) -> Tuple
     
     extra_dumps = [boot_target, vbmeta_target]
         
-    actions.read_edl(
+    actions.dump_partitions(
         dev=dev,
         skip_reset=False, 
         additional_targets=extra_dumps
@@ -86,7 +86,7 @@ def _check_and_patch_arb(boot_target: str, vbmeta_target: str) -> None:
     actions.patch_anti_rollback(comparison_result=arb_status_result)
 
 def _flash_images(dev: device.DeviceController, skip_dp_workflow: bool) -> None:
-    actions.flash_edl(dev=dev, skip_reset_edl=True, skip_dp=skip_dp_workflow)
+    actions.flash_full_firmware(dev=dev, skip_reset_edl=True, skip_dp=skip_dp_workflow)
 
 def _handle_step_error(step_title_key: str, e: Exception) -> None:
     utils.ui.echo("\n" + "!" * 61, err=True)
@@ -115,7 +115,7 @@ def patch_all(dev: device.DeviceController, wipe: int = 0) -> str:
         utils.ui.echo(get_string('wf_step3_found'))
         
         utils.ui.echo(get_string('wf_step4_convert'))
-        _convert_images(dev, device_model)
+        _convert_region_images(dev, device_model)
         
         utils.ui.echo(get_string('wf_step5_modify_xml'))
         _decrypt_and_modify_xml(wipe)

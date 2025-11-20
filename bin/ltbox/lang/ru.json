@@ -675,7 +675,7 @@
   "task_title_decrypt_xml": "Преобразовать .X в .XML",
   "task_title_disable_ota": "Отключить OTA обновления",
   "task_title_dump_devinfo": "Сделать дамп разделов devinfo/persist",
-  "task_title_flash_edl": "Прошивка через EDL",
+  "task_title_flash_full_firmware": "Прошивка через EDL",
   "task_title_install_nowipe": "Обновление прошивки на устройстве PRC [СОХРАНЕНИЕ ДАННЫХ]",
   "task_title_install_wipe": "Установка прошивки на устройство PRC [ОЧИСТКА ДАННЫХ]",
   "task_title_modify_xml_nowipe": "Модифицировать XML для прошивки [СОХРАНЕНИЕ ДАННЫХ]",

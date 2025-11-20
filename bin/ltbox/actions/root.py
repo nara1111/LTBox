@@ -87,7 +87,7 @@ def _patch_lkm_via_app(
         print(get_string("act_err_pull_process").format(e=e))
         return None
 
-def root_boot_only(gki: bool = False) -> None:
+def patch_root_image_file(gki: bool = False) -> None:
     img_name = const.FN_BOOT if gki else const.FN_INIT_BOOT
     bak_name = const.FN_BOOT_BAK if gki else const.FN_INIT_BOOT_BAK
     out_dir = const.OUTPUT_ROOT_DIR if gki else const.OUTPUT_ROOT_LKM_DIR
@@ -349,7 +349,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
         try:
             params = ensure_params_or_fail(target_partition)
             print(get_string("act_found_dump_info").format(xml=params['source_xml'], lun=params['lun'], start=params['start_sector']))
-            dev.fh_loader_read_part(
+            dev.edl_write_partition(
                 port=port,
                 output_filename=str(dumped_boot_img),
                 lun=params['lun'],
@@ -360,7 +360,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
             if not gki:
                 params_vbmeta = ensure_params_or_fail(target_vbmeta_partition)
                 print(get_string("act_found_dump_info").format(xml=params_vbmeta['source_xml'], lun=params_vbmeta['lun'], start=params_vbmeta['start_sector']))
-                dev.fh_loader_read_part(
+                dev.edl_write_partition(
                     port=port,
                     output_filename=str(dumped_vbmeta_img),
                     lun=params_vbmeta['lun'],
@@ -404,7 +404,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
         print(get_string("act_backups_done"))
 
         print(get_string("act_dump_reset"))
-        dev.fh_loader_reset(port)
+        dev.edl_reset(port)
         
         if gki:
             print(get_string("act_root_step4"))
@@ -497,7 +497,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
              params_vbmeta = ensure_params_or_fail(target_vbmeta_partition)
 
     try:
-        dev.fh_loader_write_part(
+        dev.edl_write_partition(
             port=port,
             image_path=final_boot_img,
             lun=params['lun'],
@@ -508,7 +508,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
         else:
             print(get_string("act_flash_init_boot_ok").format(part=target_partition))
             
-            dev.fh_loader_write_part(
+            dev.edl_write_partition(
                 port=port,
                 image_path=final_vbmeta_img,
                 lun=params_vbmeta['lun'],
@@ -517,7 +517,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
             print(get_string("act_flash_boot_ok").format(part=target_vbmeta_partition))
 
         print(get_string("act_reset_sys"))
-        dev.fh_loader_reset(port)
+        dev.edl_reset(port)
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(get_string("act_err_edl_write").format(e=e), file=sys.stderr)
         raise
@@ -617,7 +617,7 @@ def unroot_device(dev: device.DeviceController) -> None:
 
             params_init = ensure_params_or_fail(target_init_boot)
             print(get_string("act_found_dump_info").format(xml=params_init['source_xml'], lun=params_init['lun'], start=params_init['start_sector']))
-            dev.fh_loader_write_part(
+            dev.edl_write_partition(
                 port=port,
                 image_path=lkm_init_boot_file,
                 lun=params_init['lun'],
@@ -627,7 +627,7 @@ def unroot_device(dev: device.DeviceController) -> None:
 
             params_vbmeta = ensure_params_or_fail(target_vbmeta)
             print(get_string("act_found_dump_info").format(xml=params_vbmeta['source_xml'], lun=params_vbmeta['lun'], start=params_vbmeta['start_sector']))
-            dev.fh_loader_write_part(
+            dev.edl_write_partition(
                 port=port,
                 image_path=lkm_vbmeta_file,
                 lun=params_vbmeta['lun'],
@@ -642,7 +642,7 @@ def unroot_device(dev: device.DeviceController) -> None:
             params = ensure_params_or_fail(target_boot)
             print(get_string("act_found_dump_info").format(xml=params['source_xml'], lun=params['lun'], start=params['start_sector']))
             
-            dev.fh_loader_write_part(
+            dev.edl_write_partition(
                 port=port,
                 image_path=gki_boot_file,
                 lun=params['lun'],
@@ -651,7 +651,7 @@ def unroot_device(dev: device.DeviceController) -> None:
             print(get_string("act_flash_stock_boot_ok").format(part=target_boot))
         
         print(get_string("act_reset_sys"))
-        dev.fh_loader_reset(port)
+        dev.edl_reset(port)
         
     except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
         print(get_string("act_err_edl_write").format(e=e), file=sys.stderr)

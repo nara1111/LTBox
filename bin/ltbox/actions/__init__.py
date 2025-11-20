@@ -6,19 +6,19 @@ from .arb import (
 )
 
 from .edl import (
-    read_edl,
-    write_edl,
+    dump_partitions,
+    flash_partitions,
     write_anti_rollback,
-    flash_edl
+    flash_full_firmware
 )
 
 from .region import (
-    convert_images,
+    convert_region_images,
     edit_devinfo_persist
 )
 
 from .root import (
-    root_boot_only,
+    patch_root_image_file,
     root_device,
     unroot_device
 )

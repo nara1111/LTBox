@@ -12,7 +12,7 @@ from ..patch.region import edit_vendor_boot, detect_region_codes, patch_region_c
 from ..patch.avb import extract_image_avb_info
 from ..i18n import get_string
 
-def convert_images(dev: device.DeviceController, device_model: Optional[str] = None) -> None:
+def convert_region_images(dev: device.DeviceController, device_model: Optional[str] = None) -> None:
     utils.check_dependencies()
     
     print(get_string("act_conv_start"))

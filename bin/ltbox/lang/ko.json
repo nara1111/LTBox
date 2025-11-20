@@ -675,7 +675,7 @@
   "task_title_decrypt_xml": "X 파일을 XML로 변환",
   "task_title_disable_ota": "OTA 업데이트 비활성화",
   "task_title_dump_devinfo": "devinfo/persist 파티션 추출",
-  "task_title_flash_edl": "EDL 모드를 통해 펌웨어 플래싱",
+  "task_title_flash_full_firmware": "EDL 모드를 통해 펌웨어 플래싱",
   "task_title_install_nowipe": "내수(PRC) 기기 펌웨어 업데이트 [데이터 유지]",
   "task_title_install_wipe": "내수(PRC) 기기에 펌웨어 설치 [데이터 초기화]",
   "task_title_modify_xml_nowipe": "플래싱을 위해 XML 수정 [데이터 유지]",

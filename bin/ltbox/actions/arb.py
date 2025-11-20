@@ -135,7 +135,7 @@ def read_anti_rollback_from_device(dev: device.DeviceController) -> None:
     vbmeta_target = f"vbmeta_system{suffix}"
     
     print(get_string('wf_step6_dump'))
-    edl.read_edl(
+    edl.dump_partitions(
         dev=dev,
         skip_reset=False, 
         additional_targets=[boot_target, vbmeta_target],

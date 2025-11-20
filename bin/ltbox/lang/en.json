@@ -675,7 +675,7 @@
   "task_title_decrypt_xml": "Convert X to XML",
   "task_title_disable_ota": "Disable OTA Updates",
   "task_title_dump_devinfo": "Dump devinfo/persist Partitions",
-  "task_title_flash_edl": "Flash Firmware via EDL",
+  "task_title_flash_full_firmware": "Flash Firmware via EDL",
   "task_title_install_nowipe": "Update Firmware on PRC Device [KEEP DATA]",
   "task_title_install_wipe": "Install Firmware on PRC Device [WIPE DATA]",
   "task_title_modify_xml_nowipe": "Modify XML for Flashing [KEEP DATA]",

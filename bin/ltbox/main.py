@@ -91,7 +91,7 @@ def run_task(command, title, dev, command_map):
             final_kwargs = base_kwargs.copy()
             
             no_dev_needed = {
-                "root_boot_only_gki", "root_boot_only_lkm", 
+                "patch_root_image_file_gki", "patch_root_image_file_lkm", 
                 "edit_dp", 
                 "patch_anti_rollback", "clean", "modify_xml", "modify_xml_wipe",
                 "decrypt_xml"
@@ -240,16 +240,16 @@ def print_advanced_menu():
 def advanced_menu(dev, command_map):
     actions_map = {
         "1": ("convert", get_string("task_title_convert_rom")),
-        "2": ("read_edl", get_string("task_title_dump_devinfo")),
+        "2": ("dump_partitions", get_string("task_title_dump_devinfo")),
         "3": ("edit_dp", get_string("task_title_patch_devinfo")),
-        "4": ("write_edl", get_string("task_title_write_devinfo")),
+        "4": ("flash_partitions", get_string("task_title_write_devinfo")),
         "5": ("read_anti_rollback", get_string("task_title_read_arb")),
         "6": ("patch_anti_rollback", get_string("task_title_patch_arb")),
         "7": ("write_anti_rollback", get_string("task_title_write_arb")),
         "8": ("decrypt_xml", get_string("task_title_decrypt_xml")),
         "9": ("modify_xml_wipe", get_string("task_title_modify_xml_wipe")),
         "10": ("modify_xml", get_string("task_title_modify_xml_nowipe")),
-        "11": ("flash_edl", get_string("task_title_flash_edl")),
+        "11": ("flash_full_firmware", get_string("task_title_flash_full_firmware")),
         "12": ("clean", get_string("task_title_clean"))
     }
 
@@ -317,12 +317,12 @@ def root_menu(dev, command_map, gki: bool):
     if gki:
         actions_map = {
             "1": ("root_device_gki", get_string("task_title_root_gki")),
-            "2": ("root_boot_only_gki", get_string("task_title_root_file_gki")),
+            "2": ("patch_root_image_file_gki", get_string("task_title_root_file_gki")),
         }
     else:
         actions_map = {
             "1": ("root_device_lkm", get_string("task_title_root_lkm")),
-            "2": ("root_boot_only_lkm", get_string("task_title_root_file_lkm")),
+            "2": ("patch_root_image_file_lkm", get_string("task_title_root_file_lkm")),
         }
 
     while True:
@@ -442,16 +442,16 @@ def entry_point():
             from .patch import avb as avb
 
             COMMAND_MAP: Dict[str, Tuple[Callable[..., Any], Dict[str, Any]]] = {
-                "convert": (a.convert_images, {}),
+                "convert": (a.convert_region_images, {}),
                 "root_device_gki": (a.root_device, {"gki": True}),
-                "root_boot_only_gki": (a.root_boot_only, {"gki": True}),
+                "patch_root_image_file_gki": (a.patch_root_image_file, {"gki": True}),
                 "root_device_lkm": (a.root_device, {"gki": False}),
-                "root_boot_only_lkm": (a.root_boot_only, {"gki": False}),
+                "patch_root_image_file_lkm": (a.patch_root_image_file, {"gki": False}),
                 "unroot_device": (a.unroot_device, {}),
                 "disable_ota": (a.disable_ota, {}),
                 "edit_dp": (a.edit_devinfo_persist, {}),
-                "read_edl": (a.read_edl, {}),
-                "write_edl": (a.write_edl, {}),
+                "dump_partitions": (a.dump_partitions, {}),
+                "flash_partitions": (a.flash_partitions, {}),
                 "read_anti_rollback": (a.read_anti_rollback_from_device, {}),
                 "patch_anti_rollback": (a.patch_anti_rollback_in_rom, {}),
                 "write_anti_rollback": (a.write_anti_rollback, {}),
@@ -459,7 +459,7 @@ def entry_point():
                 "decrypt_xml": (a.decrypt_x_files, {}),
                 "modify_xml": (a.modify_xml, {"wipe": 0}),
                 "modify_xml_wipe": (a.modify_xml, {"wipe": 1}),
-                "flash_edl": (a.flash_edl, {}),
+                "flash_full_firmware": (a.flash_full_firmware, {}),
                 "patch_all": (w.patch_all, {"wipe": 0}),
                 "patch_all_wipe": (w.patch_all, {"wipe": 1}),
             }
