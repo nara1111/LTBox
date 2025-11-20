@@ -1,5 +1,6 @@
 import os
 import platform
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -17,7 +18,6 @@ from ltbox.errors import ToolError
 
 def download_resource(url: str, dest_path: Path) -> None:
     import urllib.request
-    import shutil
     from urllib.error import URLError, HTTPError
 
     msg = get_string("dl_downloading").format(filename=dest_path.name)
