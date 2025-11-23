@@ -55,7 +55,7 @@ def dump_partitions(dev: device.DeviceController, skip_reset: bool = False, addi
             utils.ui.echo(get_string("act_found_dump_info").format(xml=params['source_xml'], lun=params['lun'], start=params['start_sector']))
             
             utils.ui.echo(get_string("device_dumping_part").format(lun=params['lun'], start=params['start_sector'], num=params['num_sectors']))
-            dev.edl_write_partition(
+            dev.edl_read_partition(
                 port=port,
                 output_filename=str(out_file),
                 lun=params['lun'],

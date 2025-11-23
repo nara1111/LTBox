@@ -348,7 +348,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
         try:
             params = ensure_params_or_fail(target_partition)
             utils.ui.echo(get_string("act_found_dump_info").format(xml=params['source_xml'], lun=params['lun'], start=params['start_sector']))
-            dev.edl_write_partition(
+            dev.edl_read_partition(
                 port=port,
                 output_filename=str(dumped_boot_img),
                 lun=params['lun'],
@@ -359,7 +359,7 @@ def root_device(dev: device.DeviceController, gki: bool = False) -> None:
             if not gki:
                 params_vbmeta = ensure_params_or_fail(target_vbmeta_partition)
                 utils.ui.echo(get_string("act_found_dump_info").format(xml=params_vbmeta['source_xml'], lun=params_vbmeta['lun'], start=params_vbmeta['start_sector']))
-                dev.edl_write_partition(
+                dev.edl_read_partition(
                     port=port,
                     output_filename=str(dumped_vbmeta_img),
                     lun=params_vbmeta['lun'],

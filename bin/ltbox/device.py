@@ -233,7 +233,7 @@ class EdlManager:
         self.load_programmer(port, loader_path)
         time.sleep(2)
 
-    def write_partition(self, port: str, output_filename: str, lun: str, start_sector: str, num_sectors: str, memory_name: str = "UFS") -> None:
+    def read_partition(self, port: str, output_filename: str, lun: str, start_sector: str, num_sectors: str, memory_name: str = "UFS") -> None:
         if not const.edl_EXE.exists():
             raise FileNotFoundError(get_string("device_err_fh_missing").format(path=const.edl_EXE))
 
@@ -414,8 +414,8 @@ class DeviceController:
     def load_firehose_programmer_with_stability(self, loader_path: Path, port: str) -> None:
         self.edl.load_programmer_safe(port, loader_path)
 
-    def edl_write_partition(self, port: str, output_filename: str, lun: str, start_sector: str, num_sectors: str, memory_name: str = "UFS") -> None:
-        self.edl.write_partition(port, output_filename, lun, start_sector, num_sectors, memory_name)
+    def edl_read_partition(self, port: str, output_filename: str, lun: str, start_sector: str, num_sectors: str, memory_name: str = "UFS") -> None:
+        self.edl.read_partition(port, output_filename, lun, start_sector, num_sectors, memory_name)
 
     def edl_write_partition(self, port: str, image_path: Path, lun: str, start_sector: str, memory_name: str = "UFS") -> None:
         self.edl.write_partition(port, image_path, lun, start_sector, memory_name)
