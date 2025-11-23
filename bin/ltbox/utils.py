@@ -18,16 +18,17 @@ class ConsoleUI:
         self.echo(message)
 
     def warn(self, message: str) -> None:
-        self.echo(f"[!] {message}", err=True)
+        self.echo(message, err=True)
 
     def error(self, message: str) -> None:
-        self.echo(f"[!] {message}", err=True)
+        self.echo(message, err=True)
 
     def box_output(self, lines: List[str], err: bool = False) -> None:
-        self.echo("", err=err)
+        width = 61
+        self.echo("\n" + "!" * width, err=err)
         for line in lines:
              self.echo(line, err=err)
-        self.echo("", err=err)
+        self.echo("!" * width + "\n", err=err)
 
     def prompt(self, message: str = "") -> str:
         return input(message)
