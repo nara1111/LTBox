@@ -66,7 +66,7 @@ def check_path_encoding():
         input(get_string("press_enter_to_continue"))
         raise RuntimeError(get_string("critical_error_path_encoding"))
 
-def run_task(command, title, dev, command_map):
+def run_task(command, title, dev, command_map, extra_kwargs=None):
     ui.clear()
     
     ui.echo("  " + "=" * 58)
@@ -88,6 +88,9 @@ def run_task(command, title, dev, command_map):
             
             func, base_kwargs = func_tuple
             final_kwargs = base_kwargs.copy()
+            
+            if extra_kwargs:
+                final_kwargs.update(extra_kwargs)
             
             no_dev_needed = {
                 "patch_root_image_file_gki", "patch_root_image_file_lkm", 
@@ -197,8 +200,9 @@ def run_info_scan(paths, constants, avb_patch):
     print(get_string("scan_complete"))
     print(get_string("scan_saved_to").format(filename=log_filename.name))
 
-def print_main_menu(skip_adb):
+def print_main_menu(skip_adb, skip_rollback):
     skip_adb_state = "ON" if skip_adb else "OFF"
+    skip_rb_state = "ON" if skip_rollback else "OFF"
     os.system('cls')
     print("\n  " + "=" * 58)
     print(get_string("menu_main_title"))
@@ -209,6 +213,7 @@ def print_main_menu(skip_adb):
     print(get_string("menu_main_4"))
     print(get_string("menu_main_5"))
     print(get_string("menu_main_6").format(skip_adb_state=skip_adb_state))
+    print(get_string("menu_main_7").format(skip_rb_state=skip_rb_state))
     print("\n" + get_string("menu_main_a"))
     print(get_string("menu_main_x"))
     print("\n  " + "=" * 58 + "\n")
@@ -339,6 +344,7 @@ def root_menu(dev, command_map, gki: bool):
 
 def main_loop(device_controller_class, command_map):
     skip_adb = False
+    skip_rollback = False
     dev = device_controller_class(skip_adb=skip_adb)
     
     actions_map = {
@@ -349,17 +355,22 @@ def main_loop(device_controller_class, command_map):
     }
 
     while True:
-        print_main_menu(skip_adb)
+        print_main_menu(skip_adb, skip_rollback)
         choice = input(get_string("menu_main_prompt")).strip().lower()
 
         if choice in actions_map:
             cmd, title = actions_map[choice]
-            run_task(cmd, title, dev, command_map)
+            extras = {}
+            if cmd in ["patch_all", "patch_all_wipe"]:
+                extras["skip_rollback"] = skip_rollback
+            run_task(cmd, title, dev, command_map, extra_kwargs=extras)
         elif choice == "4":
             root_mode_selection_menu(dev, command_map)
         elif choice == "6":
             skip_adb = not skip_adb
             dev.skip_adb = skip_adb
+        elif choice == "7":
+            skip_rollback = not skip_rollback
         elif choice == "a":
             advanced_menu(dev, command_map)
         elif choice == "x":

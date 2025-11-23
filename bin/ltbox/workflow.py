@@ -49,14 +49,16 @@ def _decrypt_and_modify_xml(wipe: int) -> None:
     actions.decrypt_x_files()
     actions.modify_xml(wipe=wipe)
 
-def _dump_images(dev: device.DeviceController, active_slot_suffix: str) -> Tuple[bool, str, str]:
+def _dump_images(dev: device.DeviceController, active_slot_suffix: str, skip_rollback: bool) -> Tuple[bool, str, str]:
     skip_dp_workflow = False
     
     suffix = active_slot_suffix if active_slot_suffix else ""
     boot_target = f"boot{suffix}"
     vbmeta_target = f"vbmeta_system{suffix}"
     
-    extra_dumps = [boot_target, vbmeta_target]
+    extra_dumps = []
+    if not skip_rollback:
+        extra_dumps = [boot_target, vbmeta_target]
         
     actions.dump_partitions(
         dev=dev,
@@ -96,7 +98,7 @@ def _handle_step_error(step_title_key: str, e: Exception) -> None:
     utils.ui.echo("!" * 61, err=True)
     raise e
 
-def patch_all(dev: device.DeviceController, wipe: int = 0) -> str:
+def patch_all(dev: device.DeviceController, wipe: int = 0, skip_rollback: bool = False) -> str:
     try:
         utils.ui.echo(get_string('wf_step1_clean'))
         if wipe == 1:
@@ -121,13 +123,16 @@ def patch_all(dev: device.DeviceController, wipe: int = 0) -> str:
         _decrypt_and_modify_xml(wipe)
         
         utils.ui.echo(get_string('wf_step6_dump'))
-        skip_dp_workflow, boot_target, vbmeta_target = _dump_images(dev, active_slot_suffix)
+        skip_dp_workflow, boot_target, vbmeta_target = _dump_images(dev, active_slot_suffix, skip_rollback)
         
         utils.ui.echo(get_string('wf_step7_patch_dp'))
         backup_dir_name = _patch_devinfo(skip_dp_workflow)
         
-        utils.ui.echo(get_string('wf_step8_check_arb'))
-        _check_and_patch_arb(boot_target, vbmeta_target)
+        if not skip_rollback:
+            utils.ui.echo(get_string('wf_step8_check_arb'))
+            _check_and_patch_arb(boot_target, vbmeta_target)
+        else:
+            utils.ui.echo(get_string('wf_step8_skipped'))
         
         utils.ui.echo(get_string('wf_step9_flash'))
         _flash_images(dev, skip_dp_workflow)
