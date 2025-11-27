@@ -58,9 +58,9 @@ def check_path_encoding():
         ui.clear()
         ui.box_output([
             get_string("critical_error_path_encoding"),
-            "  " + "-" * 55,
+            "  " + "-" * 75,
             get_string("current_path").format(current_path=current_path),
-            "  " + "-" * 55,
+            "  " + "-" * 75,
             get_string("path_encoding_details_1"),
             get_string("path_encoding_details_2"),
             "",
@@ -75,9 +75,9 @@ def check_path_encoding():
 def run_task(command, title, dev, command_map, extra_kwargs=None):
     ui.clear()
     
-    ui.echo("  " + "=" * 58)
+    ui.echo("  " + "=" * 78)
     ui.echo(get_string("starting_task").format(title=title))
-    ui.echo("  " + "=" * 58 + "\n")
+    ui.echo("  " + "=" * 78 + "\n")
 
     try:
         func_tuple = command_map.get(command)
@@ -102,9 +102,9 @@ def run_task(command, title, dev, command_map, extra_kwargs=None):
 
         result = func(**final_kwargs)
 
-        ui.echo("\n  " + "=" * 58)
+        ui.echo("\n  " + "=" * 78)
         ui.echo(get_string("act_success"))
-        ui.echo("  " + "=" * 58)
+        ui.echo("  " + "=" * 78)
 
         if isinstance(result, str) and result:
             ui.echo(result)
@@ -136,9 +136,9 @@ def run_task(command, title, dev, command_map, extra_kwargs=None):
     finally:
         ui.echo("")
 
-        ui.echo("  " + "=" * 58)
+        ui.echo("  " + "=" * 78)
         ui.echo(get_string("task_completed").format(title=title))
-        ui.echo("  " + "=" * 58 + "\n")
+        ui.echo("  " + "=" * 78 + "\n")
         
         if command == "clean":
             input(get_string("press_enter_to_exit"))
@@ -187,7 +187,7 @@ def run_info_scan(paths, constants, avb_patch):
                 if result.stderr:
                      logger.info(get_string("scan_log_errors").format(errors=result.stderr.strip()))
 
-                logger.info("\n" + "="*70 + "\n")
+                logger.info("\n" + "="*78 + "\n")
             except Exception as e:
                 error_msg = get_string("scan_failed").format(filename=f.name, e=e)
                 print(error_msg, file=sys.stderr)
@@ -200,9 +200,9 @@ def print_main_menu(skip_adb, skip_rollback):
     skip_adb_state = "ON" if skip_adb else "OFF"
     skip_rb_state = "ON" if skip_rollback else "OFF"
     os.system('cls')
-    print("\n  " + "=" * 58)
+    print("\n  " + "=" * 78)
     print(get_string("menu_main_title"))
-    print("  " + "=" * 58 + "\n")
+    print("  " + "=" * 78 + "\n")
 
     print(f"  {get_string('menu_main_sub_install')}")
     print(get_string("menu_main_1"))
@@ -223,13 +223,13 @@ def print_main_menu(skip_adb, skip_rollback):
     print(f"  {get_string('menu_main_sub_nav')}")
     print(get_string("menu_main_a"))
     print(get_string("menu_main_x"))
-    print("\n  " + "=" * 58 + "\n")
+    print("\n  " + "=" * 78 + "\n")
 
 def print_advanced_menu():
     os.system('cls')
-    print("\n  " + "=" * 58)
+    print("\n  " + "=" * 78)
     print(get_string("menu_adv_title"))
-    print("  " + "=" * 58 + "\n")
+    print("  " + "=" * 78 + "\n")
 
     print(f"  {get_string('menu_adv_sub_region_dump')}")
     print(get_string("menu_adv_1"))
@@ -261,7 +261,7 @@ def print_advanced_menu():
     print(f"  {get_string('menu_adv_sub_nav')}")
     print(get_string("menu_adv_m"))
     print(get_string("menu_main_x"))
-    print("\n  " + "=" * 58 + "\n")
+    print("\n  " + "=" * 78 + "\n")
 
 def advanced_menu(dev, command_map):
     actions_map = {
@@ -298,14 +298,14 @@ def advanced_menu(dev, command_map):
 
 def print_root_mode_selection_menu():
     os.system('cls')
-    print("\n  " + "=" * 58)
+    print("\n  " + "=" * 78)
     print(get_string("menu_root_mode_title"))
-    print("  " + "=" * 58 + "\n")
+    print("  " + "=" * 78 + "\n")
     print(get_string("menu_root_mode_1"))
     print(get_string("menu_root_mode_2"))
     print("\n" + get_string("menu_root_m"))
     print(get_string("menu_main_x"))
-    print("\n  " + "=" * 58 + "\n")
+    print("\n  " + "=" * 78 + "\n")
 
 def root_mode_selection_menu(dev, command_map):
     while True:
@@ -326,9 +326,9 @@ def root_mode_selection_menu(dev, command_map):
 
 def print_root_menu(gki: bool):
     os.system('cls')
-    print("\n  " + "=" * 58)
+    print("\n  " + "=" * 78)
     print(get_string("menu_root_title"))
-    print("  " + "=" * 58 + "\n")
+    print("  " + "=" * 78 + "\n")
     if gki:
         print(get_string("menu_root_1_gki"))
         print(get_string("menu_root_2_gki"))
@@ -337,7 +337,7 @@ def print_root_menu(gki: bool):
         print(get_string("menu_root_2_lkm"))
     print("\n" + get_string("menu_root_m"))
     print(get_string("menu_main_x"))
-    print("\n  " + "=" * 58 + "\n")
+    print("\n  " + "=" * 78 + "\n")
 
 def root_menu(dev, command_map, gki: bool):
     if gki:
@@ -429,11 +429,11 @@ def prompt_for_language() -> str:
         menu_options.append(f"     {i}. {lang_name}")
 
     os.system('cls')
-    print("\n  " + "=" * 58)
+    print("\n  " + "=" * 78)
     print(get_string("menu_lang_title"))
-    print("  " + "=" * 58 + "\n")
+    print("  " + "=" * 78 + "\n")
     print("\n".join(menu_options))
-    print("\n  " + "=" * 58 + "\n")
+    print("\n  " + "=" * 78 + "\n")
 
     choice = ""
     while choice not in lang_map:

@@ -168,7 +168,7 @@ def temporary_workspace(path: Path) -> Generator[Path, None, None]:
 def clean_workspace() -> None:
     ui.echo(get_string('utils_cleaning_title'))
     ui.echo(get_string('utils_cleaning_warning'))
-    ui.echo("-" * 50)
+    ui.echo("-" * 78)
 
     folders_to_remove = [
         const.OUTPUT_DIR, const.OUTPUT_ROOT_DIR, const.OUTPUT_DP_DIR, const.OUTPUT_ANTI_ROLLBACK_DIR,

@@ -408,7 +408,7 @@
   "device_reboot_sys_fastboot": "[*] Rebooting to System via Fastboot...",
   "device_rebooting_fastboot": "  Rebooting to Fastboot...",
   "device_resetting": "[*] Rebooting device via fh_loader...",
-  "device_rollback_header": "\n==========================================================\n  Rollback Check (Fastboot)\n==========================================================",
+  "device_rollback_header": "\n==============================================================================\n  Rollback Check (Fastboot)\n==============================================================================",
   "device_skip_adb": "[!] Skipping ADB as requested.",
   "device_skip_adb_leave_fastboot": "[!] Skip ADB enabled. Device stays in Fastboot.",
   "device_skip_adb_on": "[!] Skip ADB enabled.",

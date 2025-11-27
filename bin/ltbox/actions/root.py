@@ -230,14 +230,14 @@ def patch_root_image_file(gki: bool = False) -> None:
             shutil.move(bak_file, const.BACKUP_DIR / bak_file.name)
         utils.ui.echo("")
 
-        utils.ui.echo("  " + "=" * 58)
+        utils.ui.echo("  " + "=" * 78)
         utils.ui.echo(get_string("act_success"))
         utils.ui.echo(success_msg.format(dir=out_dir_name))
         if not gki:
             utils.ui.echo(get_string("act_root_saved_vbmeta_lkm").format(name=vbmeta_img_name, dir=out_dir_name))
         
         utils.ui.echo("\n" + get_string("act_root_manual_flash_notice"))
-        utils.ui.echo("  " + "=" * 58)
+        utils.ui.echo("  " + "=" * 78)
     else:
         utils.ui.error(fail_msg)
 
@@ -543,13 +543,13 @@ def unroot_device(dev: device.DeviceController) -> None:
     
     if gki_exists and lkm_exists:
         os.system('cls')
-        utils.ui.echo("\n  " + "=" * 58)
+        utils.ui.echo("\n  " + "=" * 78)
         utils.ui.echo(get_string("act_unroot_menu_title"))
-        utils.ui.echo("  " + "=" * 58 + "\n")
+        utils.ui.echo("  " + "=" * 78 + "\n")
         utils.ui.echo(get_string("act_unroot_menu_1_lkm"))
         utils.ui.echo(get_string("act_unroot_menu_2_gki"))
         utils.ui.echo("\n" + get_string("act_unroot_menu_m"))
-        utils.ui.echo("\n  " + "=" * 58 + "\n")
+        utils.ui.echo("\n  " + "=" * 78 + "\n")
         
         while unroot_mode is None:
             choice = utils.ui.prompt(get_string("act_unroot_menu_prompt")).strip().lower()
