@@ -421,6 +421,8 @@
   "device_wait_10s_edl": "[*] Ожидание EDL 10с...",
   "device_wait_10s_fastboot": "[*] Ожидание Fastboot 10с...",
   "device_wait_adb_title": "\n=== ОЖИДАНИЕ ADB ===",
+  "device_wait_cancel_hint": "    (Нажмите Ctrl+C, чтобы пропустить ожидание)",
+  "device_wait_cancelled": "\n[!] Ожидание отменено пользователем (Ctrl+C). Пропуск...",
   "device_wait_edl_cancel": "\n[!] Ожидание EDL отменено.",
   "device_wait_edl_loop": "[*] Ожидание устройств EDL (9008)... (Ctrl+C для отмены)",
   "device_wait_edl_title": "\n=== ОЖИДАНИЕ EDL ===",

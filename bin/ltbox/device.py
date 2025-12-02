@@ -28,14 +28,23 @@ class AdbManager:
                 get_string("device_wait_adb_title"),
                 get_string("device_enable_usb_debug"),
                 get_string("device_usb_prompt_appear"),
-                get_string("device_check_always_allow")
+                get_string("device_check_always_allow"),
+                get_string("device_wait_cancel_hint")
             ])
         
         try:
             utils.run_command([str(const.ADB_EXE), "wait-for-device"])
+            
             if not self.connected_once:
                 ui.info(get_string("device_adb_connected"))
             self.connected_once = True
+
+        except KeyboardInterrupt:
+            ui.warn(get_string("device_wait_cancelled"))
+            self.skip_adb = True
+            ui.warn(get_string("act_skip_adb_active"))
+            return
+
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             raise ToolError(get_string("device_err_wait_adb").format(e=e))
 
