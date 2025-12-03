@@ -5,7 +5,7 @@ import sys
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Tuple, Dict, Callable, Any
+from typing import Tuple, Dict, Callable, Any, List
 
 from . import downloader, i18n
 from .i18n import get_string
@@ -24,6 +24,52 @@ except ImportError:
     print(get_string("err_ensure_errors"), file=sys.stderr)
     input(get_string("press_enter_to_exit"))
     sys.exit(1)
+
+# --- UI Helper Class ---
+class TerminalMenu:
+    def __init__(self, title: str):
+        self.title = title
+        self.options: List[Tuple[str, str, bool]] = []
+        self.valid_keys: List[str] = []
+
+    def add_option(self, key: str, text: str) -> None:
+        self.options.append((key, text, True))
+        self.valid_keys.append(key.lower())
+
+    def add_label(self, text: str) -> None:
+        self.options.append((None, text, False))
+
+    def add_separator(self) -> None:
+        self.options.append((None, "", False))
+
+    def show(self) -> None:
+        ui.clear()
+        ui.echo("\n  " + "=" * 78)
+        ui.echo(f"   {self.title}")
+        ui.echo("  " + "=" * 78 + "\n")
+        
+        for key, text, is_selectable in self.options:
+            if is_selectable:
+                ui.echo(f"   {key}. {text}")
+            else:
+                if text:
+                    ui.echo(f"  {text}")
+                else:
+                    ui.echo("")
+        
+        ui.echo("\n  " + "=" * 78 + "\n")
+
+    def ask(self, prompt_msg: str, error_msg: str) -> str:
+        while True:
+            self.show()
+            choice = input(prompt_msg).strip().lower()
+            if choice in self.valid_keys:
+                return choice
+            
+            ui.echo(error_msg)
+            input(get_string("press_enter_to_continue"))
+
+# --- Settings & Init ---
 
 def _load_settings() -> Dict[str, Any]:
     if SETTINGS_FILE.exists():
@@ -91,6 +137,8 @@ def check_path_encoding():
         
         input(get_string("press_enter_to_continue"))
         raise RuntimeError(get_string("critical_error_path_encoding"))
+
+# --- Task Execution ---
 
 def run_task(command, title, dev, command_map, extra_kwargs=None):
     ui.clear()
@@ -216,74 +264,7 @@ def run_info_scan(paths, constants, avb_patch):
     print(get_string("scan_complete"))
     print(get_string("scan_saved_to").format(filename=log_filename.name))
 
-def print_main_menu(skip_adb, skip_rollback):
-    skip_adb_state = "ON" if skip_adb else "OFF"
-    skip_rb_state = "ON" if skip_rollback else "OFF"
-    os.system('cls')
-    print("\n  " + "=" * 78)
-    print(get_string("menu_main_title"))
-    print("  " + "=" * 78 + "\n")
-
-    print(f"  {get_string('menu_main_sub_install')}")
-    print(get_string("menu_main_install_wipe"))
-    print(get_string("menu_main_install_keep"))
-    print("")
-
-    print(f"  {get_string('menu_main_sub_manage')}")
-    print(get_string("menu_main_disable_ota"))
-    print(get_string("menu_main_rescue"))
-    print(get_string("menu_main_root"))
-    print(get_string("menu_main_unroot"))
-    print("")
-
-    print(f"  {get_string('menu_main_sub_settings')}")
-    print(get_string("menu_main_skip_adb").format(skip_adb_state=skip_adb_state))
-    print(get_string("menu_main_skip_rb").format(skip_rb_state=skip_rb_state))
-    print(get_string("menu_main_language"))
-    print("")
-
-    print(f"  {get_string('menu_main_sub_nav')}")
-    print(get_string("menu_main_adv"))
-    print(get_string("menu_main_exit"))
-    print("\n  " + "=" * 78 + "\n")
-
-def print_advanced_menu():
-    os.system('cls')
-    print("\n  " + "=" * 78)
-    print(get_string("menu_adv_title"))
-    print("  " + "=" * 78 + "\n")
-
-    print(f"  {get_string('menu_adv_sub_region_dump')}")
-    print(get_string("menu_adv_1"))
-    print(get_string("menu_adv_2"))
-    print("")
-
-    print(f"  {get_string('menu_adv_sub_patch_region')}")
-    print(get_string("menu_adv_3"))
-    print(get_string("menu_adv_4"))
-    print("")
-
-    print(f"  {get_string('menu_adv_sub_arb')}")
-    print(get_string("menu_adv_5"))
-    print(get_string("menu_adv_6"))
-    print(get_string("menu_adv_7"))
-    print("")
-
-    print(f"  {get_string('menu_adv_sub_xml_flash')}")
-    print(get_string("menu_adv_8"))
-    print(get_string("menu_adv_9"))
-    print(get_string("menu_adv_10"))
-    print(get_string("menu_adv_11"))
-    print("")
-
-    print(f"  {get_string('menu_adv_sub_maint')}")
-    print(get_string("menu_adv_12"))
-    print("")
-
-    print(f"  {get_string('menu_adv_sub_nav')}")
-    print(get_string("menu_adv_m"))
-    print(get_string("menu_main_exit"))
-    print("\n  " + "=" * 78 + "\n")
+# --- Menus ---
 
 def advanced_menu(dev, command_map):
     actions_map = {
@@ -302,64 +283,50 @@ def advanced_menu(dev, command_map):
     }
 
     while True:
-        print_advanced_menu()
-        choice = input(get_string("menu_adv_prompt")).strip().lower()
+        menu = TerminalMenu(get_string("menu_adv_title"))
+        
+        menu.add_label(get_string('menu_adv_sub_region_dump'))
+        menu.add_option("1", get_string("menu_adv_1"))
+        menu.add_option("2", get_string("menu_adv_2"))
+        menu.add_separator()
+        
+        menu.add_label(get_string('menu_adv_sub_patch_region'))
+        menu.add_option("3", get_string("menu_adv_3"))
+        menu.add_option("4", get_string("menu_adv_4"))
+        menu.add_separator()
+        
+        menu.add_label(get_string('menu_adv_sub_arb'))
+        menu.add_option("5", get_string("menu_adv_5"))
+        menu.add_option("6", get_string("menu_adv_6"))
+        menu.add_option("7", get_string("menu_adv_7"))
+        menu.add_separator()
+        
+        menu.add_label(get_string('menu_adv_sub_xml_flash'))
+        menu.add_option("8", get_string("menu_adv_8"))
+        menu.add_option("9", get_string("menu_adv_9"))
+        menu.add_option("10", get_string("menu_adv_10"))
+        menu.add_option("11", get_string("menu_adv_11"))
+        menu.add_separator()
+        
+        menu.add_label(get_string('menu_adv_sub_maint'))
+        menu.add_option("12", get_string("menu_adv_12"))
+        menu.add_separator()
+        
+        menu.add_label(get_string('menu_adv_sub_nav'))
+        menu.add_option("m", get_string("menu_adv_m"))
+        menu.add_option("x", get_string("menu_main_exit"))
+
+        choice = menu.ask(get_string("menu_adv_prompt"), get_string("menu_adv_invalid"))
 
         if choice in actions_map:
             cmd, title = actions_map[choice]
             run_task(cmd, title, dev, command_map)
-            if choice == "12":
+            if choice == "12": # Clean exits
                 sys.exit()
         elif choice == "m":
             return
         elif choice == "x":
             sys.exit()
-        else:
-            print(get_string("menu_adv_invalid"))
-            input(get_string("press_enter_to_continue"))
-
-def print_root_mode_selection_menu():
-    os.system('cls')
-    print("\n  " + "=" * 78)
-    print(get_string("menu_root_mode_title"))
-    print("  " + "=" * 78 + "\n")
-    print(get_string("menu_root_mode_1"))
-    print(get_string("menu_root_mode_2"))
-    print("\n" + get_string("menu_root_m"))
-    print(get_string("menu_main_exit"))
-    print("\n  " + "=" * 78 + "\n")
-
-def root_mode_selection_menu(dev, command_map):
-    while True:
-        print_root_mode_selection_menu()
-        choice = input(get_string("menu_root_mode_prompt")).strip().lower()
-
-        if choice == "1":
-            root_menu(dev, command_map, gki=False)
-        elif choice == "2":
-            root_menu(dev, command_map, gki=True)
-        elif choice == "m":
-            return
-        elif choice == "x":
-            sys.exit()
-        else:
-            print(get_string("menu_root_mode_invalid"))
-            input(get_string("press_enter_to_continue"))
-
-def print_root_menu(gki: bool):
-    os.system('cls')
-    print("\n  " + "=" * 78)
-    print(get_string("menu_root_title"))
-    print("  " + "=" * 78 + "\n")
-    if gki:
-        print(get_string("menu_root_1_gki"))
-        print(get_string("menu_root_2_gki"))
-    else:
-        print(get_string("menu_root_1_lkm"))
-        print(get_string("menu_root_2_lkm"))
-    print("\n" + get_string("menu_root_m"))
-    print(get_string("menu_main_exit"))
-    print("\n  " + "=" * 78 + "\n")
 
 def root_menu(dev, command_map, gki: bool):
     if gki:
@@ -374,8 +341,19 @@ def root_menu(dev, command_map, gki: bool):
         }
 
     while True:
-        print_root_menu(gki)
-        choice = input(get_string("menu_root_prompt")).strip().lower()
+        menu = TerminalMenu(get_string("menu_root_title"))
+        if gki:
+            menu.add_option("1", get_string("menu_root_1_gki"))
+            menu.add_option("2", get_string("menu_root_2_gki"))
+        else:
+            menu.add_option("1", get_string("menu_root_1_lkm"))
+            menu.add_option("2", get_string("menu_root_2_lkm"))
+        
+        menu.add_separator()
+        menu.add_option("m", get_string("menu_root_m"))
+        menu.add_option("x", get_string("menu_main_exit"))
+
+        choice = menu.ask(get_string("menu_root_prompt"), get_string("menu_root_invalid"))
 
         if choice in actions_map:
             cmd, title = actions_map[choice]
@@ -384,54 +362,27 @@ def root_menu(dev, command_map, gki: bool):
             return
         elif choice == "x":
             sys.exit()
-        else:
-            print(get_string("menu_root_invalid"))
-            input(get_string("press_enter_to_continue"))
 
-def change_language_task():
-    new_lang = prompt_for_language(force_prompt=True)
-    i18n.load_lang(new_lang)
-    return get_string("lang_changed")
-
-def main_loop(device_controller_class, command_map):
-    skip_adb = False
-    skip_rollback = False
-    dev = device_controller_class(skip_adb=skip_adb)
-    
-    actions_map = {
-        "1": ("patch_all_wipe", get_string("task_title_install_wipe")),
-        "2": ("patch_all", get_string("task_title_install_nowipe")),
-        "3": ("disable_ota", get_string("task_title_disable_ota")),
-        "4": ("rescue_ota", get_string("task_title_rescue")),
-        "6": ("unroot_device", get_string("task_title_unroot"))
-    }
-
+def root_mode_selection_menu(dev, command_map):
     while True:
-        print_main_menu(skip_adb, skip_rollback)
-        choice = input(get_string("menu_main_prompt")).strip().lower()
+        menu = TerminalMenu(get_string("menu_root_mode_title"))
+        menu.add_option("1", get_string("menu_root_mode_1"))
+        menu.add_option("2", get_string("menu_root_mode_2"))
+        
+        menu.add_separator()
+        menu.add_option("m", get_string("menu_root_m"))
+        menu.add_option("x", get_string("menu_main_exit"))
 
-        if choice in actions_map:
-            cmd, title = actions_map[choice]
-            extras = {}
-            if cmd in ["patch_all", "patch_all_wipe"]:
-                extras["skip_rollback"] = skip_rollback
-            run_task(cmd, title, dev, command_map, extra_kwargs=extras)
-        elif choice == "5":
-            root_mode_selection_menu(dev, command_map)
-        elif choice == "7":
-            skip_adb = not skip_adb
-            dev.skip_adb = skip_adb
-        elif choice == "8":
-            skip_rollback = not skip_rollback
-        elif choice == "9":
-            change_language_task()
-        elif choice == "a":
-            advanced_menu(dev, command_map)
+        choice = menu.ask(get_string("menu_root_mode_prompt"), get_string("menu_root_mode_invalid"))
+
+        if choice == "1":
+            root_menu(dev, command_map, gki=False)
+        elif choice == "2":
+            root_menu(dev, command_map, gki=True)
+        elif choice == "m":
+            return
         elif choice == "x":
-            break
-        else:
-            print(get_string("menu_main_invalid"))
-            input(get_string("press_enter_to_continue"))
+            sys.exit()
 
 def prompt_for_language(force_prompt: bool = False) -> str:
     if not force_prompt:
@@ -453,44 +404,97 @@ def prompt_for_language(force_prompt: bool = False) -> str:
     try:
         available_languages = i18n.get_available_languages()
     except RuntimeError as e:
-        if "Language directory not found" in str(e):
-            print(get_string("err_lang_dir_not_found"), file=sys.stderr)
-            print(get_string("err_lang_dir_expected").format(path=i18n.LANG_DIR), file=sys.stderr)
-        elif "No language files" in str(e):
-            print(get_string("err_no_lang_files"), file=sys.stderr)
-            print(get_string("err_no_lang_files_path").format(path=i18n.LANG_DIR), file=sys.stderr)
-        else:
-            print(get_string("err_lang_generic").format(e=e), file=sys.stderr)
-        
+        print(get_string("err_lang_generic").format(e=e), file=sys.stderr)
         input(get_string("press_enter_to_continue"))
         raise e
 
-    menu_options = []
+    menu = TerminalMenu(get_string("menu_lang_title"))
     lang_map = {}
     
     for i, (lang_code, lang_name) in enumerate(available_languages, 1):
-        lang_map[str(i)] = lang_code
-        menu_options.append(f"     {i}. {lang_name}")
+        key = str(i)
+        lang_map[key] = lang_code
+        menu.add_option(key, lang_name)
 
-    os.system('cls')
-    print("\n  " + "=" * 78)
-    print(get_string("menu_lang_title"))
-    print("  " + "=" * 78 + "\n")
-    print("\n".join(menu_options))
-    print("\n  " + "=" * 78 + "\n")
-
-    choice = ""
-    while choice not in lang_map:
-        prompt = get_string("menu_lang_prompt").format(len=len(lang_map))
-        choice = input(prompt).strip()
-        if choice not in lang_map:
-            print(get_string("menu_lang_invalid").format(len=len(lang_map)))
+    prompt = get_string("menu_lang_prompt").format(len=len(lang_map))
+    error_msg = get_string("menu_lang_invalid").format(len=len(lang_map))
     
+    choice = menu.ask(prompt, error_msg)
     selected_lang = lang_map[choice]
 
     _save_settings({"language": selected_lang})
     
     return selected_lang
+
+def change_language_task():
+    new_lang = prompt_for_language(force_prompt=True)
+    i18n.load_lang(new_lang)
+    return get_string("lang_changed")
+
+def main_loop(device_controller_class, command_map):
+    skip_adb = False
+    skip_rollback = False
+    dev = device_controller_class(skip_adb=skip_adb)
+    
+    actions_map = {
+        "1": ("patch_all_wipe", get_string("task_title_install_wipe")),
+        "2": ("patch_all", get_string("task_title_install_nowipe")),
+        "3": ("disable_ota", get_string("task_title_disable_ota")),
+        "4": ("rescue_ota", get_string("task_title_rescue")),
+        "6": ("unroot_device", get_string("task_title_unroot"))
+    }
+
+    while True:
+        skip_adb_state = "ON" if skip_adb else "OFF"
+        skip_rb_state = "ON" if skip_rollback else "OFF"
+
+        menu = TerminalMenu(get_string("menu_main_title"))
+        
+        menu.add_label(get_string('menu_main_sub_install'))
+        menu.add_option("1", get_string("menu_main_install_wipe"))
+        menu.add_option("2", get_string("menu_main_install_keep"))
+        menu.add_separator()
+        
+        menu.add_label(get_string('menu_main_sub_manage'))
+        menu.add_option("3", get_string("menu_main_disable_ota"))
+        menu.add_option("4", get_string("menu_main_rescue"))
+        menu.add_option("5", get_string("menu_main_root"))
+        menu.add_option("6", get_string("menu_main_unroot"))
+        menu.add_separator()
+        
+        menu.add_label(get_string('menu_main_sub_settings'))
+        menu.add_option("7", get_string("menu_main_skip_adb").format(skip_adb_state=skip_adb_state))
+        menu.add_option("8", get_string("menu_main_skip_rb").format(skip_rb_state=skip_rb_state))
+        menu.add_option("9", get_string("menu_main_language"))
+        menu.add_separator()
+        
+        menu.add_label(get_string('menu_main_sub_nav'))
+        menu.add_option("a", get_string("menu_main_adv"))
+        menu.add_option("x", get_string("menu_main_exit"))
+
+        choice = menu.ask(get_string("menu_main_prompt"), get_string("menu_main_invalid"))
+
+        if choice in actions_map:
+            cmd, title = actions_map[choice]
+            extras = {}
+            if cmd in ["patch_all", "patch_all_wipe"]:
+                extras["skip_rollback"] = skip_rollback
+            run_task(cmd, title, dev, command_map, extra_kwargs=extras)
+        elif choice == "5":
+            root_mode_selection_menu(dev, command_map)
+        elif choice == "7":
+            skip_adb = not skip_adb
+            dev.skip_adb = skip_adb
+        elif choice == "8":
+            skip_rollback = not skip_rollback
+        elif choice == "9":
+            change_language_task()
+        elif choice == "a":
+            advanced_menu(dev, command_map)
+        elif choice == "x":
+            break
+
+# --- Entry Point ---
 
 def entry_point():
     try:
