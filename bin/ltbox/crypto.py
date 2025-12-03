@@ -48,6 +48,6 @@ def decrypt_file(fi_path: str, fo_path: str) -> bool:
         print(get_string("img_decrypt_success"), original_size, get_string("img_decrypt_bytes"))
         return True
 
-    except Exception as e:
+    except (OSError, ValueError, KeyError) as e:
         print(get_string("img_decrypt_error").format(path=fi_path, e=e), file=sys.stderr)
         return False

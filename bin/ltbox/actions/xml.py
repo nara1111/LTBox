@@ -35,8 +35,8 @@ def auto_decrypt_if_needed() -> None:
                 decrypted_count += 1
             else:
                 print(get_string("img_xml_decrypt_fail").format(name=x_file.name))
-        except Exception as e:
-            print(get_string("xml_warn_decrypt_fail").format(name=x_file.name, e=e))
+        except (OSError, ValueError) as e:
+            print(get_string("xml_decrypt_warn").format(name=x_file.name, e=e))
             
     if decrypted_count > 0:
         print(get_string("act_xml_ready").format(dir=const.IMAGE_DIR.name))
@@ -103,7 +103,7 @@ def decrypt_x_files() -> None:
                     processed_files = True
                 else:
                     print(get_string("img_xml_decrypt_fail").format(name=file.name))
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 print(get_string("img_xml_decrypt_err").format(name=file.name, e=e), file=sys.stderr)
 
     if xml_files:
@@ -116,7 +116,7 @@ def decrypt_x_files() -> None:
                 shutil.move(str(file), str(out_file))
                 print(get_string("img_xml_moved").format(name=file.name))
                 processed_files = True
-            except Exception as e:
+            except OSError as e:
                 print(get_string("img_xml_move_err").format(name=file.name, e=e), file=sys.stderr)
 
     if not processed_files:
@@ -160,7 +160,7 @@ def _ensure_rawprogram4(output_dir: Path) -> None:
             else:
                 print(get_string("img_xml_created_raw4_no_devinfo").format(name=rawprogram4.name))
                 
-        except Exception as e:
+        except (OSError, ET.ParseError) as e:
             print(get_string("img_xml_err_process_raw4").format(name=rawprogram_unsparse4.name, e=e), file=sys.stderr)
             print(get_string("img_xml_fallback_copy"))
             shutil.copy(rawprogram_unsparse4, rawprogram4)
@@ -208,7 +208,7 @@ def _ensure_rawprogram_save_persist(output_dir: Path) -> Path:
                     
                     return rawprogram_save
 
-                except Exception as e:
+                except (OSError, ET.ParseError) as e:
                     print(get_string("img_xml_err_process_fallback").format(name=cand_path.name, e=e), file=sys.stderr)
                     raise
 
@@ -233,7 +233,7 @@ def _patch_xml_for_wipe(xml_path: Path, wipe: int) -> None:
             
         tree.write(xml_path, encoding='utf-8', xml_declaration=True)
         print(get_string("img_xml_patch_ok"))
-    except Exception as e:
+    except (OSError, ET.ParseError) as e:
         print(get_string("img_xml_patch_err").format(e=e), file=sys.stderr)
         raise
 
@@ -295,7 +295,7 @@ def _create_write_xml(
             print(get_string(success_key).format(name=dest_xml_path.name, parent=dest_xml_path.parent.name))
         else:
             print(get_string(warn_label_missing_key).format(name=src_xml_path.name))
-    except Exception as e:
+    except (OSError, ET.ParseError) as e:
         print(get_string(error_key).format(name=dest_xml_path.name, e=e), file=sys.stderr)
 
 def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
@@ -336,7 +336,7 @@ def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
                     warn_label_missing_key="act_warn_devinfo_label_missing"
                 )
 
-        except Exception as e:
+        except (OSError, FileNotFoundError, ET.ParseError) as e:
             print(get_string("act_err_xml_mod").format(e=e), file=sys.stderr)
             raise
         

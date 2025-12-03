@@ -67,6 +67,7 @@ def extract_archive_files(archive_path: Path, extract_map: Dict[str, Path]) -> N
 
 def _download_github_asset(repo_url: str, tag: str, asset_pattern: str, dest_dir: Path) -> Path:
     import requests
+    from requests.exceptions import RequestException
     
     if "github.com/" in repo_url:
         owner_repo = repo_url.split("github.com/")[-1]
@@ -102,7 +103,7 @@ def _download_github_asset(repo_url: str, tag: str, asset_pattern: str, dest_dir
                 
         return dest_path
 
-    except Exception as e:
+    except RequestException as e:
         raise ToolError(get_string("dl_github_failed").format(e=e))
 
 def _ensure_tool_from_github_release(
@@ -268,8 +269,10 @@ def ensure_openssl() -> None:
     url = const._get_cfg("tools", "openssl_url")
     temp_zip = const.DOWNLOAD_DIR / "openssl.zip"
     
+    import requests
+    from requests.exceptions import RequestException
+
     try:
-        import requests
         with requests.get(url, stream=True) as r:
             r.raise_for_status()
             with open(temp_zip, 'wb') as f:
@@ -292,7 +295,7 @@ def ensure_openssl() -> None:
         
         utils.ui.echo(get_string("dl_tool_success").format(tool_name="OpenSSL"))
         
-    except Exception as e:
+    except (RequestException, zipfile.BadZipFile, OSError) as e:
         utils.ui.error(get_string("dl_err_openssl_download").format(e=e))
         if temp_zip.exists():
             temp_zip.unlink()
@@ -309,7 +312,7 @@ def download_ksu_apk(target_dir: Path) -> None:
         try:
             _download_github_asset(f"https://github.com/{const.KSU_APK_REPO}", const.KSU_APK_TAG, ".*spoofed.*\\.apk", target_dir)
             utils.ui.echo(get_string("dl_ksu_success"))
-        except Exception as e:
+        except ToolError as e:
              utils.ui.error(get_string("dl_err_ksu_download").format(e=e))
 
 def download_ksuinit(target_path: Path) -> None:
@@ -319,6 +322,8 @@ def download_ksuinit(target_path: Path) -> None:
     url = f"https://github.com/{const.KSU_APK_REPO}/raw/refs/tags/{const.KSU_APK_TAG}/userspace/ksud_magic/bin/aarch64/ksuinit"
     
     import requests
+    from requests.exceptions import RequestException
+
     msg = get_string("dl_downloading").format(filename="ksuinit")
     utils.ui.echo(msg)
     try:
@@ -330,7 +335,7 @@ def download_ksuinit(target_path: Path) -> None:
         msg_success = get_string("dl_download_success").format(filename="ksuinit")
         utils.ui.echo(msg_success)
     
-    except Exception as e:
+    except (RequestException, OSError) as e:
         msg_err = get_string("dl_download_failed").format(url=url, error=e)
         utils.ui.error(msg_err)
         if target_path.exists():
@@ -353,7 +358,7 @@ def get_lkm_kernel(target_path: Path, kernel_version: str) -> None:
         downloaded_file = _download_github_asset(f"https://github.com/{const.KSU_APK_REPO}", const.KSU_APK_TAG, asset_pattern_regex, target_path.parent)
         shutil.move(downloaded_file, target_path)
         utils.ui.echo(get_string("dl_lkm_download_ok"))
-    except Exception as e:
+    except (ToolError, OSError) as e:
         utils.ui.error(get_string("dl_lkm_download_fail").format(asset=asset_pattern_regex))
         utils.ui.error(f"[!] {e}")
         raise ToolError(str(e))
