@@ -33,12 +33,21 @@ def _patch_vendor_boot_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dict
     
     return content, {'changed': False, 'message': get_string("img_vb_no_patterns")}
 
-def edit_vendor_boot(input_file_path: str) -> None:
+def edit_vendor_boot(input_file_path: str, copy_if_unchanged: bool = True) -> bool:
     input_file = Path(input_file_path)
     output_file = input_file.parent / "vendor_boot_prc.img"
-    
-    if not utils._process_binary_file(input_file, output_file, _patch_vendor_boot_logic, copy_if_unchanged=True):
+
+    success = utils._process_binary_file(
+        input_file, 
+        output_file, 
+        _patch_vendor_boot_logic, 
+        copy_if_unchanged=copy_if_unchanged
+    )
+
+    if copy_if_unchanged and not success:
         raise RuntimeError(get_string("err_process_vendor_boot"))
+        
+    return success
 
 def detect_region_codes() -> Dict[str, Optional[str]]:
     results: Dict[str, Optional[str]] = {}

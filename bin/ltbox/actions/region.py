@@ -346,13 +346,15 @@ def rescue_after_ota(dev: device.DeviceController) -> None:
 
         try:
             utils.ui.echo(get_string("rescue_patching_slot").format(slot=slot))
-            edit_vendor_boot(str(vb_path))
+            if not edit_vendor_boot(str(vb_path), copy_if_unchanged=False):
+                utils.ui.echo(f"No changes for {slot}, skipping flash.")
+                continue
         except Exception as e:
-            utils.ui.echo(f"Skipping {slot}: {e}")
+            utils.ui.echo(f"Skipping {slot} due to patch error: {e}")
             continue
 
         if not prc_temp.exists():
-            utils.ui.echo(f"No changes for {slot}, skipping flash.")
+            utils.ui.echo(f"Skipping {slot}, output file not found.")
             continue
 
         dest_vb = const.OUTPUT_DIR / f"{vb_target}.img"
