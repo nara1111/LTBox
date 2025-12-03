@@ -369,7 +369,7 @@ class EdlManager:
         try:
             utils.run_command(cmd_fh)
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            raise ToolError(f"Failed to reset device: {e}")
+            raise ToolError(get_string("device_err_reset_fail").format(e=e))
 
     def flash_rawprogram(self, port: str, loader_path: Path, memory_type: str, raw_xmls: List[Path], patch_xmls: List[Path]) -> None:
         if not const.QSAHARASERVER_EXE.exists() or not const.EDL_EXE.exists():
@@ -402,7 +402,7 @@ class EdlManager:
         try:
             utils.run_command(cmd_fh)
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            raise ToolError(f"EDL Rawprogram flash failed: {e}")
+            raise ToolError(get_string("device_err_rawprogram_fail").format(e=e))
 
 class DeviceController:
     def __init__(self, skip_adb: bool = False):

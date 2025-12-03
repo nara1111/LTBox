@@ -16,12 +16,12 @@ def auto_decrypt_if_needed() -> None:
 
     xml_files = list(const.IMAGE_DIR.glob("rawprogram*.xml"))
     if xml_files:
-        print("Cleaning up ALL existing XML files to prevent pollution...")
+        print(get_string("xml_cleaning_pollution"))
         for xml_file in xml_files:
             try:
                 xml_file.unlink()
             except OSError as e:
-                print(f"Warning: Failed to delete {xml_file.name}: {e}")
+                print(get_string("xml_err_delete_fail").format(name=xml_file.name, e=e))
         print("-" * 60)
 
     print(get_string("img_xml_scan"))
@@ -36,7 +36,7 @@ def auto_decrypt_if_needed() -> None:
             else:
                 print(get_string("img_xml_decrypt_fail").format(name=x_file.name))
         except Exception as e:
-            print(f"Warning: Failed to decrypt {x_file.name}: {e}")
+            print(get_string("xml_warn_decrypt_fail").format(name=x_file.name, e=e))
             
     if decrypted_count > 0:
         print(get_string("act_xml_ready").format(dir=const.IMAGE_DIR.name))
@@ -79,15 +79,15 @@ def decrypt_x_files() -> None:
     x_files = list(const.IMAGE_DIR.glob("*.x"))
 
     if x_files:
-        print("Checking for potential file conflicts...")
+        print(get_string("xml_check_conflicts"))
         existing_xmls = list(const.IMAGE_DIR.glob("*.xml"))
         if existing_xmls:
-            print("  Cleaning up ALL existing XML files to ensure clean decryption...")
+            print(f"  {get_string('xml_cleaning_clean_decrypt')}")
             for xml_file in existing_xmls:
                 try:
                     xml_file.unlink()
                 except OSError as e:
-                    print(f"  Warning: Failed to delete {xml_file.name}: {e}")
+                    print(f"  {get_string('xml_err_delete_fail').format(name=xml_file.name, e=e)}")
 
     xml_files = list(const.IMAGE_DIR.glob("*.xml"))
     

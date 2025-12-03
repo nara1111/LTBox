@@ -103,7 +103,7 @@ def _download_github_asset(repo_url: str, tag: str, asset_pattern: str, dest_dir
         return dest_path
 
     except Exception as e:
-        raise ToolError(f"GitHub download failed: {e}")
+        raise ToolError(get_string("dl_github_failed").format(e=e))
 
 def _ensure_tool_from_github_release(
     tool_name: str, 
@@ -293,10 +293,10 @@ def ensure_openssl() -> None:
         utils.ui.echo(get_string("dl_tool_success").format(tool_name="OpenSSL"))
         
     except Exception as e:
-        utils.ui.error(f"Failed to download OpenSSL: {e}")
+        utils.ui.error(get_string("dl_err_openssl_download").format(e=e))
         if temp_zip.exists():
             temp_zip.unlink()
-        raise ToolError("OpenSSL download failed")
+        raise ToolError(get_string("dl_err_openssl_generic"))
     finally:
         if temp_zip.exists():
             temp_zip.unlink()
@@ -310,7 +310,7 @@ def download_ksu_apk(target_dir: Path) -> None:
             _download_github_asset(f"https://github.com/{const.KSU_APK_REPO}", const.KSU_APK_TAG, ".*spoofed.*\\.apk", target_dir)
             utils.ui.echo(get_string("dl_ksu_success"))
         except Exception as e:
-             utils.ui.error(f"Failed to download KSU APK: {e}")
+             utils.ui.error(get_string("dl_err_ksu_download").format(e=e))
 
 def download_ksuinit(target_path: Path) -> None:
     if target_path.exists():
