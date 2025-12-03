@@ -20,150 +20,107 @@ This toolkit is an all-in-one collection of scripts that leverages this flaw to 
 
 ### Target Models
 
-* Lenovo Legion Y700 (2nd, 3rd, 4th Gen)
-* Lenovo Tab Plus AI (aka Yoga Pad Pro AI)
-* Lenovo Xiaoxin Pad Pro GT
+* Lenovo Legion Y700 2nd, 3rd, 4th Gen (aka Legion Tab)
+* Lenovo Yoga Pad Pro AI (aka Yoga Tab Plus AI)
+* Lenovo Xiaoxin Pad Pro GT (aka Yoga Tab 11.1 AI)
 
-*...Other recent Lenovo devices (released in 2024 or later with Qualcomm chipsets) may also be vulnerable.*
+*...Other recent Lenovo devices (released in 2023 or later with Qualcomm chipsets) may also be vulnerable.*
 
-## 2. Toolkit Purpose & Features
+## 2. How to Use
 
-This toolkit provides an all-in-one solution for the following tasks **without unlocking the bootloader**:
+The toolkit is designed to be fully automated.
 
-1.  **Region Conversion (PRC → ROW):** Converts Chinese (PRC) firmware to Global (ROW) firmware by patching `vendor_boot.img` and rebuilding `vbmeta.img`.
+1.  **Download & Extract:** Download the latest release and extract it to a folder (ensure the path contains no spaces or non-ASCII characters).
+2.  **Run the Script:** Double-click **`start.bat`**.
+    * *Dependencies will be installed automatically on the first run.*
+3.  **Select Task:** Follow the on-screen menu to choose your desired operation.
 
-2.  **Get Root Access:** Provides two methods for root access:
-    * **LKM Mode:** Patches `init_boot.img` to load KernelSU Next as a Loadable Kernel Module (LKM).
-    * **GKI Mode:** Patches `boot.img` by replacing its kernel with [a GKI (Generic Kernel Image) that includes KernelSU](https://github.com/WildKernels/GKI_KernelSU_SUSFS).
+## 3. Script Descriptions
 
-3.  **Anti-Rollback Bypass:** Bypasses rollback protection, allowing you to flash older (downgrade) firmware versions by patching the rollback index in `boot.img` and `vbmeta_system.img`.
+### 3.1 Main Menu
 
-4.  **Change Region Code:** Patches `devinfo.img` and `persist.img` to change the device's region code.
-
-5.  **Firmware Flashing:** Uses `QSaharaServer` and `fh_loader` to dump partitions and flash modified firmware packages in Emergency Download (EDL) mode.
-
-6.  **Automated Process:** Provides fully automated options to perform region conversion and flashing, with options for both data wipe and data preservation (no wipe).
-
-## 3. How to Use
-
-The toolkit is now centralized into a single menu-driven script.
-
-1.  **Run the Script:** Double-click **`start.bat`**.
-
-2.  **Install Dependencies (First Run):** The first time you run `start.bat`, it will automatically execute `ltbox\install.bat`. This will download and install all required dependencies (Python, `adb`, `avbtool`, `fetch`, etc.) into the `bin/python3/` and `bin/tools/` folders.
-
-3.  **Select Task:** Choose an option from the menu.
-
-    * Main Menu (1, 2, 3...): For common, fully automated tasks.
-    * Advanced Menu (a): For manual, step-by-step operations.
-
-4.  **Follow Prompts:** The scripts will prompt you when you need to place files (e.g., "Waiting for image folder...") or connect your device (e.g., "Waiting for ADB/EDL device...").
-
-5.  **Get Results:** After a task finishes, modified images are saved in the corresponding `output*` folder (e.g., `output/`, `output_root_lkm/`).
-
-6.  **Flash the Images:** The Main Menu options (1, 2) and the Advanced Menu "Flash Firmware" option handle this automatically. You can also flash individual `output*` images manually using the Advanced menu options.
-
-## 4. Script Descriptions
-
-### 4.1 Main Menu
-
-These are the primary, automated functions.
+These are the primary, automated functions for general users.
 
 **`1. Install firmware to PRC device [WIPE DATA]`**
-
-The all-in-one automated task. It performs all steps (Convert, XML Prepare, Dump, Patch, ARB Check, Flash) and **wipes all user data**. Supports both encrypted (`.x`) and plain (`.xml`) firmware packages.
+The all-in-one automated task. It performs all steps (Convert, XML Prepare, Dump, Patch, ARB Check, Flash) and **wipes all user data**.
 
 **`2. Update firmware on PRC device [KEEP DATA]`**
-
 Same as option 1, but modifies the XML scripts to **preserve user data** (skips `userdata` and `metadata` partitions).
 
 **`3. Disable OTA`**
+Connects to the device in ADB mode and disables system update packages to prevent automatic updates.
 
-Connects to the device in ADB mode and disables the `com.lenovo.ota` package to prevent automatic system updates.
+**`4. Rescue after OTA`**
+Attempts to fix boot issues caused by taking a Full OTA update on a converted device by dumping & patching essential partitions.
 
-**`4. Root device`**
+**`5. Root device`**
+Opens the root selection menu:
+* **LKM Mode:** Patches `init_boot.img` and `vbmeta.img` (Recommended for newer kernels).
+* **GKI Mode:** Patches `boot.img` by replacing its kernel with [a GKI (Generic Kernel Image) that includes KernelSU](https://github.com/WildKernels/GKI_KernelSU_SUSFS).
 
-Initiates the root process. It will first ask you to select a mode:
-* **LKM Mode (init_boot):** Guides you through patching `init_boot.img`.
-* **GKI Mode (boot):** Guides you through patching `boot.img`.
+**`6. Unroot device`**
+Restores the device to a non-rooted state by flashing the stock image (`init_boot.img` & `vbmeta.img` or `boot.img`) from backups.
 
-This is the all-in-one method to root your device by dumping the image, patching it, and flashing it back.
+**`7. Skip ADB [{state}]`**
+Toggles 'Skip ADB' mode. When ON, ADB checks (model verification, reboot commands) are skipped. Useful if the device is already in EDL/Fastboot mode or cannot connect via ADB.
 
-**`5. Unroot device`**
+**`8. Skip Anti-Rollback Patch [{state}]`**
+Toggles the automated Anti-Rollback check. When ON, the script skips verifying and patching rollback indices.
 
-Restores the device to a non-rooted state. It will ask for the mode (LKM/GKI) to restore the correct stock image (`init_boot.img` or `boot.img`). It looks for backups in `backup_init_boot/` or `backup_boot/`.
-
-**`6. Skip ADB [{skip_adb_state}]`**
-
-Toggles the 'Skip ADB' mode. When ON, all ADB-related steps (like checking device model, rebooting to EDL) are skipped. This is for advanced users who will perform these actions manually (e.g., rebooting with key combos).
+**`9. Change Language`**
+Switch the toolkit's interface language (e.g., English, Korean).
 
 
-### 4.2 Advanced Menu
+### 3.2 Advanced Menu
 
-These are the individual steps, allowing for manual control.
+Individual steps for manual control and troubleshooting.
 
 **`1. Convert ROW to PRC in ROM`**
-
 Converts `vendor_boot.img` and rebuilds `vbmeta.img`. (Input: `image/`, Output: `output/`).
 
 **`2. Dump devinfo/persist from device`**
+Dumps `devinfo` and `persist` partitions from the device in EDL mode to the `backup/` folder.
 
-Connect device in EDL mode. Dumps `devinfo` and `persist` to the `backup/` folder.
-
-**`3. Patch devinfo/persist to change region code`**
-
-Patches "CNXX" or other codes in `devinfo.img`/`persist.img`. It will **always prompt** you to select a new country code from a list. (Input: `backup/`, Output: `output_dp/`).
+**`3. Patch devinfo/persist to change country code`**
+Patches the country code (e.g., "CN", "KR") in `devinfo.img`/`persist.img`. (Input: `backup/`, Output: `output_dp/`).
 
 **`4. Write devinfo/persist to device`**
-
 Flashes the patched images from `output_dp/` to the device via EDL.
 
 **`5. Detect Anti-Rollback from device`**
-
-Dumps `boot` and `vbmeta_system` partitions from the device to `backup/`. It then compares their rollback indices to the new ROM in the `image/` folder to check for any index mismatch.
+Dumps `boot` and `vbmeta_system` to check their rollback indices against the new ROM in `image/`.
 
 **`6. Patch rollback indices in ROM`**
+Synchronizes the new ROM's rollback index with the device's index to bypass anti-rollback protection or lock the index for future downgrades. (Output: `output_anti_rollback/`).
 
-This step synchronizes the new ROM's rollback index with the device's current index, based on the check from Step 5.
-* If the device's index is **higher** (a downgrade attempt), it patches the new ROM's index to match the device's higher index, bypassing anti-rollback to boot.
-* If the device's index is **lower** (an upgrade), it patches the new ROM's index to match the device's lower index. This "locks" the device to the older index, making it easy to downgrade back to this version later.
-(Input: `image/`, `backup/`, Output: `output_anti_rollback/`).
-
-**`7. Write Anti-Anti-Rollback images to device`**
-
-Flashes the ARB-patched images from `output_anti_rollback/` to the device via EDL.
+**`7. Write Anti-Anti-Rollback patched image to device`**
+Flashes the ARB-patched images from `output_anti_rollback/` to the device.
 
 **`8. Convert X files to XML`**
-
-Processes files from the `image/` folder. If `.x` files (encrypted) are found, they are decrypted into `.xml` files. If `.xml` files are already present, they are moved. (Output: `output_xml/`).
+Decrypts `.x` (encrypted) firmware files into `.xml` files. (Output: `output_xml/`).
 
 **`9. Modify XML for Flashing [WIPE DATA]`**
-
-Takes the XML files from `output_xml/` and generates `rawprogram_write_persist.xml` and `rawprogram4_write_devinfo.xml` to allow flashing patched `devinfo`/`persist` images.
+Generates `rawprogram` XMLs to allow flashing patched images and **wipes user data**.
 
 **`10. Modify XML for Flashing [KEEP DATA]`**
-
-Same as Step 9, but modifies the XMLs to **skip user data partitions** (preserves data).
+Same as Step 9, but modifies XMLs to **preserve user data**.
 
 **`11. Flash firmware to device`**
-
-Manual full flash. This complex step first copies `output/`, `output_anti_rollback/`, `output_xml/`, and `output_dp/` folders into `image/` (overwriting). It then flashes `image/` using `fh_loader`. **Note: This does not flash root images.**
+Manual full flash. Copies all patched files (`output*`) to `image/` and flashes them using `fh_loader`.
 
 **`12. Clean workspace`**
+Deletes all temporary output folders and files to clean up the workspace. Does **not** delete backups.
 
-Deletes all `output*`, `work*`, `image`, `output_xml` folders, and temporary files. Does **not** delete the `backup*/` folders.
-
-## 5. Other Utilities
+## 4. Other Utilities
 
 **`info_image.bat`**
+Drag and drop `.img` files or folders onto this script. It runs `avbtool` to extract detailed image information (partition name, rollback index, AVB properties) to a text file.
 
-Drag and drop `.img` files or folders containing them onto this batch file. It will run `avbtool.py` to get detailed info (partition name, rollback index, AVB properties) and save it to `image_info_[timestamp].txt`.
-
-## 6. Credits
+## 5. Credits
 
 Special thanks to the following community members for their contributions and research:
 
-* **Anonymous [ㅇㅇ](https://gall.dcinside.com/board/lists?id=tabletpc)**: For providing hints on remaking vbmeta by sharing patched files (original posts deleted).
+* **Anonymous [ㅇㅇ](https://gall.dcinside.com/board/lists?id=tabletpc)**: For providing hints on remaking vbmeta by sharing patched files.
 * **[갓파더](https://ppomppu.co.kr/zboard/view.php?id=androidtab&page=1&divpage=38&no=197457)**: For providing the method to modify the region code in vendor_boot.
 * **[limzei89](https://note.com/limzei89/n/nd5217eb57827)**: For providing the method to modify the country code in devinfo/persist.
-* **[hitin911](https://xdaforums.com/m/hitin911.12861404/)**: For providing the method to decrypt `.x` to `.xml` and modify XML scripts to prevent data loss.
+* **[hitin911](https://xdaforums.com/m/hitin911.12861404/)**: For providing the method to decrypt `.x` to `.xml` and modify XML scripts.
