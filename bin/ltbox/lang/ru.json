@@ -311,7 +311,7 @@
   "act_wait_image": "[*] Ожидание папки 'image'...",
   "act_wait_init_boot": "[*] Ожидание init_boot.img...",
   "act_wait_stability": "[*] Ожидание 5с для обеспечения стабильности...",
-  "act_wait_stability_long": "[*] Ожидание 10с для обеспечения стабильности...",
+  "act_wait_stability_long": "[*] Ожидание 15с для обеспечения стабильности...",
   "act_wait_sys_adb": "[*] Ожидание загрузки системы (ADB)...",
   "act_wait_vb_vbmeta": "[*] Ожидание vendor_boot.img и vbmeta.img...",
   "act_warn_devinfo_label_missing": "[!] Предупреждение: заголовок 'devinfo' не найден в {name}.",

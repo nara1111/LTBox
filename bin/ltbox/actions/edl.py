@@ -111,7 +111,7 @@ def dump_partitions(dev: device.DeviceController, skip_reset: bool = False, addi
         dev.edl_reset(port)
         utils.ui.echo(get_string("act_reset_sent"))
         utils.ui.echo(get_string("act_wait_stability_long"))
-        time.sleep(10)
+        time.sleep(15)
     else:
         utils.ui.echo(get_string("act_skip_reset"))
 

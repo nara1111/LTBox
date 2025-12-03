@@ -311,7 +311,7 @@
   "act_wait_image": "[*] 'image' 폴더 대기 중...",
   "act_wait_init_boot": "[*] init_boot.img 대기 중...",
   "act_wait_stability": "[*] 연결 안정화를 위해 5초 대기 중...",
-  "act_wait_stability_long": "[*] 연결 안정화를 위해 10초 대기 중...",
+  "act_wait_stability_long": "[*] 연결 안정화를 위해 15초 대기 중...",
   "act_wait_sys_adb": "[*] 시스템 부팅 대기 중 (ADB)...",
   "act_wait_vb_vbmeta": "[*] vendor_boot.img 및 vbmeta.img 대기 중...",
   "act_warn_devinfo_label_missing": "[!] 경고: {name}에 'devinfo' 레이블이 없습니다.",

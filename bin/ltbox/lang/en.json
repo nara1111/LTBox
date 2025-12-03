@@ -311,7 +311,7 @@
   "act_wait_image": "[*] Waiting for 'image' folder...",
   "act_wait_init_boot": "[*] Waiting for init_boot.img...",
   "act_wait_stability": "[*] Waiting 5s for stability...",
-  "act_wait_stability_long": "[*] Waiting 10s for stability...",
+  "act_wait_stability_long": "[*] Waiting 15s for stability...",
   "act_wait_sys_adb": "[*] Waiting for boot to System (ADB)...",
   "act_wait_vb_vbmeta": "[*] Waiting for vendor_boot.img and vbmeta.img...",
   "act_warn_devinfo_label_missing": "[!] Warning: 'devinfo' label not found in {name}",
