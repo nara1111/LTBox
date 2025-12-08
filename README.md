@@ -1,5 +1,7 @@
 # LTBox
 
+[![License: CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
+
 ## ⚠️ Important: Disclaimer
 
 **This project is for educational purposes ONLY.**
@@ -124,3 +126,16 @@ Special thanks to the following community members for their contributions and re
 * **[갓파더](https://ppomppu.co.kr/zboard/view.php?id=androidtab&page=1&divpage=38&no=197457)**: For providing the method to modify the region code in vendor_boot.
 * **[limzei89](https://note.com/limzei89/n/nd5217eb57827)**: For providing the method to modify the country code in devinfo/persist.
 * **[hitin911](https://xdaforums.com/m/hitin911.12861404/)**: For providing the method to decrypt `.x` to `.xml` and modify XML scripts.
+
+---
+
+## License
+
+This work is licensed under a
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
+
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-image]][cc-by-nc-sa]
+
+[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
+[cc-by-nc-sa-image]: https://licensebuttons.net/l/by-nc-sa/4.0/88x31.png
+[cc-by-nc-sa-shield]: https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg
