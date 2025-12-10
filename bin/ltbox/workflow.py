@@ -5,11 +5,12 @@ from typing import Optional, Tuple
 
 from . import constants as const
 from . import utils, device, actions
+from .context import TaskContext
 from .errors import ToolError
 from .i18n import get_string
 from .logger import logging_context
 
-def _cleanup_previous_outputs(wipe: int) -> None:
+def _cleanup_previous_outputs(ctx: TaskContext) -> None:
     output_folders_to_clean = [
         const.OUTPUT_DIR, 
         const.OUTPUT_ROOT_DIR, 
@@ -25,57 +26,76 @@ def _cleanup_previous_outputs(wipe: int) -> None:
             except OSError as e:
                 raise ToolError(get_string('wf_remove_error').format(name=folder.name, e=e))
 
-def _get_device_info(dev: device.DeviceController) -> Tuple[Optional[str], str]:
-    active_slot_suffix = actions.detect_active_slot_robust(dev)
+def _populate_device_info(ctx: TaskContext) -> None:
+    ctx.active_slot_suffix = ctx.dev.detect_active_slot()
     
-    device_model: Optional[str] = None
-
-    if not dev.skip_adb:
+    if not ctx.dev.skip_adb:
         try:
-            device_model = dev.get_device_model()
-            if not device_model:
+            ctx.device_model = ctx.dev.get_device_model()
+            if not ctx.device_model:
                 raise ToolError(get_string('wf_err_adb_model'))
         except Exception as e:
              raise ToolError(get_string('wf_err_get_model').format(e=e))
-    
-    return device_model, active_slot_suffix
 
-def _wait_for_input_images() -> None:
+def _wait_for_input_images(ctx: TaskContext) -> None:
     prompt = get_string('act_prompt_image')
     utils.wait_for_directory(const.IMAGE_DIR, prompt)
 
-def _convert_region_images(dev: device.DeviceController, device_model: Optional[str]) -> None:
-    actions.convert_region_images(dev=dev, device_model=device_model)
+def _convert_region_images(ctx: TaskContext) -> None:
+    actions.convert_region_images(
+        dev=ctx.dev, 
+        device_model=ctx.device_model,
+        on_log=ctx.on_log
+    )
 
-def _decrypt_and_modify_xml(wipe: int) -> None:
+def _decrypt_and_modify_xml(ctx: TaskContext) -> None:
     actions.decrypt_x_files()
-    actions.modify_xml(wipe=wipe)
+    actions.modify_xml(wipe=ctx.wipe)
 
-def _dump_images(dev: device.DeviceController, active_slot_suffix: str, skip_rollback: bool) -> Tuple[bool, str, str]:
+def _dump_images(ctx: TaskContext) -> Tuple[bool, str, str]:
     skip_dp_workflow = False
     
-    suffix = active_slot_suffix if active_slot_suffix else ""
+    suffix = ctx.active_slot_suffix if ctx.active_slot_suffix else ""
     boot_target = f"boot{suffix}"
     vbmeta_target = f"vbmeta_system{suffix}"
     
     extra_dumps = []
-    if not skip_rollback:
+    if not ctx.skip_rollback:
         extra_dumps = [boot_target, vbmeta_target]
         
     actions.dump_partitions(
-        dev=dev,
+        dev=ctx.dev,
         skip_reset=False, 
         additional_targets=extra_dumps
     )
 
     return skip_dp_workflow, boot_target, vbmeta_target
 
-def _patch_devinfo(skip_dp_workflow: bool) -> Optional[str]:
+def _patch_devinfo(ctx: TaskContext, skip_dp_workflow: bool) -> Optional[str]:
     if not skip_dp_workflow:
-        return actions.edit_devinfo_persist()
+        return actions.edit_devinfo_persist(
+            on_log=ctx.on_log,
+            on_confirm=lambda msg: utils.ui.prompt(msg + " (y/n) ").lower().strip() == 'y',
+            on_select=lambda opts, msg: _select_country_code_adapter(opts, msg)
+        )
     return None
 
-def _check_and_patch_arb(boot_target: str, vbmeta_target: str) -> None:
+def _select_country_code_adapter(options, prompt_msg):
+    utils.ui.info(prompt_msg)
+    for i, (code, name) in enumerate(options):
+        utils.ui.info(f"{i+1:3d}. {name} ({code})")
+    
+    while True:
+        choice = utils.ui.prompt(get_string("act_enter_num").format(len=len(options)))
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(options):
+                return options[idx][0]
+        except ValueError:
+            pass
+        utils.ui.info(get_string("act_invalid_input"))
+
+def _check_and_patch_arb(ctx: TaskContext, boot_target: str, vbmeta_target: str) -> None:
     dumped_boot = const.BACKUP_DIR / f"{boot_target}.img"
     dumped_vbmeta = const.BACKUP_DIR / f"{vbmeta_target}.img"
     
@@ -89,18 +109,18 @@ def _check_and_patch_arb(boot_target: str, vbmeta_target: str) -> None:
 
     actions.patch_anti_rollback(comparison_result=arb_status_result)
 
-def _flash_images(dev: device.DeviceController, skip_dp_workflow: bool) -> None:
-    actions.flash_full_firmware(dev=dev, skip_reset_edl=True, skip_dp=skip_dp_workflow)
-
-def _handle_step_error(step_title_key: str, e: Exception) -> None:
-    utils.ui.echo("", err=True)
-    utils.ui.echo(get_string('wf_err_halted'), err=True)
-    utils.ui.echo(get_string('wf_err_step_failed').format(title=get_string(step_title_key)), err=True)
-    utils.ui.echo(get_string('wf_err_details').format(e=e), err=True)
-    utils.ui.echo("", err=True)
-    raise e
+def _flash_images(ctx: TaskContext, skip_dp_workflow: bool) -> None:
+    actions.flash_full_firmware(dev=ctx.dev, skip_reset_edl=True, skip_dp=skip_dp_workflow)
 
 def patch_all(dev: device.DeviceController, wipe: int = 0, skip_rollback: bool = False) -> str:
+    # Initialize Context
+    ctx = TaskContext(
+        dev=dev, 
+        wipe=wipe, 
+        skip_rollback=skip_rollback,
+        on_log=lambda s: utils.ui.info(s)
+    )
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = f"log_{timestamp}.txt"
     command_name = "patch_all_wipe" if wipe == 1 else "patch_all"
@@ -110,42 +130,43 @@ def patch_all(dev: device.DeviceController, wipe: int = 0, skip_rollback: bool =
 
     try:
         with logging_context(log_file):
-            utils.ui.echo(get_string('wf_step1_clean'))
-            if wipe == 1:
-                utils.ui.echo(get_string('wf_wipe_mode_start'))
+            ctx.on_log(get_string('wf_step1_clean'))
+            if ctx.wipe == 1:
+                ctx.on_log(get_string('wf_wipe_mode_start'))
             else:
-                utils.ui.echo(get_string('wf_nowipe_mode_start'))
-            _cleanup_previous_outputs(wipe)
+                ctx.on_log(get_string('wf_nowipe_mode_start'))
+            _cleanup_previous_outputs(ctx)
             
-            utils.ui.echo(get_string('wf_step2_device_info'))
-            device_model, active_slot_suffix = _get_device_info(dev)
-            active_slot_str = active_slot_suffix if active_slot_suffix else get_string('wf_active_slot_unknown')
-            utils.ui.echo(get_string('wf_active_slot').format(slot=active_slot_str))
+            ctx.on_log(get_string('wf_step2_device_info'))
+            _populate_device_info(ctx)
             
-            utils.ui.echo(get_string('wf_step3_wait_image'))
-            _wait_for_input_images()
-            utils.ui.echo(get_string('wf_step3_found'))
+            active_slot_str = ctx.active_slot_suffix if ctx.active_slot_suffix else get_string('wf_active_slot_unknown')
+            ctx.on_log(get_string('wf_active_slot').format(slot=active_slot_str))
             
-            utils.ui.echo(get_string('wf_step4_convert'))
-            _convert_region_images(dev, device_model)
+            ctx.on_log(get_string('wf_step3_wait_image'))
+            _wait_for_input_images(ctx)
+            ctx.on_log(get_string('wf_step3_found'))
             
-            utils.ui.echo(get_string('wf_step5_modify_xml'))
-            _decrypt_and_modify_xml(wipe)
+            ctx.on_log(get_string('wf_step4_convert'))
+            _convert_region_images(ctx)
             
-            utils.ui.echo(get_string('wf_step6_dump'))
-            skip_dp_workflow, boot_target, vbmeta_target = _dump_images(dev, active_slot_suffix, skip_rollback)
+            ctx.on_log(get_string('wf_step5_modify_xml'))
+            _decrypt_and_modify_xml(ctx)
             
-            utils.ui.echo(get_string('wf_step7_patch_dp'))
-            backup_dir_name = _patch_devinfo(skip_dp_workflow)
+            ctx.on_log(get_string('wf_step6_dump'))
+            skip_dp_workflow, boot_target, vbmeta_target = _dump_images(ctx)
             
-            if not skip_rollback:
-                utils.ui.echo(get_string('wf_step8_check_arb'))
-                _check_and_patch_arb(boot_target, vbmeta_target)
+            ctx.on_log(get_string('wf_step7_patch_dp'))
+            backup_dir_name = _patch_devinfo(ctx, skip_dp_workflow)
+            
+            if not ctx.skip_rollback:
+                ctx.on_log(get_string('wf_step8_check_arb'))
+                _check_and_patch_arb(ctx, boot_target, vbmeta_target)
             else:
-                utils.ui.echo(get_string('wf_step8_skipped'))
+                ctx.on_log(get_string('wf_step8_skipped'))
             
-            utils.ui.echo(get_string('wf_step9_flash'))
-            _flash_images(dev, skip_dp_workflow)
+            ctx.on_log(get_string('wf_step9_flash'))
+            _flash_images(ctx, skip_dp_workflow)
             
             success_msg = get_string('wf_process_complete')
             success_msg += f"\n{get_string('wf_process_complete_info')}"
