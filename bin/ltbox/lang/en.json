@@ -397,6 +397,7 @@
   "dl_download_failed": "[!] Failed to download {url}: {error}",
   "dl_download_success": "[+] Downloaded {filename}.",
   "dl_downloading": "[*] Downloading {filename}...",
+  "dl_err_check_network": "Please disable Proxy/VPN or check firewall settings.",
   "dl_err_download_tool": "Download failed for {name}",
   "dl_err_exe_in_zip_not_found": "'{exe_name}' not found inside {zip_name}",
   "dl_err_extract_tool": "Extraction failed for {name}",

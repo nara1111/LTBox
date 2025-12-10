@@ -104,6 +104,7 @@ def _download_github_asset(repo_url: str, tag: str, asset_pattern: str, dest_dir
         return dest_path
 
     except RequestException as e:
+        utils.ui.error(get_string("dl_err_check_network"))
         raise ToolError(get_string("dl_github_failed").format(e=e))
 
 def _ensure_tool_from_github_release(

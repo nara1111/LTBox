@@ -397,6 +397,7 @@
   "dl_download_failed": "[!] Не удалось загрузить {url}: {error}",
   "dl_download_success": "[+] Загружено: {filename}.",
   "dl_downloading": "[*] Загрузка {filename}...",
+  "dl_err_check_network": "Пожалуйста, отключите прокси/VPN или проверьте настройки брандмауэра.",
   "dl_err_download_tool": "Скачивание не удалось: {name}",
   "dl_err_exe_in_zip_not_found": "'{exe_name}' не найден внутри {zip_name}",
   "dl_err_extract_tool": "Извлечение не удалось: {name}",
