@@ -21,7 +21,7 @@
   "act_arb_write_step1": "\n[ШАГ 1] Определение слота (Fastboot)",
   "act_arb_write_step2": "\n[ШАГ 2] Перезагрузка в режим EDL",
   "act_arb_write_step3": "\n[ШАГ 3] Прошивка образов (слот {slot})",
-  "act_ask_change_code": "\nИзменить код страны? (да/нет)",
+  "act_ask_change_code": "\nИзменить код страны?",
   "act_ask_continue": "Продолжить? (y/n):",
   "act_backup_boot": "[*] Резервирование исходного образа...",
   "act_backup_boot_found": "[+] Найден исходный 'boot.img'.",

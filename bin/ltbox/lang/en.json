@@ -21,7 +21,7 @@
   "act_arb_write_step1": "\n[STEP 1] Detecting Slot (Fastboot)",
   "act_arb_write_step2": "\n[STEP 2] Rebooting to EDL",
   "act_arb_write_step3": "\n[STEP 3] Flashing images (Slot {slot})",
-  "act_ask_change_code": "\nChange country code? (y/n)",
+  "act_ask_change_code": "\nChange country code?",
   "act_ask_continue": "Continue? (y/n): ",
   "act_backup_boot": "[*] Backing up original image...",
   "act_backup_boot_found": "[+] Stock 'boot.img' found.",
