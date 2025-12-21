@@ -67,7 +67,7 @@ def detect_country_codes() -> Dict[str, Optional[str]]:
         try:
             content = file_path.read_bytes()
             for code, _ in const.COUNTRY_CODES.items():
-                target_bytes = b'\x00\x00\x00' + f"{code.upper()}".encode('ascii') + b'XX\x00\x00\x00'
+                target_bytes = b'\x00' + f"{code.upper()}".encode('ascii') + b'XX\x00'
                 if target_bytes in content:
                     results[filename] = code
                     break
@@ -83,8 +83,8 @@ def _patch_country_code_logic(content: bytes, **kwargs: Any) -> Tuple[bytes, Dic
     if not current_code or not replacement_code:
         return content, {'changed': False, 'message': get_string("img_code_invalid")}
 
-    target_string = f"000000{current_code.upper()}XX000000"
-    target_bytes = b'\x00\x00\x00' + f"{current_code.upper()}".encode('ascii') + b'XX\x00\x00\x00'
+    target_string = f"00{current_code.upper()}XX00"
+    target_bytes = b'\x00' + f"{current_code.upper()}".encode('ascii') + b'XX\x00'
     
     replacement_string = f"000000{replacement_code.upper()}XX000000"
     replacement_bytes = b'\x00\x00\x00' + f"{replacement_code.upper()}".encode('ascii') + b'XX\x00\x00\x00'
