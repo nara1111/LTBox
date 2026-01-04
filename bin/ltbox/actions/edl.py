@@ -29,7 +29,7 @@ def _prepare_edl_session(dev: device.DeviceController) -> str:
     port = dev.setup_edl_connection()
     
     try:
-        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
+        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
     except Exception as e:
         utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
         
@@ -46,7 +46,7 @@ def flash_partition_target(dev: device.DeviceController, port: str, target_name:
     ))
     
     utils.ui.echo(get_string("device_flashing_part").format(filename=image_path.name, lun=params['lun'], start=params['start_sector']))
-    dev.edl_write_partition(
+    dev.edl.write_partition(
         port=port,
         image_path=image_path,
         lun=params['lun'],
@@ -79,7 +79,7 @@ def dump_partitions(dev: device.DeviceController, skip_reset: bool = False, addi
             
             utils.ui.echo(get_string("device_dumping_part").format(lun=params['lun'], start=params['start_sector'], num=params['num_sectors']))
 
-            dev.edl_read_partition(
+            dev.edl.read_partition(
                 port=port,
                 output_filename=str(out_file),
                 lun=params['lun'],
@@ -120,7 +120,7 @@ def dump_partitions(dev: device.DeviceController, skip_reset: bool = False, addi
     if not skip_reset:
         utils.ui.echo(get_string("act_reset_sys"))
         utils.ui.echo(get_string("device_resetting"))
-        dev.edl_reset(port)
+        dev.edl.reset(port)
         utils.ui.echo(get_string("act_reset_sent"))
         utils.ui.echo(get_string("act_wait_stability_long"))
         time.sleep(15)
@@ -158,7 +158,7 @@ def flash_partitions(dev: device.DeviceController, skip_reset: bool = False, ski
         utils.ui.echo(get_string("act_reboot_device"))
         try:
             utils.ui.echo(get_string("device_resetting"))
-            dev.edl_reset(port)
+            dev.edl.reset(port)
         except Exception as e:
             utils.ui.echo(get_string("act_warn_reboot").format(e=e))
     else:
@@ -182,10 +182,10 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
     
     utils.ui.echo(get_string("act_arb_write_step1"))
     utils.ui.echo(get_string("act_boot_fastboot"))
-    dev.wait_for_fastboot()
+    dev.fastboot.wait_for_device()
 
     utils.ui.echo(get_string("device_get_slot_fastboot"))
-    active_slot = dev.get_active_slot_suffix_from_fastboot()
+    active_slot = dev.fastboot.get_slot_suffix()
     if active_slot:
         utils.ui.echo(get_string("act_slot_confirmed").format(slot=active_slot))
     else:
@@ -198,10 +198,10 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
     utils.ui.echo(get_string("act_arb_write_step2"))
     utils.ui.echo(get_string("act_manual_edl_now"))
     utils.ui.echo(get_string("act_manual_edl_hint"))
-    port = dev.wait_for_edl()
+    port = dev.edl.wait_for_device()
     
     try:
-        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
+        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
 
         utils.ui.echo(get_string("act_arb_write_step3").format(slot=active_slot))
 
@@ -211,7 +211,7 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
         if not skip_reset:
             utils.ui.echo(get_string("act_arb_reset"))
             utils.ui.echo(get_string("device_resetting"))
-            dev.edl_reset(port)
+            dev.edl.reset(port)
             utils.ui.echo(get_string("act_reset_sent"))
         else:
             utils.ui.echo(get_string("act_arb_skip_reset"))
@@ -356,7 +356,7 @@ def flash_full_firmware(dev: device.DeviceController, skip_reset: bool = False, 
     utils.ui.echo(get_string("act_flash_step1"))
     
     try:
-        dev.edl_rawprogram(const.EDL_LOADER_FILE, "UFS", raw_xmls, patch_xmls, port)
+        dev.edl.flash_rawprogram(port, const.EDL_LOADER_FILE, "UFS", raw_xmls, patch_xmls)
     except Exception as e:
         utils.ui.error(get_string("act_err_main_flash").format(e=e))
         utils.ui.error("Detailed Traceback:\n" + traceback.format_exc())
@@ -380,7 +380,7 @@ def flash_full_firmware(dev: device.DeviceController, skip_reset: bool = False, 
             
             utils.ui.echo(get_string("act_reset_sys"))
             utils.ui.echo(get_string("device_resetting"))
-            dev.edl_reset(port)
+            dev.edl.reset(port)
             utils.ui.echo(get_string("act_reset_sent"))
         except (subprocess.CalledProcessError, FileNotFoundError, Exception) as e:
              utils.ui.error(get_string("act_err_reset").format(e=e))

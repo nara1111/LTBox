@@ -188,7 +188,7 @@ class LkmRootStrategy(RootStrategy):
         apk_path = ksu_apks[0]
         utils.ui.echo(get_string("act_install_ksu").format(name=apk_path.name))
         try:
-            dev.install_apk(str(apk_path))
+            dev.adb.install(str(apk_path))
             utils.ui.echo(get_string("act_ksu_ok"))
         except Exception as e:
             utils.ui.echo(get_string("act_err_ksu").format(e=e))
@@ -198,7 +198,7 @@ class LkmRootStrategy(RootStrategy):
         local_img_path = work_dir / img_name
         remote_img_path = f"/sdcard/{img_name}"
         try:
-            dev.push_file(str(local_img_path), remote_img_path)
+            dev.adb.push(str(local_img_path), remote_img_path)
         except Exception as e:
             utils.ui.echo(get_string("act_err_push_init_boot").format(e=e))
             return None
@@ -214,7 +214,7 @@ class LkmRootStrategy(RootStrategy):
         utils.ui.echo(get_string("act_find_patched_file"))
         try:
             pattern = "kernelsu_patched_*.img" if is_sukisu else "kernelsu_next_patched_*.img"
-            cmd_output = dev.adb_shell(f"ls -t /sdcard/Download/{pattern}")
+            cmd_output = dev.adb.shell(f"ls -t /sdcard/Download/{pattern}")
             
             if not cmd_output.strip():
                 utils.ui.echo(get_string("act_err_no_patched_files"))
@@ -233,7 +233,7 @@ class LkmRootStrategy(RootStrategy):
             if final_path.exists():
                 final_path.unlink()
 
-            dev.pull_file(latest_file_remote, str(final_path))
+            dev.adb.pull(latest_file_remote, str(final_path))
             
             if not final_path.exists():
                 utils.ui.echo(get_string("act_err_pull_failed"))
@@ -298,7 +298,7 @@ def patch_root_image_file(gki: bool = False, root_type: str = "ksu") -> None:
         if not gki:
             try:
                 dev = device.DeviceController(skip_adb=False)
-                dev.wait_for_adb()
+                dev.adb.wait_for_device()
             except Exception as e:
                 utils.ui.error(get_string("act_err_adb_process").format(e=e))
         
@@ -349,7 +349,7 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
 
     utils.ui.echo(get_string("act_root_step1"))
     if not dev.skip_adb:
-        dev.wait_for_adb()
+        dev.adb.wait_for_device()
 
     active_slot = detect_active_slot_robust(dev)
     suffix = active_slot if active_slot else ""
@@ -358,7 +358,7 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
     if not gki:
         if not dev.skip_adb:
             try:
-                lkm_kernel_version = dev.get_kernel_version()
+                lkm_kernel_version = dev.adb.get_kernel_version()
             except Exception as e:
                 utils.ui.error(get_string("act_root_warn_lkm_kver_fail").format(e=e))
                 utils.ui.error(get_string("act_root_warn_lkm_kver_retry"))
@@ -378,7 +378,7 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
     utils.ui.echo(get_string("act_root_step2"))
     port = dev.setup_edl_connection()
     try:
-        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
+        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
     except Exception as e:
         utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
 
@@ -393,7 +393,7 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
         try:
             params = ensure_params_or_fail(main_partition)
             utils.ui.echo(get_string("act_found_dump_info").format(xml=params['source_xml'], lun=params['lun'], start=params['start_sector']))
-            dev.edl_read_partition(
+            dev.edl.read_partition(
                 port=port,
                 output_filename=str(dumped_main),
                 lun=params['lun'],
@@ -406,7 +406,7 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
                 params_vbmeta = ensure_params_or_fail(vbmeta_partition)
                 dumped_vbmeta = const.WORKING_BOOT_DIR / const.FN_VBMETA
                 
-                dev.edl_read_partition(
+                dev.edl.read_partition(
                     port=port,
                     output_filename=str(dumped_vbmeta),
                     lun=params_vbmeta['lun'],
@@ -439,7 +439,7 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
         utils.ui.echo(get_string("act_backups_done"))
 
         utils.ui.echo(get_string("act_dump_reset"))
-        dev.edl_reset(port)
+        dev.edl.reset(port)
         
         step4_msg = get_string("act_root_step4") if gki else get_string("act_root_step4_init_boot")
         utils.ui.echo(step4_msg)
@@ -470,16 +470,16 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
 
     if not dev.skip_adb:
         utils.ui.echo(get_string("act_wait_sys_adb"))
-        dev.wait_for_adb()
+        dev.adb.wait_for_device()
         utils.ui.echo(get_string("act_reboot_edl_flash"))
         port = dev.setup_edl_connection()
     else:
         utils.ui.echo(get_string("act_skip_adb_on"))
         utils.ui.echo(get_string("act_manual_edl_now"))
-        port = dev.wait_for_edl()
+        port = dev.edl.wait_for_device()
 
     try:
-        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
+        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
     except Exception as e:
         utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
 
@@ -497,7 +497,7 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
             utils.ui.echo(get_string("act_flash_boot_ok").format(part=vbmeta_part))
 
         utils.ui.echo(get_string("act_reset_sys"))
-        dev.edl_reset(port)
+        dev.edl.reset(port)
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         utils.ui.error(get_string("act_err_edl_write").format(e=e))
         raise
@@ -570,14 +570,14 @@ def unroot_device(dev: device.DeviceController) -> None:
     utils.ui.echo(get_string("act_unroot_step3"))
     
     if not dev.skip_adb:
-        dev.wait_for_adb()
+        dev.adb.wait_for_device()
     
     active_slot = detect_active_slot_robust(dev)
     suffix = active_slot if active_slot else ""
     port = dev.setup_edl_connection()
 
     try:
-        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
+        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
     except Exception as e:
         utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
 
@@ -603,7 +603,7 @@ def unroot_device(dev: device.DeviceController) -> None:
             utils.ui.echo(get_string("act_flash_stock_boot_ok").format(part=target_boot))
         
         utils.ui.echo(get_string("act_reset_sys"))
-        dev.edl_reset(port)
+        dev.edl.reset(port)
         
     except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
         utils.ui.error(get_string("act_err_edl_write").format(e=e))
@@ -632,7 +632,7 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
 
     utils.ui.echo(get_string("act_root_step1"))
     if not dev.skip_adb:
-        dev.wait_for_adb()
+        dev.adb.wait_for_device()
     
     active_slot = detect_active_slot_robust(dev)
     suffix = active_slot if active_slot else ""
@@ -641,7 +641,7 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
     utils.ui.echo(get_string("act_root_step2"))
     port = dev.setup_edl_connection()
     try:
-        dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
+        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
     except Exception as e:
         utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
 
@@ -651,7 +651,7 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
         utils.ui.echo(get_string("act_dump_recovery").format(part=target_partition))
         try:
             params = ensure_params_or_fail(target_partition)
-            dev.edl_read_partition(
+            dev.edl.read_partition(
                 port=port,
                 output_filename=str(dumped_recovery),
                 lun=params['lun'],
@@ -667,7 +667,7 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
         shutil.copy(dumped_recovery, backup_recovery)
         utils.ui.echo(get_string("act_backup_recovery_ok"))
 
-        dev.edl_reset(port)
+        dev.edl.reset(port)
 
         utils.ui.echo(get_string("act_sign_twrp_start"))
         
@@ -698,13 +698,13 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
 
         utils.ui.echo(get_string("act_reboot_edl_flash"))
         if not dev.skip_adb:
-            dev.wait_for_adb()
+            dev.adb.wait_for_device()
             port = dev.setup_edl_connection()
         else:
-             port = dev.wait_for_edl()
+             port = dev.edl.wait_for_device()
 
         try:
-            dev.load_firehose_programmer_with_stability(const.EDL_LOADER_FILE, port)
+            dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
         except Exception:
             pass
 
@@ -712,6 +712,6 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
         edl.flash_partition_target(dev, port, target_partition, final_twrp)
 
         utils.ui.echo(get_string("act_reset_sys"))
-        dev.edl_reset(port)
+        dev.edl.reset(port)
 
     utils.ui.echo(get_string("act_success"))

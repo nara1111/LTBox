@@ -14,12 +14,12 @@ def disable_ota(dev: device.DeviceController) -> None:
     
     utils.ui.echo(get_string("act_start_ota"))
     
-    dev.wait_for_adb()
+    dev.adb.wait_for_device()
 
     utils.ui.echo(get_string("act_ota_settings_put"))
     try:
-        dev.adb_shell("settings put global ota_disable_automatic_update 1")
-        dev.adb_shell("settings put secure lenovo_ota_new_version_found 0")
+        dev.adb.shell("settings put global ota_disable_automatic_update 1")
+        dev.adb.shell("settings put secure lenovo_ota_new_version_found 0")
     except Exception as e:
         utils.ui.echo(f"Warning: Failed to update settings: {e}", err=True)
 
@@ -31,13 +31,13 @@ def disable_ota(dev: device.DeviceController) -> None:
 
     for pkg in packages:
         try:
-            dev.adb_shell(f"pm clear {pkg}")
+            dev.adb.shell(f"pm clear {pkg}")
         except Exception:
             pass
 
         utils.ui.echo(get_string("act_ota_uninstalling").format(pkg=pkg))
         try:
-            output = dev.adb_shell(f"pm uninstall -k --user 0 {pkg}")
+            output = dev.adb.shell(f"pm uninstall -k --user 0 {pkg}")
             if "Success" in output:
                 utils.ui.echo(get_string("act_ota_uninstall_success").format(pkg=pkg))
             else:

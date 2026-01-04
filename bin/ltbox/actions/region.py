@@ -278,10 +278,10 @@ def rescue_after_ota(
     edl.ensure_edl_requirements()
 
     on_log(get_string("rescue_wait_adb"))
-    dev.wait_for_adb()
+    dev.adb.wait_for_device()
 
     on_log(get_string("rescue_reboot_edl"))
-    dev.reboot_to_edl()
+    dev.adb.reboot("edl")
     
     slots = ['a', 'b']
     targets = [f'vendor_boot_{s}' for s in slots] + [f'vbmeta_{s}' for s in slots]
@@ -360,4 +360,4 @@ def rescue_after_ota(
         edl.flash_partition_target(dev, port, target, path)
         
     on_log(get_string("act_reset_sys"))
-    dev.edl_reset(port)
+    dev.edl.reset(port)

@@ -31,7 +31,7 @@ def _populate_device_info(ctx: TaskContext) -> None:
     
     if not ctx.dev.skip_adb:
         try:
-            ctx.device_model = ctx.dev.get_device_model()
+            ctx.device_model = ctx.dev.adb.get_model()
             if not ctx.device_model:
                 raise DeviceError(get_string('wf_err_adb_model'))
         except Exception as e:
