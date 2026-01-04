@@ -66,6 +66,16 @@ class TerminalMenu:
     def add_separator(self) -> None:
         self.options.append((None, "", False))
 
+    def populate(self, items: List[Dict[str, Any]]) -> None:
+        for item in items:
+            item_type = item.get("type", "option")
+            if item_type == "label":
+                self.add_label(item.get("text", ""))
+            elif item_type == "separator":
+                self.add_separator()
+            elif item_type == "option":
+                self.add_option(item.get("key"), item.get("text", ""))
+
     def show(self) -> None:
         ui.clear()
         ui.echo("\n" + "=" * 78)
@@ -92,6 +102,86 @@ class TerminalMenu:
             
             ui.echo(error_msg)
             input(get_string("press_enter_to_continue"))
+
+# --- Menu Data Definitions ---
+
+def _get_advanced_menu_data() -> List[Dict[str, Any]]:
+    return [
+        {"type": "label", "text": get_string('menu_adv_sub_region_dump')},
+        {"type": "option", "key": "1", "text": get_string("menu_adv_1"), "action": "convert"},
+        {"type": "option", "key": "2", "text": get_string("menu_adv_2"), "action": "dump_partitions"},
+        {"type": "separator"},
+        {"type": "label", "text": get_string('menu_adv_sub_patch_region')},
+        {"type": "option", "key": "3", "text": get_string("menu_adv_3"), "action": "edit_dp"},
+        {"type": "option", "key": "4", "text": get_string("menu_adv_4"), "action": "flash_partitions"},
+        {"type": "separator"},
+        {"type": "label", "text": get_string('menu_adv_sub_arb')},
+        {"type": "option", "key": "5", "text": get_string("menu_adv_5"), "action": "read_anti_rollback"},
+        {"type": "option", "key": "6", "text": get_string("menu_adv_6"), "action": "patch_anti_rollback"},
+        {"type": "option", "key": "7", "text": get_string("menu_adv_7"), "action": "write_anti_rollback"},
+        {"type": "separator"},
+        {"type": "label", "text": get_string('menu_adv_sub_xml_flash')},
+        {"type": "option", "key": "8", "text": get_string("menu_adv_8"), "action": "decrypt_xml"},
+        {"type": "option", "key": "9", "text": get_string("menu_adv_9"), "action": "modify_xml_wipe"},
+        {"type": "option", "key": "10", "text": get_string("menu_adv_10"), "action": "modify_xml"},
+        {"type": "option", "key": "11", "text": get_string("menu_adv_11"), "action": "flash_full_firmware"},
+        {"type": "separator"},
+        {"type": "label", "text": get_string('menu_adv_sub_maint')},
+        {"type": "option", "key": "12", "text": get_string("menu_adv_12"), "action": "clean"},
+        {"type": "separator"},
+        {"type": "label", "text": get_string('menu_adv_sub_nav')},
+        {"type": "option", "key": "m", "text": get_string("menu_adv_m"), "action": "return"},
+        {"type": "option", "key": "x", "text": get_string("menu_main_exit"), "action": "exit"},
+    ]
+
+def _get_root_mode_menu_data() -> List[Dict[str, Any]]:
+    return [
+        {"type": "option", "key": "1", "text": get_string("menu_root_mode_1")},
+        {"type": "option", "key": "2", "text": get_string("menu_root_mode_2")},
+        {"type": "separator"},
+        {"type": "option", "key": "m", "text": get_string("menu_root_m")},
+        {"type": "option", "key": "x", "text": get_string("menu_main_exit")},
+    ]
+
+def _get_root_menu_data(gki: bool, root_type: str) -> List[Dict[str, Any]]:
+    items = []
+    if gki:
+        items.append({"type": "option", "key": "1", "text": get_string("menu_root_1_gki"), "action": "root_device_gki"})
+        items.append({"type": "option", "key": "2", "text": get_string("menu_root_2_gki"), "action": "patch_root_image_file_gki"})
+    else:
+        label_2 = get_string("menu_root_2_lkm")
+        if root_type == "sukisu":
+            label_2 = label_2.replace("KernelSU Next", "Sukisu Ultra")
+        items.append({"type": "option", "key": "1", "text": get_string("menu_root_1_lkm"), "action": "root_device_lkm"})
+        items.append({"type": "option", "key": "2", "text": label_2, "action": "patch_root_image_file_lkm"})
+    
+    items.append({"type": "separator"})
+    items.append({"type": "option", "key": "m", "text": get_string("menu_root_m"), "action": "return"})
+    items.append({"type": "option", "key": "x", "text": get_string("menu_main_exit"), "action": "exit"})
+    return items
+
+def _get_main_menu_data(skip_adb_state: str, skip_rb_state: str) -> List[Dict[str, Any]]:
+    return [
+        {"type": "label", "text": get_string('menu_main_sub_install')},
+        {"type": "option", "key": "1", "text": get_string("menu_main_install_wipe"), "action": "patch_all_wipe"},
+        {"type": "option", "key": "2", "text": get_string("menu_main_install_keep"), "action": "patch_all"},
+        {"type": "separator"},
+        {"type": "label", "text": get_string('menu_main_sub_manage')},
+        {"type": "option", "key": "3", "text": get_string("menu_main_disable_ota"), "action": "disable_ota"},
+        {"type": "option", "key": "4", "text": get_string("menu_main_rescue"), "action": "rescue_ota"},
+        {"type": "option", "key": "5", "text": get_string("menu_main_root"), "action": "menu_root"},
+        {"type": "option", "key": "6", "text": get_string("menu_main_unroot"), "action": "unroot_device"},
+        {"type": "option", "key": "7", "text": get_string("menu_main_rec_flash"), "action": "sign_and_flash_twrp"},
+        {"type": "separator"},
+        {"type": "label", "text": get_string('menu_main_sub_settings')},
+        {"type": "option", "key": "8", "text": get_string("menu_main_skip_adb").format(skip_adb_state=skip_adb_state), "action": "toggle_adb"},
+        {"type": "option", "key": "9", "text": get_string("menu_main_skip_rb").format(skip_rb_state=skip_rb_state), "action": "toggle_rollback"},
+        {"type": "option", "key": "10", "text": get_string("menu_main_language"), "action": "change_lang"},
+        {"type": "separator"},
+        {"type": "label", "text": get_string('menu_main_sub_nav')},
+        {"type": "option", "key": "a", "text": get_string("menu_main_adv"), "action": "menu_advanced"},
+        {"type": "option", "key": "x", "text": get_string("menu_main_exit"), "action": "exit"},
+    ]
 
 # --- Settings & Init ---
 
@@ -288,66 +378,24 @@ def run_info_scan(paths, constants, avb_patch):
 # --- Menus ---
 
 def advanced_menu(dev, registry: CommandRegistry):
-    actions_map = {
-        "1": "convert",
-        "2": "dump_partitions",
-        "3": "edit_dp",
-        "4": "flash_partitions",
-        "5": "read_anti_rollback",
-        "6": "patch_anti_rollback",
-        "7": "write_anti_rollback",
-        "8": "decrypt_xml",
-        "9": "modify_xml_wipe",
-        "10": "modify_xml",
-        "11": "flash_full_firmware",
-        "12": "clean"
-    }
-
     while True:
+        menu_items = _get_advanced_menu_data()
         menu = TerminalMenu(get_string("menu_adv_title"))
-        
-        menu.add_label(get_string('menu_adv_sub_region_dump'))
-        menu.add_option("1", get_string("menu_adv_1"))
-        menu.add_option("2", get_string("menu_adv_2"))
-        menu.add_separator()
-        
-        menu.add_label(get_string('menu_adv_sub_patch_region'))
-        menu.add_option("3", get_string("menu_adv_3"))
-        menu.add_option("4", get_string("menu_adv_4"))
-        menu.add_separator()
-        
-        menu.add_label(get_string('menu_adv_sub_arb'))
-        menu.add_option("5", get_string("menu_adv_5"))
-        menu.add_option("6", get_string("menu_adv_6"))
-        menu.add_option("7", get_string("menu_adv_7"))
-        menu.add_separator()
-        
-        menu.add_label(get_string('menu_adv_sub_xml_flash'))
-        menu.add_option("8", get_string("menu_adv_8"))
-        menu.add_option("9", get_string("menu_adv_9"))
-        menu.add_option("10", get_string("menu_adv_10"))
-        menu.add_option("11", get_string("menu_adv_11"))
-        menu.add_separator()
-        
-        menu.add_label(get_string('menu_adv_sub_maint'))
-        menu.add_option("12", get_string("menu_adv_12"))
-        menu.add_separator()
-        
-        menu.add_label(get_string('menu_adv_sub_nav'))
-        menu.add_option("m", get_string("menu_adv_m"))
-        menu.add_option("x", get_string("menu_main_exit"))
+        menu.populate(menu_items)
+
+        action_map = {item["key"]: item["action"] for item in menu_items if item.get("type") == "option"}
 
         choice = menu.ask(get_string("menu_adv_prompt"), get_string("menu_adv_invalid"))
+        action = action_map.get(choice)
 
-        if choice in actions_map:
-            cmd = actions_map[choice]
-            run_task(cmd, dev, registry)
-            if choice == "12":
-                sys.exit()
-        elif choice == "m":
+        if action == "return":
             return
-        elif choice == "x":
+        elif action == "exit":
             sys.exit()
+        elif action:
+            run_task(action, dev, registry)
+            if action == "clean":
+                sys.exit()
 
 def root_menu(dev, registry: CommandRegistry, gki: bool):
     root_type = "ksu"
@@ -371,58 +419,32 @@ def root_menu(dev, registry: CommandRegistry, gki: bool):
             elif choice == "m":
                 return
 
-    if gki:
-        actions_map = {
-            "1": "root_device_gki",
-            "2": "patch_root_image_file_gki",
-        }
-    else:
-        actions_map = {
-            "1": "root_device_lkm",
-            "2": "patch_root_image_file_lkm",
-        }
-
     while True:
+        menu_items = _get_root_menu_data(gki, root_type)
         menu = TerminalMenu(get_string("menu_root_title"))
-        if gki:
-            menu.add_option("1", get_string("menu_root_1_gki"))
-            menu.add_option("2", get_string("menu_root_2_gki"))
-        else:
-            menu.add_option("1", get_string("menu_root_1_lkm"))
-            
-            label_2 = get_string("menu_root_2_lkm")
-            if root_type == "sukisu":
-                label_2 = label_2.replace("KernelSU Next", "Sukisu Ultra")
-            
-            menu.add_option("2", label_2)
+        menu.populate(menu_items)
         
-        menu.add_separator()
-        menu.add_option("m", get_string("menu_root_m"))
-        menu.add_option("x", get_string("menu_main_exit"))
+        action_map = {item["key"]: item["action"] for item in menu_items if item.get("type") == "option"}
 
         choice = menu.ask(get_string("menu_root_prompt"), get_string("menu_root_invalid"))
+        action = action_map.get(choice)
 
-        if choice in actions_map:
-            cmd = actions_map[choice]
+        if action == "return":
+            return
+        elif action == "exit":
+            sys.exit()
+        elif action:
             extras = {}
             if not gki:
                 extras["root_type"] = root_type
-            run_task(cmd, dev, registry, extra_kwargs=extras)
-        elif choice == "m":
-            return
-        elif choice == "x":
-            sys.exit()
+            run_task(action, dev, registry, extra_kwargs=extras)
 
 def root_mode_selection_menu(dev, registry: CommandRegistry):
     while True:
+        menu_items = _get_root_mode_menu_data()
         menu = TerminalMenu(get_string("menu_root_mode_title"))
-        menu.add_option("1", get_string("menu_root_mode_1"))
-        menu.add_option("2", get_string("menu_root_mode_2"))
+        menu.populate(menu_items)
         
-        menu.add_separator()
-        menu.add_option("m", get_string("menu_root_m"))
-        menu.add_option("x", get_string("menu_main_exit"))
-
         choice = menu.ask(get_string("menu_root_mode_prompt"), get_string("menu_root_mode_invalid"))
 
         if choice == "1":
@@ -481,65 +503,37 @@ def main_loop(device_controller_class, registry: CommandRegistry):
     skip_rollback = False
     dev = device_controller_class(skip_adb=skip_adb)
     
-    actions_map = {
-        "1": "patch_all_wipe",
-        "2": "patch_all",
-        "3": "disable_ota",
-        "4": "rescue_ota",
-        "6": "unroot_device",
-        "7": "sign_and_flash_twrp"
-    }
-
     while True:
         skip_adb_state = "ON" if skip_adb else "OFF"
         skip_rb_state = "ON" if skip_rollback else "OFF"
 
+        menu_items = _get_main_menu_data(skip_adb_state, skip_rb_state)
         menu = TerminalMenu(get_string("menu_main_title"))
-        
-        menu.add_label(get_string('menu_main_sub_install'))
-        menu.add_option("1", get_string("menu_main_install_wipe"))
-        menu.add_option("2", get_string("menu_main_install_keep"))
-        menu.add_separator()
-        
-        menu.add_label(get_string('menu_main_sub_manage'))
-        menu.add_option("3", get_string("menu_main_disable_ota"))
-        menu.add_option("4", get_string("menu_main_rescue"))
-        menu.add_option("5", get_string("menu_main_root"))
-        menu.add_option("6", get_string("menu_main_unroot"))
-        menu.add_option("7", get_string("menu_main_rec_flash"))
-        menu.add_separator()
-        
-        menu.add_label(get_string('menu_main_sub_settings'))
-        menu.add_option("8", get_string("menu_main_skip_adb").format(skip_adb_state=skip_adb_state))
-        menu.add_option("9", get_string("menu_main_skip_rb").format(skip_rb_state=skip_rb_state))
-        menu.add_option("10", get_string("menu_main_language"))
-        menu.add_separator()
-        
-        menu.add_label(get_string('menu_main_sub_nav'))
-        menu.add_option("a", get_string("menu_main_adv"))
-        menu.add_option("x", get_string("menu_main_exit"))
+        menu.populate(menu_items)
+
+        action_map = {item["key"]: item["action"] for item in menu_items if item.get("type") == "option"}
 
         choice = menu.ask(get_string("menu_main_prompt"), get_string("menu_main_invalid"))
-
-        if choice in actions_map:
-            cmd = actions_map[choice]
-            extras = {}
-            if cmd in ["patch_all", "patch_all_wipe"]:
-                extras["skip_rollback"] = skip_rollback
-            run_task(cmd, dev, registry, extra_kwargs=extras)
-        elif choice == "5":
-            root_mode_selection_menu(dev, registry)
-        elif choice == "8":
+        action = action_map.get(choice)
+        
+        if action == "exit":
+            break
+        elif action == "toggle_adb":
             skip_adb = not skip_adb
             dev.skip_adb = skip_adb
-        elif choice == "9":
+        elif action == "toggle_rollback":
             skip_rollback = not skip_rollback
-        elif choice == "10":
+        elif action == "change_lang":
             registry.get("change_language")["func"]()
-        elif choice == "a":
+        elif action == "menu_root":
+            root_mode_selection_menu(dev, registry)
+        elif action == "menu_advanced":
             advanced_menu(dev, registry)
-        elif choice == "x":
-            break
+        elif action:
+            extras = {}
+            if action in ["patch_all", "patch_all_wipe"]:
+                extras["skip_rollback"] = skip_rollback
+            run_task(action, dev, registry, extra_kwargs=extras)
 
 # --- Entry Point ---
 
