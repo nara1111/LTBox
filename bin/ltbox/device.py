@@ -228,15 +228,6 @@ class FastbootManager:
             ui.warn(get_string("device_wait_fastboot_cancel"))
             raise
 
-    def reboot(self, target: str = "system") -> None:
-        try:
-            args = [str(const.FASTBOOT_EXE), "reboot"]
-            if target == "bootloader":
-                args.append("bootloader")
-            utils.run_command(args)
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            raise DeviceCommandError(get_string("device_err_reboot").format(e=e), e)
-
 class EdlManager:
     def check_device(self, silent: bool = False) -> Optional[str]:
         if not silent:
