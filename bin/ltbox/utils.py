@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
@@ -9,38 +8,9 @@ from typing import List, Optional, Callable, Generator, Any, Union
 from . import constants as const
 from .i18n import get_string
 from .logger import get_logger
+from .ui import ui
 
 logger = get_logger()
-
-class ConsoleUI:
-    def echo(self, message: str = "", err: bool = False) -> None:
-        if err:
-            logger.error(message)
-        else:
-            logger.info(message)
-
-    def info(self, message: str) -> None:
-        self.echo(message)
-
-    def warn(self, message: str) -> None:
-        self.echo(message, err=True)
-
-    def error(self, message: str) -> None:
-        self.echo(message, err=True)
-
-    def box_output(self, lines: List[str], err: bool = False) -> None:
-        self.echo("", err=err)
-        for line in lines:
-             self.echo(line, err=err)
-        self.echo("", err=err)
-
-    def prompt(self, message: str = "") -> str:
-        return input(message)
-
-    def clear(self) -> None:
-        os.system('cls')
-
-ui = ConsoleUI()
 
 _CACHED_ENV = None
 
@@ -183,6 +153,7 @@ def clean_workspace() -> None:
         const.OUTPUT_XML_DIR,
         const.BACKUP_INIT_BOOT_DIR,
         const.WORKING_BOOT_DIR,
+        const.OUTPUT_TWRP_DIR
     ]
     
     ui.echo(get_string('utils_removing_dirs'))
