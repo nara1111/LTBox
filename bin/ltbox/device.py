@@ -12,7 +12,7 @@ from . import constants as const
 from . import utils
 from .errors import DeviceError, DeviceConnectionError, DeviceCommandError, ToolError
 from .i18n import get_string
-from .utils import ui
+from .ui import ui
 
 def _wait_loop(
     predicate: Callable[[], Any],
@@ -422,7 +422,7 @@ class EdlSession:
     def __enter__(self) -> str:
         self.port = self.controller.setup_edl_connection()
         try:
-            self.controller.load_firehose_programmer_with_stability(self.loader_path, self.port)
+            self.controller.edl.load_programmer_safe(self.port, self.loader_path)
         except Exception as e:
             ui.echo(get_string("act_warn_prog_load").format(e=e))
         return self.port
@@ -431,7 +431,7 @@ class EdlSession:
         if self.port:
             ui.echo(get_string("act_reset_sys"))
             try:
-                self.controller.edl_reset(self.port)
+                self.controller.edl.reset(self.port)
             except Exception:
                 pass
 
@@ -450,12 +450,6 @@ class DeviceController:
     def skip_adb(self, value: bool) -> None:
         self._skip_adb = value
         self.adb.skip_adb = value
-
-    def wait_for_adb(self) -> None:
-        self.adb.wait_for_device()
-
-    def get_device_model(self) -> Optional[str]:
-        return self.adb.get_model()
 
     def detect_active_slot(self) -> Optional[str]:
         slot = self.adb.get_slot_suffix()
@@ -497,48 +491,6 @@ class DeviceController:
             ui.echo(get_string("act_manual_edl"))
             ui.echo("="*60 + "\n")
 
-    def get_active_slot_suffix(self) -> Optional[str]:
-        return self.detect_active_slot()
-
-    def get_active_slot_suffix_from_fastboot(self) -> Optional[str]:
-        return self.fastboot.get_slot_suffix()
-        
-    def get_kernel_version(self) -> str:
-        return self.adb.get_kernel_version()
-
-    def reboot_to_edl(self) -> None:
-        self.adb.reboot("edl")
-
-    def reboot_to_bootloader(self) -> None:
-        self.adb.reboot("bootloader")
-
-    def install_apk(self, apk_path: str) -> None:
-        self.adb.install(apk_path)
-
-    def push_file(self, local: str, remote: str) -> None:
-        self.adb.push(local, remote)
-
-    def pull_file(self, remote: str, local: str) -> None:
-        self.adb.pull(remote, local)
-    
-    def adb_shell(self, cmd: str) -> str:
-        return self.adb.shell(cmd)
-
-    def check_fastboot_device(self, silent: bool = False) -> bool:
-        return self.fastboot.check_device(silent)
-
-    def wait_for_fastboot(self) -> bool:
-        return self.fastboot.wait_for_device()
-
-    def fastboot_reboot_system(self) -> None:
-        self.fastboot.reboot()
-
-    def check_edl_device(self, silent: bool = False) -> Optional[str]:
-        return self.edl.check_device(silent)
-
-    def wait_for_edl(self) -> str:
-        return self.edl.wait_for_device()
-
     def setup_edl_connection(self) -> str:
         self.ensure_edl_mode()
         
@@ -553,24 +505,6 @@ class DeviceController:
         port = self.edl.wait_for_device()
         ui.info(get_string("device_edl_setup_done"))
         return port
-
-    def load_firehose_programmer(self, loader_path: Path, port: str) -> None:
-        self.edl.load_programmer(port, loader_path)
-
-    def load_firehose_programmer_with_stability(self, loader_path: Path, port: str) -> None:
-        self.edl.load_programmer_safe(port, loader_path)
-
-    def edl_read_partition(self, port: str, output_filename: str, lun: str, start_sector: str, num_sectors: str, memory_name: str = "UFS") -> None:
-        self.edl.read_partition(port, output_filename, lun, start_sector, num_sectors, memory_name)
-
-    def edl_write_partition(self, port: str, image_path: Path, lun: str, start_sector: str, memory_name: str = "UFS") -> None:
-        self.edl.write_partition(port, image_path, lun, start_sector, memory_name)
-
-    def edl_reset(self, port: str) -> None:
-        self.edl.reset(port)
-
-    def edl_rawprogram(self, loader_path: Path, memory_type: str, raw_xmls: List[Path], patch_xmls: List[Path], port: str) -> None:
-        self.edl.flash_rawprogram(port, loader_path, memory_type, raw_xmls, patch_xmls)
 
     def edl_session(self, loader_path: Path) -> ContextManager[str]:
         return EdlSession(self, loader_path)
