@@ -233,7 +233,7 @@ def process_boot_image_avb(image_to_process: Path, gki: bool = False) -> None:
 
             utils.ui.info(get_string("img_key_matched").format(name=key_file.name))
         else:
-            utils.ui.info("No signature key found. Applying original footer (Unsigned).")
+            utils.ui.info(get_string("img_warn_no_sig_key"))
         
         _apply_hash_footer(
             image_path=image_to_process,

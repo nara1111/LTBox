@@ -296,10 +296,10 @@ def _select_flash_xmls(skip_dp: bool = False) -> Tuple[List[Path], List[Path]]:
         utils.ui.echo(get_string("act_skip_persist_flash"))
         raw_xmls.append(persist_save_xml)
     elif raw_unsparse0_half.exists():
-        utils.ui.echo("Using rawprogram_unsparse0-half.xml (Save Persist Fallback)")
+        utils.ui.echo(get_string("act_using_xml_persist_fallback"))
         raw_xmls.append(raw_unsparse0_half)
     elif raw_unsparse0.exists():
-        utils.ui.echo("Using rawprogram_unsparse0.xml (Full Wipe)")
+        utils.ui.echo(get_string("act_using_xml_full_wipe"))
         raw_xmls.append(raw_unsparse0)
 
     has_patched_devinfo = (const.OUTPUT_DP_DIR / "devinfo.img").exists()
@@ -359,7 +359,7 @@ def flash_full_firmware(dev: device.DeviceController, skip_reset: bool = False, 
         dev.edl.flash_rawprogram(port, const.EDL_LOADER_FILE, "UFS", raw_xmls, patch_xmls)
     except Exception as e:
         utils.ui.error(get_string("act_err_main_flash").format(e=e))
-        utils.ui.error("Detailed Traceback:\n" + traceback.format_exc())
+        utils.ui.error(get_string("err_detailed_traceback") + traceback.format_exc())
         utils.ui.echo(get_string("act_warn_unstable"))
         raise
         

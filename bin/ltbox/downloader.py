@@ -416,7 +416,7 @@ def download_sukisu_init(target_path: Path) -> None:
         if found:
             utils.ui.echo(get_string("dl_download_success").format(filename="ksuinit"))
         else:
-            raise ToolError("ksuinit not found in archive")
+            raise ToolError(get_string("err_ksuinit_not_found"))
 
     except Exception as e:
         utils.ui.error(get_string("dl_download_failed").format(url=url, error=e))
@@ -430,7 +430,7 @@ def get_sukisu_lkm(target_path: Path, kernel_version: str) -> None:
         target_path.unlink()
         
     if not kernel_version:
-        raise ToolError("Kernel version is required for SukiSU LKM download")
+        raise ToolError(get_string("err_req_kernel_ver_sukisu"))
 
     major_minor = ".".join(kernel_version.split(".")[:2])
 
@@ -470,7 +470,7 @@ def get_sukisu_lkm(target_path: Path, kernel_version: str) -> None:
         if found:
             utils.ui.echo(get_string("dl_lkm_download_ok"))
         else:
-            raise ToolError("kernelsu.ko not found in archive")
+            raise ToolError(get_string("err_kernelsu_ko_not_found"))
 
     except Exception as e:
         utils.ui.error(get_string("dl_lkm_download_fail").format(asset=mapped_name))
@@ -485,7 +485,7 @@ def get_lkm_kernel(target_path: Path, kernel_version: str) -> None:
         target_path.unlink()
         
     if not kernel_version:
-        raise ToolError("Kernel version is required for LKM download")
+        raise ToolError(get_string("err_req_kernel_ver_lkm"))
 
     utils.ui.echo(get_string("dl_lkm_kver_found").format(ver=kernel_version))
     

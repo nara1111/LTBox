@@ -150,7 +150,7 @@ def _default_select_callback(options: List[Tuple[str, str]], prompt_msg: str) ->
                 return options[idx][0]
         except (ValueError, IndexError):
             pass
-        print("Invalid selection.")
+        print(get_string("act_invalid_selection"))
 
 def edit_devinfo_persist(
     on_log: Callable[[str], None] = lambda s: None,
