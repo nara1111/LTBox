@@ -404,28 +404,6 @@ class EdlManager:
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             raise DeviceCommandError(get_string("device_err_rawprogram_fail").format(e=e), e)
 
-class EdlSession:
-    def __init__(self, controller: 'DeviceController', loader_path: Path):
-        self.controller = controller
-        self.loader_path = loader_path
-        self.port = None
-
-    def __enter__(self) -> str:
-        self.port = self.controller.setup_edl_connection()
-        try:
-            self.controller.edl.load_programmer_safe(self.port, self.loader_path)
-        except Exception as e:
-            ui.echo(get_string("act_warn_prog_load").format(e=e))
-        return self.port
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.port:
-            ui.echo(get_string("act_reset_sys"))
-            try:
-                self.controller.edl.reset(self.port)
-            except Exception:
-                pass
-
 class DeviceController:
     def __init__(self, skip_adb: bool = False):
         self._skip_adb = skip_adb
@@ -496,6 +474,3 @@ class DeviceController:
         port = self.edl.wait_for_device()
         ui.info(get_string("device_edl_setup_done"))
         return port
-
-    def edl_session(self, loader_path: Path) -> ContextManager[str]:
-        return EdlSession(self, loader_path)
