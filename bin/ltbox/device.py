@@ -3,7 +3,7 @@ import subprocess
 import time
 import serial.tools.list_ports
 from pathlib import Path
-from typing import Optional, List, Callable, Any
+from typing import Optional, List, Callable, Any, ContextManager
 
 import adbutils
 from adbutils import AdbError
@@ -413,6 +413,28 @@ class EdlManager:
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             raise DeviceCommandError(get_string("device_err_rawprogram_fail").format(e=e), e)
 
+class EdlSession:
+    def __init__(self, controller: 'DeviceController', loader_path: Path):
+        self.controller = controller
+        self.loader_path = loader_path
+        self.port = None
+
+    def __enter__(self) -> str:
+        self.port = self.controller.setup_edl_connection()
+        try:
+            self.controller.load_firehose_programmer_with_stability(self.loader_path, self.port)
+        except Exception as e:
+            ui.echo(get_string("act_warn_prog_load").format(e=e))
+        return self.port
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.port:
+            ui.echo(get_string("act_reset_sys"))
+            try:
+                self.controller.edl_reset(self.port)
+            except Exception:
+                pass
+
 class DeviceController:
     def __init__(self, skip_adb: bool = False):
         self._skip_adb = skip_adb
@@ -549,3 +571,6 @@ class DeviceController:
 
     def edl_rawprogram(self, loader_path: Path, memory_type: str, raw_xmls: List[Path], patch_xmls: List[Path], port: str) -> None:
         self.edl.flash_rawprogram(port, loader_path, memory_type, raw_xmls, patch_xmls)
+
+    def edl_session(self, loader_path: Path) -> ContextManager[str]:
+        return EdlSession(self, loader_path)
