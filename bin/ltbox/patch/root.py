@@ -14,7 +14,8 @@ def patch_boot_with_root_algo(
     dev: Optional[device.DeviceController] = None, 
     gki: bool = False,
     lkm_kernel_version: Optional[str] = None,
-    root_type: str = "ksu"
+    root_type: str = "ksu",
+    skip_lkm_download: bool = False
 ) -> Optional[Path]:
     
     img_name = const.FN_BOOT if gki else const.FN_INIT_BOOT
@@ -74,28 +75,36 @@ def patch_boot_with_root_algo(
             return None
         print(get_string("img_root_unpack_ok"))
 
-        print(get_string("img_root_lkm_download"))
-        try:
-            ksuinit_path = work_dir / "init"
-            kmod_path = work_dir / "kernelsu.ko"
-            
-            if root_type == "sukisu":
-                if not lkm_kernel_version:
-                     print(get_string("img_root_lkm_no_dev"), file=sys.stderr)
-                     return None
+        if not skip_lkm_download:
+            print(get_string("img_root_lkm_download"))
+            try:
+                ksuinit_path = work_dir / "init"
+                kmod_path = work_dir / "kernelsu.ko"
                 
-                downloader.download_sukisu_init(ksuinit_path)
-                downloader.get_sukisu_lkm(kmod_path, lkm_kernel_version)
-            else:
-                downloader.download_ksuinit(ksuinit_path)
-                if not lkm_kernel_version:
-                     print(get_string("img_root_lkm_no_dev"), file=sys.stderr)
-                     return None
-                downloader.get_lkm_kernel(kmod_path, lkm_kernel_version)
+                if root_type == "sukisu":
+                    if not lkm_kernel_version:
+                        print(get_string("img_root_lkm_no_dev"), file=sys.stderr)
+                        return None
 
-        except Exception as e:
-            print(get_string("img_root_lkm_download_fail").format(e=e), file=sys.stderr)
-            return None
+                    downloader.download_nightly_artifacts(
+                        repo=const.SUKISU_REPO,
+                        workflow_id=const.SUKISU_WORKFLOW,
+                        manager_name="Spoofed-Manager.zip", 
+                        mapped_name=lkm_kernel_version,
+                        target_dir=work_dir
+                    )
+                else:
+                    downloader.download_ksuinit_release(ksuinit_path)
+                    if not lkm_kernel_version:
+                        print(get_string("img_root_lkm_no_dev"), file=sys.stderr)
+                        return None
+                    downloader.get_lkm_kernel_release(kmod_path, lkm_kernel_version)
+
+            except Exception as e:
+                print(get_string("img_root_lkm_download_fail").format(e=e), file=sys.stderr)
+                return None
+        else:
+            print("Skipping download (files provided)...")
 
         print(get_string("img_root_lkm_patch"))
         
