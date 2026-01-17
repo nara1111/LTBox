@@ -376,16 +376,24 @@ def download_nightly_artifacts(repo: str, workflow_id: str, manager_name: str, m
 
 def download_ksu_manager_release(target_dir: Path) -> None:
     utils.ui.echo(get_string("dl_ksu_downloading"))
+    
+    target_file = target_dir / "manager.apk"
+    if target_file.exists():
+        target_file.unlink()
 
+    downloaded_path = None
     try:
-        _download_github_asset(f"https://github.com/{const.KSU_APK_REPO}", const.KSU_APK_TAG, ".*spoofed.*\\.apk", target_dir)
-        utils.ui.echo(get_string("dl_ksu_success"))
+        downloaded_path = _download_github_asset(f"https://github.com/{const.KSU_APK_REPO}", const.KSU_APK_TAG, ".*spoofed.*\\.apk", target_dir)
     except ToolError:
         try:
-            _download_github_asset(f"https://github.com/{const.KSU_APK_REPO}", const.KSU_APK_TAG, ".*\\.apk", target_dir)
-            utils.ui.echo(get_string("dl_ksu_success"))
+            downloaded_path = _download_github_asset(f"https://github.com/{const.KSU_APK_REPO}", const.KSU_APK_TAG, ".*\\.apk", target_dir)
         except ToolError as e:
              utils.ui.error(get_string("dl_err_ksu_download").format(e=e))
+             return
+
+    if downloaded_path and downloaded_path.exists():
+        shutil.move(downloaded_path, target_file)
+        utils.ui.echo(get_string("dl_ksu_success"))
 
 def download_ksuinit_release(target_path: Path) -> None:
     if target_path.exists():
