@@ -16,10 +16,12 @@ from ..i18n import get_string
 def convert_region_images(
     dev: device.DeviceController, 
     device_model: Optional[str] = None,
+    target_region: str = "PRC",
     on_log: Callable[[str], None] = lambda s: None
 ) -> None:
     
     on_log(get_string("act_conv_start"))
+    on_log(f"Target Region: {target_region}")
 
     on_log(get_string("act_clean_old"))
     if const.OUTPUT_DIR.exists():
@@ -47,7 +49,7 @@ def convert_region_images(
         raise IOError(get_string("act_err_copy_input").format(e=e))
 
     on_log(get_string("act_start_conv"))
-    edit_vendor_boot(str(vendor_boot_bak))
+    edit_vendor_boot(str(vendor_boot_bak), target_region=target_region)
 
     vendor_boot_prc = const.BASE_DIR / const.FN_VENDOR_BOOT_PRC
     on_log(get_string("act_verify_conv"))

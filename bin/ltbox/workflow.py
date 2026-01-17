@@ -45,6 +45,7 @@ def _convert_region_images(ctx: TaskContext) -> None:
     actions.convert_region_images(
         dev=ctx.dev, 
         device_model=ctx.device_model,
+        target_region=ctx.target_region,
         on_log=ctx.on_log
     )
 
@@ -113,11 +114,12 @@ def _check_and_patch_arb(ctx: TaskContext, boot_target: str, vbmeta_target: str)
 def _flash_images(ctx: TaskContext, skip_dp_workflow: bool) -> None:
     actions.flash_full_firmware(dev=ctx.dev, skip_reset_edl=True, skip_dp=skip_dp_workflow)
 
-def patch_all(dev: device.DeviceController, wipe: int = 0, skip_rollback: bool = False) -> str:
+def patch_all(dev: device.DeviceController, wipe: int = 0, skip_rollback: bool = False, target_region: str = "PRC") -> str:
     ctx = TaskContext(
         dev=dev, 
         wipe=wipe, 
         skip_rollback=skip_rollback,
+        target_region=target_region,
         on_log=lambda s: utils.ui.info(s)
     )
 
@@ -127,6 +129,11 @@ def patch_all(dev: device.DeviceController, wipe: int = 0, skip_rollback: bool =
 
     utils.ui.info(get_string("logging_enabled").format(log_file=log_file))
     utils.ui.info(get_string("logging_command").format(command=command_name))
+    
+    if target_region == "ROW":
+        utils.ui.info(get_string("menu_main_install_keep_row"))
+    else:
+        utils.ui.info(get_string("menu_main_install_keep_prc"))
 
     try:
         with logging_context(log_file):

@@ -105,12 +105,15 @@ class TerminalMenu:
 
 # --- Menu Data Definitions ---
 
-def _get_advanced_menu_data() -> List[Dict[str, Any]]:
+def _get_advanced_menu_data(target_region: str) -> List[Dict[str, Any]]:
+    region_text = get_string("menu_adv_1_row") if target_region == "ROW" else get_string("menu_adv_1_prc")
+    
     return [
         {"type": "label", "text": get_string('menu_adv_sub_region_dump')},
-        {"type": "option", "key": "1", "text": get_string("menu_adv_1"), "action": "convert"},
+        {"type": "option", "key": "1", "text": region_text, "action": "convert"},
         {"type": "option", "key": "2", "text": get_string("menu_adv_2"), "action": "dump_partitions"},
         {"type": "separator"},
+        # ... (Rest of the menu items remain the same)
         {"type": "label", "text": get_string('menu_adv_sub_patch_region')},
         {"type": "option", "key": "3", "text": get_string("menu_adv_3"), "action": "edit_dp"},
         {"type": "option", "key": "4", "text": get_string("menu_adv_4"), "action": "flash_partitions"},
@@ -157,11 +160,30 @@ def _get_root_menu_data(gki: bool, root_type: str) -> List[Dict[str, Any]]:
     items.append({"type": "option", "key": "x", "text": get_string("menu_main_exit"), "action": "exit"})
     return items
 
-def _get_main_menu_data(skip_adb_state: str, skip_rb_state: str) -> List[Dict[str, Any]]:
+def _get_settings_menu_data(skip_adb_state: str, skip_rb_state: str, target_region: str) -> List[Dict[str, Any]]:
+    region_label = get_string("menu_settings_device_row") if target_region == "ROW" else get_string("menu_settings_device_prc")
+    
+    return [
+        {"type": "option", "key": "1", "text": region_label, "action": "toggle_region"},
+        {"type": "option", "key": "2", "text": get_string("menu_settings_skip_adb").format(state=skip_adb_state), "action": "toggle_adb"},
+        {"type": "option", "key": "3", "text": get_string("menu_settings_skip_rb").format(state=skip_rb_state), "action": "toggle_rollback"},
+        {"type": "option", "key": "4", "text": get_string("menu_settings_lang"), "action": "change_lang"},
+        {"type": "separator"},
+        {"type": "option", "key": "m", "text": get_string("menu_settings_m"), "action": "return"},
+    ]
+
+def _get_main_menu_data(target_region: str) -> List[Dict[str, Any]]:
+    if target_region == "ROW":
+        install_wipe_text = get_string("menu_main_install_wipe_row")
+        install_keep_text = get_string("menu_main_install_keep_row")
+    else:
+        install_wipe_text = get_string("menu_main_install_wipe_prc")
+        install_keep_text = get_string("menu_main_install_keep_prc")
+
     return [
         {"type": "label", "text": get_string('menu_main_sub_install')},
-        {"type": "option", "key": "1", "text": get_string("menu_main_install_wipe"), "action": "patch_all_wipe"},
-        {"type": "option", "key": "2", "text": get_string("menu_main_install_keep"), "action": "patch_all"},
+        {"type": "option", "key": "1", "text": install_wipe_text, "action": "patch_all_wipe"},
+        {"type": "option", "key": "2", "text": install_keep_text, "action": "patch_all"},
         {"type": "separator"},
         {"type": "label", "text": get_string('menu_main_sub_manage')},
         {"type": "option", "key": "3", "text": get_string("menu_main_disable_ota"), "action": "disable_ota"},
@@ -171,9 +193,7 @@ def _get_main_menu_data(skip_adb_state: str, skip_rb_state: str) -> List[Dict[st
         {"type": "option", "key": "7", "text": get_string("menu_main_rec_flash"), "action": "sign_and_flash_twrp"},
         {"type": "separator"},
         {"type": "label", "text": get_string('menu_main_sub_settings')},
-        {"type": "option", "key": "8", "text": get_string("menu_main_skip_adb").format(skip_adb_state=skip_adb_state), "action": "toggle_adb"},
-        {"type": "option", "key": "9", "text": get_string("menu_main_skip_rb").format(skip_rb_state=skip_rb_state), "action": "toggle_rollback"},
-        {"type": "option", "key": "10", "text": get_string("menu_main_language"), "action": "change_lang"},
+        {"type": "option", "key": "0", "text": get_string("menu_main_settings"), "action": "menu_settings"},
         {"type": "separator"},
         {"type": "label", "text": get_string('menu_main_sub_nav')},
         {"type": "option", "key": "a", "text": get_string("menu_main_adv"), "action": "menu_advanced"},
@@ -369,9 +389,9 @@ def run_info_scan(paths, constants, avb_patch):
 
 # --- Menus ---
 
-def advanced_menu(dev, registry: CommandRegistry):
+def advanced_menu(dev, registry: CommandRegistry, target_region: str):
     while True:
-        menu_items = _get_advanced_menu_data()
+        menu_items = _get_advanced_menu_data(target_region)
         menu = TerminalMenu(get_string("menu_adv_title"))
         menu.populate(menu_items)
 
@@ -385,7 +405,10 @@ def advanced_menu(dev, registry: CommandRegistry):
         elif action == "exit":
             sys.exit()
         elif action:
-            run_task(action, dev, registry)
+            extras = {}
+            if action == "convert":
+                extras["target_region"] = target_region
+            run_task(action, dev, registry, extra_kwargs=extras)
 
 def root_menu(dev, registry: CommandRegistry, gki: bool):
     root_type = "ksu"
@@ -446,6 +469,33 @@ def root_mode_selection_menu(dev, registry: CommandRegistry):
         elif choice == "x":
             sys.exit()
 
+def settings_menu(dev, registry: CommandRegistry, skip_adb: bool, skip_rollback: bool, target_region: str) -> Tuple[bool, bool, str]:
+    while True:
+        skip_adb_state = "ON" if skip_adb else "OFF"
+        skip_rb_state = "ON" if skip_rollback else "OFF"
+        
+        menu_items = _get_settings_menu_data(skip_adb_state, skip_rb_state, target_region)
+        menu = TerminalMenu(get_string("menu_settings_title"))
+        menu.populate(menu_items)
+        
+        action_map = {item["key"]: item["action"] for item in menu_items if item.get("type") == "option"}
+        
+        choice = menu.ask(get_string("menu_settings_prompt"), get_string("menu_settings_invalid"))
+        action = action_map.get(choice)
+        
+        if action == "return":
+            return skip_adb, skip_rollback, target_region
+        elif action == "toggle_region":
+            target_region = "ROW" if target_region == "PRC" else "PRC"
+            _save_settings({"target_region": target_region})
+        elif action == "toggle_adb":
+            skip_adb = not skip_adb
+            dev.skip_adb = skip_adb
+        elif action == "toggle_rollback":
+            skip_rollback = not skip_rollback
+        elif action == "change_lang":
+            registry.get("change_language")["func"]()
+
 def prompt_for_language(force_prompt: bool = False) -> str:
     if not force_prompt:
         settings = _load_settings()
@@ -489,15 +539,16 @@ def prompt_for_language(force_prompt: bool = False) -> str:
     return selected_lang
 
 def main_loop(device_controller_class, registry: CommandRegistry):
+    settings = _load_settings()
+    
     skip_adb = False
     skip_rollback = False
+    target_region = settings.get("target_region", "PRC")
+    
     dev = device_controller_class(skip_adb=skip_adb)
     
     while True:
-        skip_adb_state = "ON" if skip_adb else "OFF"
-        skip_rb_state = "ON" if skip_rollback else "OFF"
-
-        menu_items = _get_main_menu_data(skip_adb_state, skip_rb_state)
+        menu_items = _get_main_menu_data(target_region)
         menu = TerminalMenu(get_string("menu_main_title"))
         menu.populate(menu_items)
 
@@ -508,21 +559,17 @@ def main_loop(device_controller_class, registry: CommandRegistry):
         
         if action == "exit":
             break
-        elif action == "toggle_adb":
-            skip_adb = not skip_adb
-            dev.skip_adb = skip_adb
-        elif action == "toggle_rollback":
-            skip_rollback = not skip_rollback
-        elif action == "change_lang":
-            registry.get("change_language")["func"]()
+        elif action == "menu_settings":
+            skip_adb, skip_rollback, target_region = settings_menu(dev, registry, skip_adb, skip_rollback, target_region)
         elif action == "menu_root":
             root_mode_selection_menu(dev, registry)
         elif action == "menu_advanced":
-            advanced_menu(dev, registry)
+            advanced_menu(dev, registry, target_region)
         elif action:
             extras = {}
             if action in ["patch_all", "patch_all_wipe"]:
                 extras["skip_rollback"] = skip_rollback
+                extras["target_region"] = target_region
             run_task(action, dev, registry, extra_kwargs=extras)
 
 # --- Entry Point ---

@@ -8,6 +8,7 @@ class TaskContext:
     dev: DeviceController
     wipe: int = 0
     skip_rollback: bool = False
+    target_region: str = "PRC"
     device_model: Optional[str] = None
     active_slot_suffix: Optional[str] = None
 
