@@ -47,6 +47,10 @@ class RootStrategy(ABC):
     def get_partition_map(self, suffix: str) -> Dict[str, str]: pass
 
     @abstractmethod
+    def download_resources(self, kernel_version: Optional[str] = None) -> bool: 
+        pass
+
+    @abstractmethod
     def patch(self, work_dir: Path, dev: Optional[device.DeviceController] = None, lkm_kernel_version: Optional[str] = None) -> Path: pass
 
     @abstractmethod
@@ -83,11 +87,13 @@ class GkiRootStrategy(RootStrategy):
             "vbmeta": ""
         }
 
+    def download_resources(self, kernel_version: Optional[str] = None) -> bool:
+        downloader.download_ksu_manager_release(const.TOOLS_DIR)
+        return True
+
     def patch(self, work_dir: Path, dev: Optional[device.DeviceController] = None, lkm_kernel_version: Optional[str] = None) -> Path:
         magiskboot_exe = utils.get_platform_executable("magiskboot")
         ensure_magiskboot()
-
-        downloader.download_ksu_manager_release(const.TOOLS_DIR)
         
         return patch_boot_with_root_algo(work_dir, magiskboot_exe, dev=None, gki=True)
 
@@ -103,6 +109,7 @@ class LkmRootStrategy(RootStrategy):
         self.is_nightly = False
         self.workflow_id = None
         self.repo_config = {}
+        self.staging_dir = const.TOOLS_DIR / "lkm_staging"
 
     @property
     def image_name(self) -> str:
@@ -133,6 +140,11 @@ class LkmRootStrategy(RootStrategy):
             "main": f"init_boot{suffix}",
             "vbmeta": f"vbmeta{suffix}"
         }
+    
+    def _cleanup_manager_apk(self):
+        manager_apk = const.TOOLS_DIR / "manager.apk"
+        if manager_apk.exists():
+            manager_apk.unlink()
 
     def _get_mapped_kernel_name(self, kernel_version: str) -> Optional[str]:
         if not kernel_version: return None
@@ -179,7 +191,7 @@ class LkmRootStrategy(RootStrategy):
             else:
                 self.is_nightly = False
 
-    def _perform_nightly_download(self, root_name, repo, workflow_id, manager_zip, kernel_version, work_dir) -> bool:
+    def _perform_nightly_download(self, repo, workflow_id, manager_zip, kernel_version) -> bool:
         mapped_name = self._get_mapped_kernel_name(kernel_version)
         if not mapped_name:
             utils.ui.error(get_string("err_sukisu_kernel_map_not_found").format(ver=kernel_version))
@@ -210,13 +222,16 @@ class LkmRootStrategy(RootStrategy):
             if not apk_found:
                 raise ToolError("Manager APK not found in zip.")
 
+            if self.staging_dir.exists(): shutil.rmtree(self.staging_dir)
+            self.staging_dir.mkdir(exist_ok=True)
+
             lkm_zip = temp_dl_dir / "lkm.zip"
             ko_found = False
             if lkm_zip.exists():
                 with zipfile.ZipFile(lkm_zip, 'r') as zf:
                     for name in zf.namelist():
                         if name.endswith("kernelsu.ko"):
-                            with zf.open(name) as src, open(work_dir / "kernelsu.ko", "wb") as dst:
+                            with zf.open(name) as src, open(self.staging_dir / "kernelsu.ko", "wb") as dst:
                                 shutil.copyfileobj(src, dst)
                             ko_found = True
                             break
@@ -224,7 +239,8 @@ class LkmRootStrategy(RootStrategy):
             if not ko_found:
                 raise ToolError("kernelsu.ko not found in zip.")
             
-            shutil.copy(temp_dl_dir / "ksuinit", work_dir / "init")
+            if (temp_dl_dir / "ksuinit").exists():
+                shutil.copy(temp_dl_dir / "ksuinit", self.staging_dir / "init")
             
             shutil.rmtree(temp_dl_dir)
             return True
@@ -234,25 +250,35 @@ class LkmRootStrategy(RootStrategy):
             utils.ui.error(get_string("err_download_workflow"))
             return False
 
+    def download_resources(self, kernel_version: Optional[str] = None) -> bool:
+        self._cleanup_manager_apk()
+        
+        if self.is_nightly:
+            repo = self.repo_config.get("repo")
+            manager = self.repo_config.get("manager") if self.root_type == "sukisu" else self.repo_config.get("nightly_manager")
+            return self._perform_nightly_download(repo, self.workflow_id, manager, kernel_version)
+        else:
+            if self.staging_dir.exists(): shutil.rmtree(self.staging_dir)
+            self.staging_dir.mkdir(exist_ok=True)
+
+            downloader.download_ksu_manager_release(const.TOOLS_DIR)
+            downloader.download_ksuinit_release(self.staging_dir / "init")
+            if kernel_version:
+                downloader.get_lkm_kernel_release(self.staging_dir / "kernelsu.ko", kernel_version)
+            return True
+
     def patch(self, work_dir: Path, dev: Optional[device.DeviceController] = None, lkm_kernel_version: Optional[str] = None) -> Path:
         magiskboot_exe = utils.get_platform_executable("magiskboot")
         ensure_magiskboot()
 
-        if self.is_nightly:
-            repo = self.repo_config.get("repo")
-            manager = self.repo_config.get("manager") if self.root_type == "sukisu" else self.repo_config.get("nightly_manager")
-            root_name = "SukiSU Ultra" if self.root_type == "sukisu" else "KernelSU Next"
-            
-            success = self._perform_nightly_download(
-                root_name, repo, self.workflow_id,
-                manager, lkm_kernel_version, work_dir
-            )
-            if not success: return None
-            
+        if (self.staging_dir / "init").exists() and (self.staging_dir / "kernelsu.ko").exists():
+            shutil.copy(self.staging_dir / "init", work_dir / "init")
+            shutil.copy(self.staging_dir / "kernelsu.ko", work_dir / "kernelsu.ko")
         else:
-            downloader.download_ksu_manager_release(const.TOOLS_DIR)
-            downloader.download_ksuinit_release(work_dir / "init")
-            downloader.get_lkm_kernel_release(work_dir / "kernelsu.ko", lkm_kernel_version)
+            if not self.download_resources(lkm_kernel_version):
+                return None
+            shutil.copy(self.staging_dir / "init", work_dir / "init")
+            shutil.copy(self.staging_dir / "kernelsu.ko", work_dir / "kernelsu.ko")
 
         return patch_boot_with_root_algo(
             work_dir, magiskboot_exe, dev, gki=False, 
@@ -283,7 +309,7 @@ class LkmRootStrategy(RootStrategy):
 
 def patch_root_image_file(gki: bool = False, root_type: str = "ksu") -> None:
     strategy = GkiRootStrategy() if gki else LkmRootStrategy(root_type)
-
+    
     if isinstance(strategy, LkmRootStrategy):
         strategy.configure_source()
 
@@ -340,6 +366,9 @@ def patch_root_image_file(gki: bool = False, root_type: str = "ksu") -> None:
              if not lkm_kernel_version:
                  utils.ui.error("Kernel version required.")
                  return
+        
+        if not strategy.download_resources(lkm_kernel_version):
+             return
 
         patched_boot_path = strategy.patch(const.WORK_DIR, dev=None, lkm_kernel_version=lkm_kernel_version)
 
@@ -517,39 +546,6 @@ def _flash_root_image(dev: device.DeviceController, strategy: RootStrategy, part
         utils.ui.error(get_string("act_err_edl_write").format(e=e))
         raise
 
-def _cleanup_manager_apk():
-    manager_apk = const.TOOLS_DIR / "manager.apk"
-    if manager_apk.exists():
-        utils.ui.echo("[*] Cleaning up old manager.apk...")
-        try:
-            manager_apk.unlink()
-        except OSError:
-            pass
-
-def _install_manager_apk(dev: device.DeviceController):
-    manager_apk = const.TOOLS_DIR / "manager.apk"
-    
-    utils.ui.echo("\n" + "-" * 30)
-    utils.ui.echo(get_string("act_install_ksu").format(name="Manager App"))
-    
-    if not manager_apk.exists():
-        utils.ui.error("Manager APK not found. Skipping installation.")
-        return
-
-    if dev.skip_adb:
-        utils.ui.echo("ADB skipped. Please install the Manager app manually.")
-        utils.ui.echo(f"File location: {manager_apk}")
-        return
-
-    utils.ui.echo(get_string("act_wait_sys_adb"))
-    try:
-        dev.adb.wait_for_device()
-        dev.adb.install(manager_apk)
-        utils.ui.echo(get_string("act_ksu_ok"))
-    except Exception as e:
-        utils.ui.error(get_string("act_err_ksu").format(e=e))
-    utils.ui.echo("-" * 30 + "\n")
-
 def root_device(dev: device.DeviceController, gki: bool = False, root_type: str = "ksu") -> None:
     strategy = GkiRootStrategy() if gki else LkmRootStrategy(root_type)
 
@@ -564,11 +560,17 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
     if not dev.skip_adb:
         dev.adb.wait_for_device()
 
+    lkm_kernel_version = _get_lkm_kernel_version(dev, gki)
+
+    if not strategy.download_resources(lkm_kernel_version):
+        utils.ui.error("Failed to download resources. Aborting.")
+        return
+
+    _install_manager_apk(dev)
+
     active_slot = detect_active_slot_robust(dev)
     suffix = active_slot if active_slot else ""
     
-    lkm_kernel_version = _get_lkm_kernel_version(dev, gki)
-
     partition_map = strategy.get_partition_map(suffix)
     main_partition = partition_map["main"]
     
@@ -590,8 +592,6 @@ def root_device(dev: device.DeviceController, gki: bool = False, root_type: str 
     _dump_and_generate_root_image(dev, port, strategy, partition_map, gki, lkm_kernel_version)
 
     _flash_root_image(dev, strategy, partition_map, gki)
-
-    _install_manager_apk(dev)
 
     utils.ui.echo(get_string("act_root_finish"))
 
@@ -806,3 +806,36 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
         dev.edl.reset(port)
 
     utils.ui.echo(get_string("act_success"))
+
+def _cleanup_manager_apk():
+    manager_apk = const.TOOLS_DIR / "manager.apk"
+    if manager_apk.exists():
+        utils.ui.echo("[*] Cleaning up old manager.apk...")
+        try:
+            manager_apk.unlink()
+        except OSError:
+            pass
+
+def _install_manager_apk(dev: device.DeviceController):
+    manager_apk = const.TOOLS_DIR / "manager.apk"
+    
+    utils.ui.echo("\n" + "-" * 30)
+    utils.ui.echo(get_string("act_install_ksu").format(name="Manager App"))
+    
+    if not manager_apk.exists():
+        utils.ui.error("Manager APK not found. Skipping installation.")
+        return
+
+    if dev.skip_adb:
+        utils.ui.echo("ADB skipped. Please install the Manager app manually.")
+        utils.ui.echo(f"File location: {manager_apk}")
+        return
+
+    utils.ui.echo(get_string("act_wait_sys_adb"))
+    try:
+        dev.adb.wait_for_device()
+        dev.adb.install(manager_apk)
+        utils.ui.echo(get_string("act_ksu_ok"))
+    except Exception as e:
+        utils.ui.error(get_string("act_err_ksu").format(e=e))
+    utils.ui.echo("-" * 30 + "\n")
