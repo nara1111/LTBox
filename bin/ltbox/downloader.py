@@ -6,10 +6,8 @@ import sys
 import zipfile
 import tarfile
 import re
-import requests
 from pathlib import Path
 from typing import Dict, List, Optional
-from requests.exceptions import RequestException
 
 from . import constants as const
 from . import utils
@@ -17,6 +15,9 @@ from .i18n import get_string, load_lang as i18n_load_lang
 from .errors import ToolError
 
 def download_resource(url: str, dest_path: Path, show_progress: bool = True) -> None:
+    import requests
+    from requests.exceptions import RequestException
+
     msg = get_string("dl_downloading").format(filename=dest_path.name)
     utils.ui.echo(msg)
     try:
@@ -71,6 +72,9 @@ def extract_archive_files(archive_path: Path, extract_map: Dict[str, Path]) -> N
         raise ToolError(get_string("dl_err_extract_tool").format(name=archive_path.name))
 
 def _download_github_asset(repo_url: str, tag: str, asset_pattern: str, dest_dir: Path) -> Path:
+    import requests
+    from requests.exceptions import RequestException
+
     if "github.com/" in repo_url:
         owner_repo = repo_url.split("github.com/")[-1]
     else:
