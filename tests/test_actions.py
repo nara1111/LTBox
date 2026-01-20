@@ -7,11 +7,6 @@ import xml.etree.ElementTree as ET
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bin')))
 
 from ltbox.actions import xml as xml_action
-from ltbox import constants as const
-try:
-    from ltbox.patch import region as region_patch
-except ImportError:
-    region_patch = None
 
 @pytest.fixture
 def mock_xml_env(tmp_path):
@@ -27,6 +22,43 @@ def mock_xml_env(tmp_path):
         yield dirs
 
 class TestActions:
+    def test_rawprogram_fallback_priority(self, mock_xml_env):
+        dirs = mock_xml_env
+        output_dir = dirs["OUTPUT_XML_DIR"]
+        target_file = output_dir / "rawprogram_save_persist_unsparse0.xml"
+
+        cases = [
+            (
+                ["rawprogram_unsparse0.xml", "rawprogram0.xml"],
+                "rawprogram_unsparse0.xml",
+                "MARKER_UNSPARSE"
+            ),
+            (
+                ["rawprogram0.xml"],
+                "rawprogram0.xml",
+                "MARKER_BASIC"
+            )
+        ]
+
+        xml_template = """<?xml version="1.0" ?><data><program label="{marker}" filename=""/></data>"""
+
+        for filenames, expected_choice, marker in cases:
+            if target_file.exists(): target_file.unlink()
+            for f in output_dir.glob("*.xml"): f.unlink()
+
+            for fname in filenames:
+                content_marker = marker if fname == expected_choice else "WRONG_FILE"
+                (output_dir / fname).write_text(xml_template.format(marker=content_marker))
+
+            with patch("ltbox.actions.xml.utils.ui"):
+                xml_action._ensure_rawprogram_save_persist(output_dir)
+
+            assert target_file.exists()
+            tree = ET.parse(target_file)
+            root = tree.getroot()
+            prog = root.find("program")
+            assert prog.get("label") == marker, f"Failed to pick {expected_choice} among {filenames}"
+
     def test_decrypt_workflow(self, mock_xml_env):
         dirs = mock_xml_env
         (dirs["IMAGE_DIR"] / "test.x").write_text("encrypted")

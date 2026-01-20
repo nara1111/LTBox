@@ -28,13 +28,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r bin/requirements.txt
-          pip install pytest
+          pip install pytest py7zr requests
 
       - name: Smoke Test (Compile)
         run: |
           python -m compileall bin/ltbox
 
+      - name: Cache QFIL Archive
+        id: cache-qfil
+        uses: actions/cache@v4
+        with:
+          path: tests/data/qfil_archive.7z
+          key: qfil-archive-v1
+
       - name: Run Unit Tests
+        env:
+          TEST_QFIL_URL: ${{ secrets.TEST_QFIL_URL }}
+          TEST_QFIL_PASSWORD: ${{ secrets.TEST_QFIL_PASSWORD }}
         run: |
           set PYTHONPATH=bin
           pytest tests/
