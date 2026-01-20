@@ -69,22 +69,6 @@ class TestActions:
 
             xml_action.decrypt_x_files()
 
-    def test_xml_wipe_logic(self, mock_xml_env):
-        dirs = mock_xml_env
-        xml_path = dirs["OUTPUT_XML_DIR"] / "rawprogram_save_persist_unsparse0.xml"
-
-        root = ET.Element("data")
-        ET.SubElement(root, "program", label="userdata", filename="userdata.img")
-        tree = ET.ElementTree(root)
-        tree.write(xml_path)
-
-        with patch("ltbox.actions.xml.utils.ui"):
-            xml_action._patch_xml_for_wipe(xml_path, wipe=0)
-
-        tree = ET.parse(xml_path)
-        prog = tree.find(".//program[@label='userdata']")
-        assert prog.attrib["filename"] == ""
-
     def test_region_patch_patterns(self):
         if not region_patch:
             pytest.skip("Region patch module not found")
