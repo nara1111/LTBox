@@ -4,19 +4,19 @@ import subprocess
 import zipfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
-from . import edl
 from .. import constants as const
-from .. import utils, device, downloader
+from .. import device, downloader, utils
 from ..downloader import ensure_magiskboot
 from ..errors import ToolError
-from ..partition import ensure_params_or_fail
-from .system import detect_active_slot_robust
-from ..patch.root import patch_boot_with_root_algo
-from ..patch.avb import process_boot_image_avb, rebuild_vbmeta_with_chained_images
 from ..i18n import get_string
 from ..main import TerminalMenu
+from ..partition import ensure_params_or_fail
+from ..patch.avb import process_boot_image_avb, rebuild_vbmeta_with_chained_images
+from ..patch.root import patch_boot_with_root_algo
+from . import edl
+from .system import detect_active_slot_robust
 
 
 class RootStrategy(ABC):
@@ -203,7 +203,9 @@ class LkmRootStrategy(RootStrategy):
             menu.add_option("1", get_string("menu_root_subtype_release"))
             menu.add_option("2", get_string("menu_root_subtype_nightly"))
 
-            choice = menu.ask(get_string("prompt_select"), get_string("menu_invalid"))
+            choice = menu.ask(
+                get_string("prompt_select"), get_string("err_invalid_selection")
+            )
 
             if choice == "2":
                 self.is_nightly = True
@@ -775,7 +777,7 @@ def unroot_device(dev: device.DeviceController) -> None:
                 utils.ui.echo(get_string("act_op_cancel"))
                 return
             else:
-                utils.ui.echo(get_string("act_unroot_menu_invalid"))
+                utils.ui.echo(get_string("err_invalid_selection"))
 
     elif lkm_exists:
         utils.ui.echo(get_string("act_unroot_lkm_detected"))
@@ -923,7 +925,7 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
 
         utils.ui.echo(get_string("act_sign_twrp_start"))
 
-        from ..patch.avb import extract_image_avb_info, _apply_hash_footer
+        from ..patch.avb import _apply_hash_footer, extract_image_avb_info
 
         rec_info = extract_image_avb_info(dumped_recovery)
 

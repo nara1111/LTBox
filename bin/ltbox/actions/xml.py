@@ -1,7 +1,7 @@
 import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 from .. import constants as const
 from .. import utils
@@ -44,7 +44,9 @@ def auto_decrypt_if_needed() -> None:
                     get_string("img_xml_decrypt_fail").format(name=x_file.name)
                 )
         except (OSError, ValueError) as e:
-            utils.ui.info(get_string("xml_decrypt_warn").format(name=x_file.name, e=e))
+            utils.ui.info(
+                get_string("img_xml_decrypt_err").format(name=x_file.name, e=e)
+            )
 
     if decrypted_count > 0:
         utils.ui.info(get_string("act_xml_ready").format(dir=const.IMAGE_DIR.name))
