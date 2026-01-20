@@ -140,11 +140,6 @@ class LkmRootStrategy(RootStrategy):
             "main": f"init_boot{suffix}",
             "vbmeta": f"vbmeta{suffix}"
         }
-    
-    def _cleanup_manager_apk(self):
-        manager_apk = const.TOOLS_DIR / "manager.apk"
-        if manager_apk.exists():
-            manager_apk.unlink()
 
     def _get_mapped_kernel_name(self, kernel_version: str) -> Optional[str]:
         if not kernel_version: return None
@@ -252,7 +247,7 @@ class LkmRootStrategy(RootStrategy):
             return False
 
     def download_resources(self, kernel_version: Optional[str] = None) -> bool:
-        self._cleanup_manager_apk()
+        _cleanup_manager_apk(show_message=False)
         
         if self.is_nightly:
             repo = self.repo_config.get("repo")
@@ -805,10 +800,11 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
 
     utils.ui.echo(get_string("act_success"))
 
-def _cleanup_manager_apk():
+def _cleanup_manager_apk(show_message: bool = True):
     manager_apk = const.TOOLS_DIR / "manager.apk"
     if manager_apk.exists():
-        utils.ui.echo(get_string("act_cleanup_manager_apk"))
+        if show_message:
+            utils.ui.echo(get_string("act_cleanup_manager_apk"))
         try:
             manager_apk.unlink()
         except OSError:
