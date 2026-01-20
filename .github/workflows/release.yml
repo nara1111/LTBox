@@ -29,6 +29,31 @@ jobs:
             exit 1
           fi
 
+      - name: Cache QFIL Archive
+        id: cache-qfil
+        uses: actions/cache@v4
+        with:
+          path: qfil_archive.7z
+          key: qfil-archive-v1
+
+      - name: Download QFIL Archive
+        if: steps.cache-qfil.outputs.cache-hit != 'true'
+        run: |
+          curl -L "http://zsk-cdn.lenovows.com/%E7%9F%A5%E8%AF%86%E5%BA%93/Flash_tool_image/TB322_ZUXOS_1.5.10.063_Tool.7z" -o qfil_archive.7z
+
+      - name: Extract Tools from QFIL
+        env:
+          QFIL_PASSWORD: ${{ secrets.TEST_QFIL_PASSWORD }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+
+          mkdir -p bin/tools
+
+          7z e qfil_archive.7z -o"bin/tools" -p"$QFIL_PASSWORD" "*/tool/fh_loader.exe" "*/tool/QSaharaServer.exe" -r -y
+
+          ls -l bin/tools/*.exe
+
       - name: Create Archive
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}

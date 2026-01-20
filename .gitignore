@@ -8,8 +8,7 @@ bin/ltbox/actions/__pycache__/
 bin/ltbox/patch/__pycache__/
 bin/ltbox/settings.json
 bin/python3/
-bin/tools/dl/
-bin/tools/tmp_patch/
+bin/tools/
 desktop.ini
 get-pip.py
 image/
