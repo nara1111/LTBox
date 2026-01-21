@@ -1,18 +1,17 @@
-import shutil
 import os
+import shutil
 from pathlib import Path
 from typing import Tuple
 
 from .. import constants as const
-from .. import utils, device
+from .. import device, utils
+from ..i18n import get_string
 from ..patch.avb import (
     extract_image_avb_info,
     patch_chained_image_rollback,
     patch_vbmeta_image_rollback,
 )
-from ..i18n import get_string
-from . import system
-from . import edl
+from . import edl, system
 
 
 def read_anti_rollback(

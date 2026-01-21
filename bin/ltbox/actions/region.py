@@ -1,14 +1,14 @@
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Callable, Tuple
+from typing import Callable, List, Optional, Tuple
 
-from . import edl
 from .. import constants as const
-from .. import utils, device
-from ..patch.region import edit_vendor_boot, detect_country_codes, patch_country_codes
-from ..patch.avb import extract_image_avb_info, rebuild_vbmeta_with_chained_images
+from .. import device, utils
 from ..i18n import get_string
+from ..patch.avb import extract_image_avb_info, rebuild_vbmeta_with_chained_images
+from ..patch.region import detect_country_codes, edit_vendor_boot, patch_country_codes
+from . import edl
 
 
 def convert_region_images(

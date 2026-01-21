@@ -1,12 +1,13 @@
 import os
-import sys
 import shutil
-import pytest
-import requests
-import py7zr
+import sys
 import time
 from pathlib import Path
 from unittest.mock import patch
+
+import py7zr
+import pytest
+import requests
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bin')))
 

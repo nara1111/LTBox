@@ -1,15 +1,18 @@
-import sys
 import os
-import pytest
 import shutil
+import sys
 import xml.etree.ElementTree as ET
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bin')))
 
 from ltbox import constants as const
-from ltbox.actions import edl, xml as xml_action
+from ltbox.actions import edl
+from ltbox.actions import xml as xml_action
 from ltbox.patch import region as region_patch
+
 
 def create_xmls(img_dir, names):
     for n in names:

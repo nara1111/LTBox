@@ -1,7 +1,9 @@
 import hashlib
 import struct
 from typing import Any
+
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
 from .i18n import get_string
 from .utils import ui
 

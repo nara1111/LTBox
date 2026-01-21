@@ -2,16 +2,16 @@ import os
 import re
 import subprocess
 import time
-import serial.tools.list_ports
 from pathlib import Path
-from typing import Optional, List, Callable, Any
+from typing import Any, Callable, List, Optional
 
 import adbutils
+import serial.tools.list_ports
 from adbutils import AdbError
 
 from . import constants as const
 from . import utils
-from .errors import DeviceConnectionError, DeviceCommandError
+from .errors import DeviceCommandError, DeviceConnectionError
 from .i18n import get_string
 from .ui import ui
 

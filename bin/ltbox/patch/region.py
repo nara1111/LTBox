@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional, Any, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from .. import constants as const
 from .. import utils

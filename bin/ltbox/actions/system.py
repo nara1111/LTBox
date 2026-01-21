@@ -1,7 +1,8 @@
 from typing import Optional
+
 from .. import device
-from ..i18n import get_string
 from ..errors import ToolError
+from ..i18n import get_string
 
 
 def detect_active_slot_robust(dev: device.DeviceController) -> Optional[str]:

@@ -5,9 +5,9 @@ import platform
 import subprocess
 import sys
 import webbrowser
-from pathlib import Path
 from datetime import datetime
-from typing import Tuple, Dict, Callable, Any, List, Optional
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import downloader, i18n, utils
 from .i18n import get_string
@@ -20,7 +20,7 @@ PYTHON_EXE = BASE_DIR / "python3" / "python.exe"
 SETTINGS_FILE = APP_DIR / "settings.json"
 
 try:
-    from .errors import ToolError, LTBoxError
+    from .errors import LTBoxError, ToolError
 except ImportError:
     print(get_string("err_import_critical"), file=sys.stderr)
     print(get_string("err_ensure_errors"), file=sys.stderr)
@@ -996,8 +996,7 @@ def entry_point():
             sys.exit(1)
 
         try:
-            from . import utils, actions, workflow, device
-            from . import constants
+            from . import actions, constants, device, utils, workflow
             from .patch import avb
 
             registry = CommandRegistry()

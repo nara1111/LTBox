@@ -1,17 +1,18 @@
 import platform
+import re
 import shutil
 import subprocess
 import sys
-import zipfile
 import tarfile
-import re
+import zipfile
 from pathlib import Path
 from typing import Dict
 
 from . import constants as const
 from . import utils
-from .i18n import get_string, load_lang as i18n_load_lang
 from .errors import ToolError
+from .i18n import get_string
+from .i18n import load_lang as i18n_load_lang
 
 
 def download_resource(url: str, dest_path: Path, show_progress: bool = True) -> None:

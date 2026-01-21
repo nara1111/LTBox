@@ -1,11 +1,13 @@
-import sys
 import os
-import pytest
+import sys
 from unittest.mock import patch
+
+import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bin')))
 
 from ltbox.patch import avb
+
 
 def test_vbmeta_parse(fw_pkg):
     path = fw_pkg.get("vbmeta.img")

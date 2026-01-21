@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from .. import constants as const
-from .. import utils, downloader, device
+from .. import device, downloader, utils
 from ..i18n import get_string
 
 

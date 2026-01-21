@@ -2,7 +2,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional, Any, List
+from typing import Any, Dict, List, Optional
 
 from .. import constants as const
 from .. import utils

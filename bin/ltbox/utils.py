@@ -1,11 +1,11 @@
 import json
 import os
-import subprocess
 import shutil
+import subprocess
 import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Optional, Callable, Generator, Any, Union
+from typing import Any, Callable, Generator, List, Optional, Union
 
 from . import constants as const
 from .i18n import get_string

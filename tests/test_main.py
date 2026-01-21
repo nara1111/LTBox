@@ -1,8 +1,9 @@
-import sys
-import os
 import json
-import pytest
+import os
+import sys
 from pathlib import Path
+
+import pytest
 from ltbox import main
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bin')))

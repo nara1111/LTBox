@@ -1,9 +1,10 @@
-import sys
+import json
 import os
 import re
-import json
-import pytest
+import sys
 from pathlib import Path
+
+import pytest
 
 BASE = Path(__file__).parent.parent
 SRC = BASE / "bin" / "ltbox"

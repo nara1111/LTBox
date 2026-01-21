@@ -1,11 +1,12 @@
-import sys
-import os
-import pytest
-import subprocess
 import hashlib
+import os
+import subprocess
+import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from ltbox import utils, crypto, downloader
+from unittest.mock import MagicMock, patch
+
+import pytest
+from ltbox import crypto, downloader, utils
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bin')))
 
