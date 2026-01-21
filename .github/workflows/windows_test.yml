@@ -52,6 +52,6 @@ jobs:
           TEST_QFIL_URL: ${{ secrets.TEST_QFIL_URL }}
           TEST_QFIL_PASSWORD: ${{ secrets.TEST_QFIL_PASSWORD }}
           PYTHONUNBUFFERED: "1"
+          PYTHONPATH: "bin"
         run: |
-          set PYTHONPATH=bin
           pytest -s tests/
