@@ -228,6 +228,9 @@ def test_root_gki(fw_pkg, tmp_path):
         print(f"[INFO] [GKI] Patch success: {patched_path}")
 
         print("[INFO] [GKI] Finalizing (Signing)...")
+
+        shutil.copy(boot_img, mock_dirs["BASE_DIR"] / "boot.bak.img")
+
         final_output = strategy.finalize_patch(
             patched_path, mock_dirs["OUTPUT_ROOT_DIR"], mock_dirs["BASE_DIR"]
         )
@@ -303,10 +306,18 @@ def test_root_lkm(fw_pkg, tmp_path):
 
         print(f"[INFO] [LKM] Extracting kernel version from {boot_img.name}...")
         try:
-            detected_version = extract_kernel_version_from_img(
+            detected_version_full = extract_kernel_version_from_img(
                 boot_img, magiskboot_exe, tmp_path
             )
-            print(f"[INFO] [LKM] Detected Kernel Version: {detected_version}")
+            print(
+                f"[INFO] [LKM] Detected Kernel Version (Full): {detected_version_full}"
+            )
+
+            detected_version_short = ".".join(detected_version_full.split(".")[:2])
+            print(
+                f"[INFO] [LKM] Using Kernel Version (Short): {detected_version_short}"
+            )
+
         except Exception as e:
             pytest.fail(f"Failed to extract kernel version: {e}")
 
@@ -315,10 +326,14 @@ def test_root_lkm(fw_pkg, tmp_path):
         strategy.staging_dir = mock_dirs["TOOLS_DIR"] / "lkm_staging"
         strategy.staging_dir.mkdir(parents=True, exist_ok=True)
 
-        print(f"[INFO] [LKM] Downloading resources for kernel {detected_version}...")
+        print(
+            f"[INFO] [LKM] Downloading resources for kernel {detected_version_short}..."
+        )
 
-        if not strategy.download_resources(detected_version):
-            pytest.fail(f"Failed to download LKM resources for {detected_version}")
+        if not strategy.download_resources(detected_version_short):
+            pytest.fail(
+                f"Failed to download LKM resources for {detected_version_short}"
+            )
 
         assert (strategy.staging_dir / "init").exists()
         assert (strategy.staging_dir / "kernelsu.ko").exists()
@@ -329,13 +344,15 @@ def test_root_lkm(fw_pkg, tmp_path):
         vbmeta_bak = mock_dirs["BASE_DIR"] / const.FN_VBMETA_BAK
         shutil.copy(vbmeta_img, vbmeta_bak)
 
+        shutil.copy(boot_img, mock_dirs["BASE_DIR"] / "init_boot.bak.img")
+
         target_init_boot = work_dir / "init_boot.img"
         shutil.copy(boot_img, target_init_boot)
 
         print("[INFO] [LKM] Running ACTUAL patch process...")
         try:
             patched_path = strategy.patch(
-                work_dir, dev=None, lkm_kernel_version=detected_version
+                work_dir, dev=None, lkm_kernel_version=detected_version_short
             )
         except Exception as e:
             pytest.fail(f"LKM Patching failed with real tools: {e}")
