@@ -372,7 +372,7 @@ def rebuild_vbmeta_with_chained_images(
     vbmeta_info = extract_image_avb_info(original_vbmeta_path)
 
     vbmeta_pubkey = vbmeta_info.get("pubkey_sha1")
-    key_file = const.KEY_MAP.get(vbmeta_pubkey)
+    key_file = const.KEY_MAP.get(str(vbmeta_pubkey))
 
     utils.ui.info(get_string("act_verify_vbmeta_key"))
     if not key_file:

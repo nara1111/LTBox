@@ -111,7 +111,7 @@ class GkiRootStrategy(RootStrategy):
         work_dir: Path,
         dev: Optional[device.DeviceController] = None,
         lkm_kernel_version: Optional[str] = None,
-    ) -> Path:
+    ) -> Optional[Path]:
         magiskboot_exe = utils.get_platform_executable("magiskboot")
         ensure_magiskboot()
 
@@ -130,7 +130,7 @@ class LkmRootStrategy(RootStrategy):
     def __init__(self, root_type: str = "ksu"):
         self.root_type = root_type
         self.is_nightly = False
-        self.workflow_id = None
+        self.workflow_id: Optional[str] = None
         self.repo_config: Dict[str, Any] = {}
         self.staging_dir = const.TOOLS_DIR / "lkm_staging"
 
@@ -198,7 +198,7 @@ class LkmRootStrategy(RootStrategy):
             self.is_nightly = True
             self.repo_config = settings.get("sukisu-ultra", {})
             self.workflow_id = self._prompt_workflow(
-                "SukiSU Ultra", self.repo_config.get("workflow")
+                "SukiSU Ultra", str(self.repo_config.get("workflow", ""))
             )
         else:
             menu = TerminalMenu(get_string("menu_root_subtype_title"))
@@ -213,7 +213,7 @@ class LkmRootStrategy(RootStrategy):
                 self.is_nightly = True
                 self.repo_config = settings.get("kernelsu-next", {})
                 self.workflow_id = self._prompt_workflow(
-                    "KernelSU Next", self.repo_config.get("nightly_workflow")
+                    "KernelSU Next", str(self.repo_config.get("nightly_workflow", ""))
                 )
             else:
                 self.is_nightly = False
@@ -937,7 +937,7 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
         rec_info = extract_image_avb_info(dumped_recovery)
 
         pubkey = rec_info.get("pubkey_sha1")
-        key_file = const.KEY_MAP.get(pubkey)
+        key_file = const.KEY_MAP.get(str(pubkey))
 
         if not key_file:
             utils.ui.error(get_string("img_err_boot_key_mismatch").format(key=pubkey))

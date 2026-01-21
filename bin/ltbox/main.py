@@ -88,7 +88,10 @@ class TerminalMenu:
             elif item_type == "separator":
                 self.add_separator()
             elif item_type == "option":
-                self.add_option(item.get("key"), item.get("text", ""))
+                key = item.get("key")
+                text = item.get("text", "")
+                if key is not None:
+                    self.add_option(str(key), text)
 
     def show(self) -> None:
         ui.clear()
