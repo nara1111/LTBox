@@ -143,7 +143,7 @@ def _ensure_tool_from_github_release(
         return tool_exe
 
     utils.ui.echo(get_string("dl_tool_not_found").format(tool_name=tool_exe.name))
-    const.DOWNLOAD_DIR.mkdir(exist_ok=True)
+    const.DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
     arch = platform.machine()
     asset_pattern = asset_patterns.get(arch)
@@ -196,7 +196,7 @@ def ensure_platform_tools() -> None:
         return
 
     utils.ui.echo(get_string("dl_platform_not_found"))
-    const.DOWNLOAD_DIR.mkdir(exist_ok=True)
+    const.DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
     temp_zip_path = const.DOWNLOAD_DIR / "platform-tools.zip"
 
     settings = const.load_settings_raw()
@@ -234,7 +234,7 @@ def ensure_avb_tools() -> None:
         return
 
     utils.ui.echo(get_string("dl_avb_not_found"))
-    const.DOWNLOAD_DIR.mkdir(exist_ok=True)
+    const.DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
     temp_tar_path = const.DOWNLOAD_DIR / "avb.tar.gz"
 
     settings = const.load_settings_raw()
@@ -491,7 +491,7 @@ def install_base_tools(lang_code: str = "en"):
     i18n_load_lang(lang_code)
 
     utils.ui.echo(get_string("dl_base_installing"))
-    const.DOWNLOAD_DIR.mkdir(exist_ok=True)
+    const.DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
     try:
         utils.ui.echo(get_string("utils_check_deps"))
         req_path = const.BASE_DIR / "bin" / "requirements.txt"
