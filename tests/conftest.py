@@ -3,6 +3,7 @@ import shutil
 import sys
 import time
 from pathlib import Path
+from pypdl import Pypdl
 from unittest.mock import patch
 
 import py7zr
@@ -31,25 +32,20 @@ def fw_pkg(tmp_path_factory):
     if not ARCHIVE.exists() or ARCHIVE.stat().st_size == 0:
         print(f"\n[INFO] Starting download...", flush=True)
         try:
-            with requests.get(QFIL_URL, stream=True) as r:
-                r.raise_for_status()
-                total = int(r.headers.get('content-length', 0))
-                print(f"[INFO] Size: {total / (1024**3):.2f} GB", flush=True)
+            is_ci = os.environ.get("CI", "false").lower() == "true" or \
+                    os.environ.get("GITHUB_ACTIONS", "false").lower() == "true"
 
-                with open(ARCHIVE, 'wb') as f:
-                    down = 0
-                    last_print = 0
-                    start = time.time()
-                    for chunk in r.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
-                            down += len(chunk)
-                            if down - last_print > 100 * 1024 * 1024:
-                                elap = time.time() - start
-                                speed = (down / (1024**2)) / elap if elap > 0 else 0
-                                per = (down / total) * 100 if total else 0
-                                print(f"[DOWN] {per:.1f}% - {speed:.1f} MB/s", flush=True)
-                                last_print = down
+            dl = Pypdl()
+            dl.start(
+                QFIL_URL,
+                file_path=str(ARCHIVE),
+                segments=10,
+                display=not is_ci,
+                multithread=True,
+                block=True,
+                retries=3
+            )
+            print(f"\n[INFO] Download Complete! Size: {ARCHIVE.stat().st_size / (1024**3):.2f} GB", flush=True)
 
         except Exception as e:
             if ARCHIVE.exists(): ARCHIVE.unlink()

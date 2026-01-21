@@ -34,7 +34,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r bin/requirements.txt
-          pip install pytest py7zr requests
+          pip install pypdl pytest py7zr requests
 
       - name: Smoke Test (Compile)
         run: |
