@@ -14,8 +14,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bin'
 
 QFIL_URL = "http://zsk-cdn.lenovows.com/%E7%9F%A5%E8%AF%86%E5%BA%93/Flash_tool_image/TB322_ZUXOS_1.5.10.063_Tool.7z"
 QFIL_PW = os.environ.get("TEST_QFIL_PASSWORD")
+
 CACHE_DIR = Path(__file__).parent / "data"
 ARCHIVE = CACHE_DIR / "qfil_archive.7z"
+EXTRACT_DIR = CACHE_DIR / "extracted"
+URL_RECORD_FILE = CACHE_DIR / "url.txt"
 
 @pytest.fixture(autouse=True)
 def mock_python_executable():
@@ -28,6 +31,22 @@ def fw_pkg(tmp_path_factory):
         pytest.skip("TEST_QFIL_PASSWORD not set")
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    cached_url = ""
+    if URL_RECORD_FILE.exists():
+        try:
+            cached_url = URL_RECORD_FILE.read_text("utf-8").strip()
+        except Exception:
+            pass
+
+    if cached_url != QFIL_URL:
+        print(f"\n[INFO] URL Changed or Cache missing. Cleaning up...", flush=True)
+        if CACHE_DIR.exists():
+            if ARCHIVE.exists(): ARCHIVE.unlink()
+            if EXTRACT_DIR.exists(): shutil.rmtree(EXTRACT_DIR)
+            if URL_RECORD_FILE.exists(): URL_RECORD_FILE.unlink()
+
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     if not ARCHIVE.exists() or ARCHIVE.stat().st_size == 0:
         print(f"\n[INFO] Starting download...", flush=True)
@@ -47,29 +66,49 @@ def fw_pkg(tmp_path_factory):
             )
             print(f"\n[INFO] Download Complete! Size: {ARCHIVE.stat().st_size / (1024**3):.2f} GB", flush=True)
 
+            URL_RECORD_FILE.write_text(QFIL_URL, encoding="utf-8")
+
         except Exception as e:
             if ARCHIVE.exists(): ARCHIVE.unlink()
             pytest.fail(f"Download failed: {e}")
 
-    extract_dir = tmp_path_factory.mktemp("pkg")
+    EXTRACT_DIR.mkdir(parents=True, exist_ok=True)
     targets = ["vbmeta.img", "boot.img", "vendor_boot.img",
                "rawprogram_unsparse0.xml", "rawprogram_save_persist_unsparse0.xml"]
 
+    cached_map = {}
+    missing_targets = False
+    for t in targets:
+        found = list(EXTRACT_DIR.rglob(t))
+        if found:
+            cached_map[t] = found[0]
+        else:
+            missing_targets = True
+            break
+
+    if not missing_targets and cached_url == QFIL_URL:
+        print("\n[INFO] Using cached extracted files.", flush=True)
+        return cached_map
+
+    print("\n[INFO] Extracting archive...", flush=True)
     try:
-        print("[INFO] Extracting...", flush=True)
+        if EXTRACT_DIR.exists(): shutil.rmtree(EXTRACT_DIR)
+        EXTRACT_DIR.mkdir(parents=True, exist_ok=True)
+
         with py7zr.SevenZipFile(ARCHIVE, mode='r', password=QFIL_PW) as z:
             all_f = z.getnames()
             to_ext = [f for f in all_f if os.path.basename(f.replace("\\", "/")) in targets and "/image/" in f.replace("\\", "/")]
 
-            if not to_ext: pytest.fail("Targets not found")
-            z.extract(path=extract_dir, targets=to_ext)
+            if not to_ext: pytest.fail("Targets not found in archive")
+            z.extract(path=EXTRACT_DIR, targets=to_ext)
 
             mapped = {}
             for t in targets:
-                for p in extract_dir.rglob(t):
+                for p in EXTRACT_DIR.rglob(t):
                     mapped[t] = p
                     break
             return mapped
+
     except Exception as e:
         pytest.fail(f"Extraction failed: {e}")
 
