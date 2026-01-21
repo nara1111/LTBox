@@ -50,10 +50,11 @@ def test_flash_args(mock_env):
 
     mock_dev = MagicMock()
 
-    with patch("ltbox.actions.edl.utils.ui"), \
+    with patch("ltbox.actions.edl.utils.ui") as mock_ui, \
          patch("ltbox.actions.edl.ensure_loader_file"), \
          patch("ltbox.actions.edl._prepare_flash_files"), \
          patch("builtins.input", return_value="y"):
+
         mock_ui.prompt.return_value = "y"
 
         edl.flash_full_firmware(mock_dev, skip_reset=True, skip_reset_edl=False)

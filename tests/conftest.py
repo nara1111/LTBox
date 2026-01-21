@@ -1,14 +1,14 @@
 import os
-import shutil
-import sys
-import time
-from pathlib import Path
-from pypdl import Pypdl
-from unittest.mock import patch
-
 import py7zr
 import pytest
 import requests
+import shutil
+import sys
+import time
+from ltbox import downloader
+from pathlib import Path
+from pypdl import Pypdl
+from unittest.mock import patch
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bin')))
 
@@ -19,6 +19,14 @@ CACHE_DIR = Path(__file__).parent / "data"
 ARCHIVE = CACHE_DIR / "qfil_archive.7z"
 EXTRACT_DIR = CACHE_DIR / "extracted"
 URL_RECORD_FILE = CACHE_DIR / "url.txt"
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_external_tools():
+    print("\n[INFO] Setting up external tools for integration tests...", flush=True)
+    try:
+        downloader.ensure_avb_tools()
+    except Exception as e:
+        print(f"\n[WARN] Failed to setup tools: {e}", flush=True)
 
 @pytest.fixture(autouse=True)
 def mock_python_executable():
