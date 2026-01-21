@@ -5,18 +5,17 @@ import xml.etree.ElementTree as ET
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bin')))
-
 from ltbox import constants as const
 from ltbox.actions import edl
 from ltbox.actions import xml as xml_action
-from ltbox.patch import region as region_patch
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../bin")))
 
 
 def create_xmls(img_dir, names):
     for n in names:
         (img_dir / n).touch()
+
 
 def test_xml_select(mock_env):
     img_dir = mock_env["IMAGE_DIR"]
@@ -26,7 +25,7 @@ def test_xml_select(mock_env):
         "rawprogram_unsparse0.xml",
         "rawprogram_save_persist_unsparse0.xml",
         "rawprogram_WIPE_PARTITIONS.xml",
-        "patch0.xml"
+        "patch0.xml",
     ]
     create_xmls(img_dir, files)
 
@@ -43,6 +42,7 @@ def test_xml_select(mock_env):
     assert "rawprogram_unsparse0.xml" not in r_names
     assert "patch0.xml" in p_names
 
+
 def test_flash_args(mock_env):
     img_dir = mock_env["IMAGE_DIR"]
     files = ["rawprogram1.xml", "rawprogram_unsparse0.xml", "patch0.xml"]
@@ -50,10 +50,11 @@ def test_flash_args(mock_env):
 
     mock_dev = MagicMock()
 
-    with patch("ltbox.actions.edl.utils.ui") as mock_ui, \
-         patch("ltbox.actions.edl.ensure_loader_file"), \
-         patch("ltbox.actions.edl._prepare_flash_files"), \
-         patch("builtins.input", return_value="y"):
+    with patch("ltbox.actions.edl.utils.ui") as mock_ui, patch(
+        "ltbox.actions.edl.ensure_loader_file"
+    ), patch("ltbox.actions.edl._prepare_flash_files"), patch(
+        "builtins.input", return_value="y"
+    ):
 
         mock_ui.prompt.return_value = "y"
 
@@ -65,19 +66,26 @@ def test_flash_args(mock_env):
         assert "rawprogram_unsparse0.xml" in passed
         assert len(passed) == 2
 
+
 def test_xml_fallback(mock_env):
     out_dir = mock_env["OUTPUT_XML_DIR"]
     target = out_dir / "rawprogram_save_persist_unsparse0.xml"
 
     cases = [
-        (["rawprogram_unsparse0.xml", "rawprogram0.xml"], "rawprogram_unsparse0.xml", "A"),
-        (["rawprogram0.xml"], "rawprogram0.xml", "B")
+        (
+            ["rawprogram_unsparse0.xml", "rawprogram0.xml"],
+            "rawprogram_unsparse0.xml",
+            "A",
+        ),
+        (["rawprogram0.xml"], "rawprogram0.xml", "B"),
     ]
     tmpl = """<?xml version="1.0" ?><data><program label="{m}" filename=""/></data>"""
 
     for fnames, expected, marker in cases:
-        if target.exists(): target.unlink()
-        for f in out_dir.glob("*.xml"): f.unlink()
+        if target.exists():
+            target.unlink()
+        for f in out_dir.glob("*.xml"):
+            f.unlink()
 
         for fn in fnames:
             m = marker if fn == expected else "X"
@@ -90,9 +98,11 @@ def test_xml_fallback(mock_env):
         root = ET.parse(target).getroot()
         assert root.find("program").get("label") == marker
 
+
 def test_xml_wipe(fw_pkg):
     path = fw_pkg.get("rawprogram_unsparse0.xml")
-    if not path: pytest.skip("XML not found")
+    if not path:
+        pytest.skip("XML not found")
 
     tmp_xml = path.parent / "test_wipe.xml"
     shutil.copy(path, tmp_xml)
@@ -106,14 +116,17 @@ def test_xml_wipe(fw_pkg):
     for p in progs:
         assert p.get("filename") == ""
 
+
 def test_xml_persist_check(fw_pkg):
     path = fw_pkg.get("rawprogram_save_persist_unsparse0.xml")
-    if not path: pytest.skip("Persist XML not found")
+    if not path:
+        pytest.skip("Persist XML not found")
 
     root = ET.parse(path).getroot()
     p = next((x for x in root.findall("program") if x.get("label") == "persist"), None)
     if p:
         assert p.get("filename", "") == ""
+
 
 def test_prc_to_row(fw_pkg, mock_env):
     if not fw_pkg:
@@ -126,7 +139,9 @@ def test_prc_to_row(fw_pkg, mock_env):
     real_vbmeta = fw_pkg.get("vbmeta.img")
 
     if not real_vb or not real_vbmeta:
-        pytest.skip("Required images (vendor_boot.img, vbmeta.img) not found in firmware package")
+        pytest.skip(
+            "Required images (vendor_boot.img, vbmeta.img) not found in firmware package"
+        )
 
     shutil.copy(real_vb, img_dir / "vendor_boot.img")
     shutil.copy(real_vbmeta, img_dir / "vbmeta.img")
@@ -135,13 +150,23 @@ def test_prc_to_row(fw_pkg, mock_env):
     mock_dev.skip_adb = True
 
     with patch("ltbox.utils.run_command") as mock_run:
+        mock_proc = MagicMock()
+        mock_proc.stdout = """
+        Footer version:           1.0
+        Image size:               100663296 bytes
+        Original image size:      15155200 bytes
+        Algorithm:                SHA256_RSA4096
+        Partition Name:           vendor_boot
+        Salt:                     e1465bf10e5fcf838f8ae21205c0da2b5cb364a00cf7e58fd51630b49257db59
+        Rollback Index:           0
+        Flags:                    0
+        """
+        mock_proc.returncode = 0
+        mock_run.return_value = mock_proc
+
         from ltbox.actions import region
 
-        region.convert_region_images(
-            dev=mock_dev,
-            target_region="ROW",
-            on_log=print
-        )
+        region.convert_region_images(dev=mock_dev, target_region="ROW", on_log=print)
 
     out_vb = output_dir / "vendor_boot.img"
     out_vbmeta = output_dir / "vbmeta.img"
@@ -153,4 +178,6 @@ def test_prc_to_row(fw_pkg, mock_env):
 
     assert (const.BASE_DIR / "vendor_boot.bak.img").exists()
 
-    print(f"\n[PASS] Successfully converted Real Firmware to ROW. Output size: {out_vb.stat().st_size} bytes")
+    print(
+        f"\n[PASS] Successfully converted Real Firmware to ROW. Output size: {out_vb.stat().st_size} bytes"
+    )
