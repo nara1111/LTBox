@@ -163,27 +163,31 @@ def _save_settings(data: Dict[str, Any]) -> None:
         print(f"Warning: Failed to save settings: {e}", file=sys.stderr)
 
 
+def _abort_platform_check(messages: List[str]) -> None:
+    for message in messages:
+        print(message, file=sys.stderr)
+    print(get_string("err_aborting"), file=sys.stderr)
+    input(get_string("press_enter_to_exit"))
+    sys.exit(1)
+
+
 def _check_platform():
     if platform.system() != "Windows":
-        print(get_string("err_fatal_windows"), file=sys.stderr)
-        print(
-            get_string("err_current_platform").format(platform=platform.system()),
-            file=sys.stderr,
+        _abort_platform_check(
+            [
+                get_string("err_fatal_windows"),
+                get_string("err_current_platform").format(platform=platform.system()),
+            ]
         )
-        print(get_string("err_aborting"), file=sys.stderr)
-        input(get_string("press_enter_to_exit"))
-        sys.exit(1)
 
     if platform.machine() != "AMD64":
-        print(get_string("err_fatal_amd64"), file=sys.stderr)
-        print(
-            get_string("err_current_arch").format(arch=platform.machine()),
-            file=sys.stderr,
+        _abort_platform_check(
+            [
+                get_string("err_fatal_amd64"),
+                get_string("err_current_arch").format(arch=platform.machine()),
+                get_string("err_arch_unsupported"),
+            ]
         )
-        print(get_string("err_arch_unsupported"), file=sys.stderr)
-        print(get_string("err_aborting"), file=sys.stderr)
-        input(get_string("press_enter_to_exit"))
-        sys.exit(1)
 
 
 def setup_console():
