@@ -25,7 +25,9 @@ EXTRACT_DIR = CACHE_DIR / "extracted"
 URL_RECORD_FILE = CACHE_DIR / "url.txt"
 PART_SUFFIX = ".part"
 DEFAULT_SEGMENTS = 4
-DOWNLOAD_TIMEOUT = 30
+DOWNLOAD_TIMEOUT = int(os.environ.get("FW_DOWNLOAD_TIMEOUT", "30"))
+DOWNLOAD_RETRIES = int(os.environ.get("FW_DOWNLOAD_RETRIES", "3"))
+DOWNLOAD_RETRY_BACKOFF = float(os.environ.get("FW_DOWNLOAD_RETRY_BACKOFF", "5"))
 DOWNLOAD_CHUNK_SIZE = 1024 * 1024
 
 TARGETS = [
@@ -83,14 +85,25 @@ def _download_stream(
     timeout: int = DOWNLOAD_TIMEOUT,
     on_progress: Optional[Callable[[int], None]] = None,
 ) -> None:
-    with requests.get(url, stream=True, headers=headers, timeout=timeout) as response:
-        response.raise_for_status()
-        with open(dest_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
-                if chunk:
-                    f.write(chunk)
-                    if on_progress:
-                        on_progress(len(chunk))
+    for attempt in range(DOWNLOAD_RETRIES + 1):
+        try:
+            with requests.get(
+                url, stream=True, headers=headers, timeout=timeout
+            ) as response:
+                response.raise_for_status()
+                with open(dest_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                        if chunk:
+                            f.write(chunk)
+                            if on_progress:
+                                on_progress(len(chunk))
+            return
+        except requests.RequestException:
+            if dest_path.exists():
+                dest_path.unlink()
+            if attempt >= DOWNLOAD_RETRIES:
+                raise
+            time.sleep(DOWNLOAD_RETRY_BACKOFF * (attempt + 1))
 
 
 def _download_range(
@@ -106,18 +119,29 @@ def _download_range(
     if headers:
         range_headers.update(headers)
 
-    with requests.get(
-        url, stream=True, headers=range_headers, timeout=timeout
-    ) as response:
-        response.raise_for_status()
-        if response.status_code not in (200, 206):
-            raise RuntimeError(f"Unexpected status code: {response.status_code}")
-        with open(dest_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
-                if chunk:
-                    f.write(chunk)
-                    if on_progress:
-                        on_progress(len(chunk))
+    for attempt in range(DOWNLOAD_RETRIES + 1):
+        try:
+            with requests.get(
+                url, stream=True, headers=range_headers, timeout=timeout
+            ) as response:
+                response.raise_for_status()
+                if response.status_code not in (200, 206):
+                    raise RuntimeError(
+                        f"Unexpected status code: {response.status_code}"
+                    )
+                with open(dest_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                        if chunk:
+                            f.write(chunk)
+                            if on_progress:
+                                on_progress(len(chunk))
+            return
+        except requests.RequestException:
+            if dest_path.exists():
+                dest_path.unlink()
+            if attempt >= DOWNLOAD_RETRIES:
+                raise
+            time.sleep(DOWNLOAD_RETRY_BACKOFF * (attempt + 1))
 
 
 def _render_progress(downloaded: int, total_size: int, start_time: float) -> str:
@@ -140,8 +164,20 @@ def download_with_ranges(
     headers: Optional[Dict[str, str]] = None,
     timeout: int = DOWNLOAD_TIMEOUT,
 ) -> None:
-    head = requests.head(url, headers=headers, timeout=timeout, allow_redirects=True)
-    head.raise_for_status()
+    head = None
+    for attempt in range(DOWNLOAD_RETRIES + 1):
+        try:
+            head = requests.head(
+                url, headers=headers, timeout=timeout, allow_redirects=True
+            )
+            head.raise_for_status()
+            break
+        except requests.RequestException:
+            if attempt >= DOWNLOAD_RETRIES:
+                raise
+            time.sleep(DOWNLOAD_RETRY_BACKOFF * (attempt + 1))
+    if head is None:
+        raise RuntimeError("Failed to retrieve firmware metadata.")
     total_size = int(head.headers.get("Content-Length", "0"))
     accept_ranges = head.headers.get("Accept-Ranges", "").lower() == "bytes"
     downloaded = 0
