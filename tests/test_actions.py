@@ -128,7 +128,7 @@ def test_xml_persist_check(fw_pkg):
 
     root = ET.parse(path).getroot()
     p = next((x for x in root.findall("program") if x.get("label") == "persist"), None)
-    if p:
+    if p is not None:
         assert p.get("filename", "") == ""
 
 
