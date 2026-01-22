@@ -30,6 +30,7 @@ jobs:
           fi
 
       - name: Restore FW Archive cache
+        id: cache-fw
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -39,13 +40,27 @@ jobs:
           restore-keys: |
             fw-extracted-v1-
 
-      - name: Verify FW cache
+      - name: Set up Python
+        if: steps.cache-fw.outputs.cache-hit != 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install FW cache dependencies
         if: steps.cache-fw.outputs.cache-hit != 'true'
         run: |
-          if [ ! -d "tests/data/extracted" ]; then
-            echo "Cached FW extracted data not found."
-            exit 1
-          fi
+          python -m pip install --upgrade pip
+          pip install -r bin/requirements.txt
+          pip install py7zr
+
+      - name: Prefetch FW archive
+        if: steps.cache-fw.outputs.cache-hit != 'true'
+        env:
+          TEST_FW_PASSWORD: ${{ secrets.TEST_FW_PASSWORD }}
+          PYTHONUNBUFFERED: "1"
+          PYTHONPATH: "bin"
+        run: |
+          python tests/cache_fw.py
 
       - name: Install Tools from Cache
         run: |
