@@ -64,6 +64,8 @@ def read_cached_url() -> str:
 
 
 def reset_cache_if_url_changed(cached_url: str) -> None:
+    if not cached_url:
+        return
     if cached_url != FW_URL:
         print("\n[INFO] URL Changed or Cache missing. Cleaning up...", flush=True)
         if ARCHIVE.exists():
@@ -305,7 +307,9 @@ def ensure_firmware_extracted() -> None:
     else:
         missing_targets = True
 
-    if not missing_targets and cached_url == FW_URL:
+    if not missing_targets and (cached_url == FW_URL or not cached_url):
+        if not cached_url:
+            URL_RECORD_FILE.write_text(FW_URL, encoding="utf-8")
         return
 
     _download_archive()
