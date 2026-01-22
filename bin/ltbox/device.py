@@ -50,6 +50,7 @@ class AdbManager:
             ui.warn(get_string("device_skip_adb"))
             return False
 
+        ui.warn(get_string("device_usb_port_hint"))
         if not self.connected_once:
             ui.box_output(
                 [
@@ -272,6 +273,7 @@ class FastbootManager:
             return False
 
     def wait_for_device(self) -> bool:
+        ui.warn(get_string("device_usb_port_hint"))
         ui.info(get_string("device_wait_fastboot_title"))
         if self.check_device(silent=True):
             ui.info(get_string("device_fastboot_connected"))
@@ -322,6 +324,7 @@ class EdlManager:
             return None
 
     def wait_for_device(self) -> str:
+        ui.warn(get_string("device_usb_port_hint"))
         ui.info(get_string("device_wait_edl_title"))
         port_name = self.check_device()
         if port_name:

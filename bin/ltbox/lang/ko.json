@@ -318,6 +318,7 @@
   "device_step1_load": "[*] 1/2단계: 프로그래머 로딩 중...",
   "device_step2_flash": "\n[*] 2/2단계: 펌웨어 플래싱 중...",
   "device_upload_programmer": "[*] 프로그래머를 {port}로 업로드 중...",
+  "device_usb_port_hint": "[!] 기기에 USB-C 포트가 2개인 경우 긴쪽의 포트로 케이블을 연결해야합니다.",
   "device_usb_prompt_appear": "[!] 'USB 디버깅을 허용하시겠습니까?' 팝업창을 확인하세요.",
   "device_wait_10s_edl": "[*] EDL 대기 중 (10초)...",
   "device_wait_adb_loop": "기기 연결 대기 중",

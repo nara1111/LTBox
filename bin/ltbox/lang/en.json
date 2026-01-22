@@ -318,6 +318,7 @@
   "device_step1_load": "[*] STEP 1/2: Loading programmer...",
   "device_step2_flash": "\n[*] STEP 2/2: Flashing firmware...",
   "device_upload_programmer": "[*] Uploading programmer to {port}...",
+  "device_usb_port_hint": "[!] If the device has two USB-C ports, connect the cable to the longer-side port.",
   "device_usb_prompt_appear": "[!] Look for 'Allow USB debugging?' prompt.",
   "device_wait_10s_edl": "[*] Waiting 10s for EDL...",
   "device_wait_adb_loop": "Waiting for device connection",
