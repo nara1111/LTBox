@@ -9,6 +9,30 @@ from .. import device, downloader, utils
 from ..i18n import get_string
 
 
+def _detect_preinit_device(
+    dev: Optional[device.DeviceController],
+) -> Optional[str]:
+    if not dev or dev.skip_adb:
+        return None
+
+    try:
+        output = dev.adb.shell("magisk --preinit-device").strip()
+    except Exception:
+        return None
+
+    if not output:
+        return None
+
+    if "not found" in output.lower() or "no such file" in output.lower():
+        return None
+
+    if output.startswith("/dev/"):
+        return output
+
+    match = re.search(r"(/dev/[^\s]+)", output)
+    return match.group(1) if match else None
+
+
 def patch_boot_with_root_algo(
     work_dir: Path,
     magiskboot_exe: Path,
@@ -158,16 +182,27 @@ def patch_boot_with_root_algo(
 
             print(get_string("img_root_magisk_add_files"))
             config_path = work_dir / "config"
+            config_entries = [
+                "KEEPVERITY=false",
+                "KEEPFORCEENCRYPT=false",
+                "RECOVERYMODE=false",
+                "VENDORBOOT=false",
+            ]
+            preinit_device = _detect_preinit_device(dev)
+            if preinit_device:
+                config_entries.append(f"PREINITDEVICE={preinit_device}")
+            sha1_proc = utils.run_command(
+                [str(magiskboot_exe), "sha1", img_name],
+                cwd=work_dir,
+                check=False,
+                capture=True,
+            )
+            if sha1_proc.returncode == 0:
+                sha1 = sha1_proc.stdout.strip()
+                if sha1:
+                    config_entries.append(f"SHA1={sha1}")
             config_path.write_text(
-                "\n".join(
-                    [
-                        "KEEPVERITY=false",
-                        "KEEPFORCEENCRYPT=false",
-                        "RECOVERYMODE=false",
-                        "VENDORBOOT=false",
-                    ]
-                )
-                + "\n",
+                "\n".join(config_entries) + "\n",
                 encoding="utf-8",
             )
             ramdisk_backup = work_dir / "ramdisk.cpio.orig"
