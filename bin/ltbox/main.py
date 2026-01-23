@@ -249,6 +249,9 @@ def run_task(
     require_dev = cmd_info.require_dev
 
     try:
+        if dev and hasattr(dev, "reset_task_state"):
+            dev.reset_task_state()
+
         final_kwargs = base_kwargs.copy()
 
         if extra_kwargs:
