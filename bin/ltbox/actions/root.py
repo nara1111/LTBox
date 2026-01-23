@@ -478,7 +478,7 @@ class LkmRootStrategy(RootStrategy):
 
 def patch_root_image_file(gki: bool = False, root_type: str = "ksu") -> None:
     if gki:
-        strategy = GkiRootStrategy()
+        strategy: RootStrategy = GkiRootStrategy()
     elif root_type == "magisk":
         strategy = MagiskRootStrategy()
     else:
@@ -814,7 +814,7 @@ def root_device(
     dev: device.DeviceController, gki: bool = False, root_type: str = "ksu"
 ) -> None:
     if gki:
-        strategy = GkiRootStrategy()
+        strategy: RootStrategy = GkiRootStrategy()
     elif root_type == "magisk":
         strategy = MagiskRootStrategy()
     else:
