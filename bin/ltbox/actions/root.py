@@ -926,6 +926,7 @@ def unroot_device(dev: device.DeviceController) -> None:
                 return
             else:
                 utils.ui.echo(get_string("err_invalid_selection"))
+        utils.ui.clear()
 
     elif magisk_exists:
         utils.ui.echo(get_string("act_unroot_magisk_detected"))
