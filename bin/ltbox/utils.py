@@ -17,17 +17,35 @@ logger = get_logger()
 _CACHED_ENV = None
 
 
-def get_latest_release_version(repo_owner: str, repo_name: str) -> Optional[str]:
-    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases/latest"
+def get_latest_release_versions(
+    repo_owner: str, repo_name: str
+) -> tuple[Optional[str], Optional[str]]:
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases?per_page=100"
+    latest_release = None
+    latest_prerelease = None
     try:
         with urllib.request.urlopen(url, timeout=5) as response:
             if response.status == 200:
                 data = json.loads(response.read().decode())
-                tag = data.get("tag_name")
-                return tag
+                for release in data:
+                    if release.get("draft"):
+                        continue
+                    tag = release.get("tag_name")
+                    if not tag:
+                        continue
+                    if release.get("prerelease"):
+                        if latest_prerelease is None or is_update_available(
+                            latest_prerelease, tag
+                        ):
+                            latest_prerelease = tag
+                    else:
+                        if latest_release is None or is_update_available(
+                            latest_release, tag
+                        ):
+                            latest_release = tag
     except Exception:
-        return None
-    return None
+        return None, None
+    return latest_release, latest_prerelease
 
 
 def is_update_available(current: str, latest: str) -> bool:

@@ -528,11 +528,27 @@ def settings_menu(
                     pass
 
             try:
-                latest_version = utils.get_latest_release_version("miner7222", "LTBox")
+                latest_release, latest_prerelease = utils.get_latest_release_versions(
+                    "miner7222", "LTBox"
+                )
+                latest_version = None
 
-                if latest_version and utils.is_update_available(
-                    current_version, latest_version
+                if latest_release and utils.is_update_available(
+                    current_version, latest_release
                 ):
+                    latest_version = latest_release
+                elif latest_release and utils.is_update_available(
+                    latest_release, current_version
+                ):
+                    if latest_prerelease and utils.is_update_available(
+                        current_version, latest_prerelease
+                    ):
+                        latest_version = latest_prerelease
+                elif latest_release is None and latest_prerelease:
+                    if utils.is_update_available(current_version, latest_prerelease):
+                        latest_version = latest_prerelease
+
+                if latest_version:
                     ui.echo(get_string("update_avail_title"))
                     prompt_msg = get_string("update_avail_prompt").format(
                         curr=current_version, new=latest_version
@@ -544,7 +560,7 @@ def settings_menu(
                         webbrowser.open("https://github.com/miner7222/LTBox/releases")
                         sys.exit(0)
                 else:
-                    if latest_version:
+                    if latest_release or latest_prerelease:
                         ui.echo(
                             get_string("act_update_not_found").format(
                                 version=current_version
@@ -705,11 +721,27 @@ def entry_point():
             except Exception:
                 pass
 
-        latest_version = utils.get_latest_release_version("miner7222", "LTBox")
+        latest_release, latest_prerelease = utils.get_latest_release_versions(
+            "miner7222", "LTBox"
+        )
+        latest_version = None
 
-        if latest_version and utils.is_update_available(
-            current_version, latest_version
+        if latest_release and utils.is_update_available(
+            current_version, latest_release
         ):
+            latest_version = latest_release
+        elif latest_release and utils.is_update_available(
+            latest_release, current_version
+        ):
+            if latest_prerelease and utils.is_update_available(
+                current_version, latest_prerelease
+            ):
+                latest_version = latest_prerelease
+        elif latest_release is None and latest_prerelease:
+            if utils.is_update_available(current_version, latest_prerelease):
+                latest_version = latest_prerelease
+
+        if latest_version:
             ui.echo(get_string("update_avail_title"))
 
             prompt_msg = get_string("update_avail_prompt").format(
