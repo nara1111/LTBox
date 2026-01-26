@@ -263,22 +263,23 @@ def patch_all(
             success_msg += f"\n\n{get_string('wf_notice_widevine')}"
             return success_msg
 
-    except LTBoxError as e:
+    except BaseException as e:
         _log_workflow_halt()
-        raise e
-    except (
-        subprocess.CalledProcessError,
-        FileNotFoundError,
-        RuntimeError,
-        KeyError,
-    ) as e:
-        _log_workflow_halt()
-        raise e
-    except SystemExit as e:
-        _log_workflow_halt()
-        raise LTBoxError(get_string("wf_err_halted_script").format(e=e), e)
-    except KeyboardInterrupt:
-        _log_workflow_halt()
-        raise UserCancelError(get_string("act_op_cancel"))
+        if isinstance(e, KeyboardInterrupt):
+            raise UserCancelError(get_string("act_op_cancel")) from e
+        if isinstance(e, SystemExit):
+            raise LTBoxError(get_string("wf_err_halted_script").format(e=e), e) from e
+        if isinstance(
+            e,
+            (
+                LTBoxError,
+                subprocess.CalledProcessError,
+                FileNotFoundError,
+                RuntimeError,
+                KeyError,
+            ),
+        ):
+            raise
+        raise
     finally:
         utils.ui.info(get_string("logging_finished").format(log_file=log_file))
