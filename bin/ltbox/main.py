@@ -42,6 +42,7 @@ class CommandSpec:
     title: str
     require_dev: bool = True
     default_kwargs: Dict[str, Any] = field(default_factory=dict)
+    result_handler: Optional[Callable[[Any], None]] = None
 
     def __getitem__(self, key: str) -> Any:
         try:
@@ -55,7 +56,12 @@ class CommandRegistry:
         self._commands: Dict[str, CommandSpec] = {}
 
     def register(
-        self, name: str, title: str, require_dev: bool = True, **default_kwargs
+        self,
+        name: str,
+        title: str,
+        require_dev: bool = True,
+        result_handler: Optional[Callable[[Any], None]] = None,
+        **default_kwargs,
     ):
         def decorator(func: Callable):
             self._commands[name] = CommandSpec(
@@ -63,6 +69,7 @@ class CommandRegistry:
                 title=title,
                 require_dev=require_dev,
                 default_kwargs=default_kwargs,
+                result_handler=result_handler,
             )
             return func
 
@@ -74,9 +81,16 @@ class CommandRegistry:
         func: Callable,
         title: str,
         require_dev: bool = True,
+        result_handler: Optional[Callable[[Any], None]] = None,
         **default_kwargs,
     ):
-        self.register(name, title, require_dev, **default_kwargs)(func)
+        self.register(
+            name,
+            title,
+            require_dev=require_dev,
+            result_handler=result_handler,
+            **default_kwargs,
+        )(func)
 
     def get(self, name: str) -> Optional[CommandSpec]:
         return self._commands.get(name)
@@ -98,6 +112,17 @@ def _format_command_failure_messages(
     if error.stderr:
         messages.append(f"{get_string('err_cmd_stderr_header')}\n{error.stderr}")
     return messages
+
+
+def _handle_read_anti_rollback_result(result: Any) -> None:
+    if not isinstance(result, tuple):
+        if result:
+            ui.echo(get_string("act_unhandled_success_result").format(res=result))
+        return
+
+    ui.echo(get_string("act_arb_complete").format(status=result[0]))
+    ui.echo(get_string("act_curr_boot_idx").format(idx=result[1]))
+    ui.echo(get_string("act_curr_vbmeta_idx").format(idx=result[2]))
 
 
 # --- Settings & Init ---
@@ -294,6 +319,7 @@ def run_task(
     func = cmd_info.func
     base_kwargs = cmd_info.default_kwargs
     require_dev = cmd_info.require_dev
+    result_handler = cmd_info.result_handler
 
     try:
         if dev and hasattr(dev, "reset_task_state"):
@@ -309,12 +335,10 @@ def run_task(
 
         result = func(**final_kwargs)
 
-        if isinstance(result, str) and result:
+        if result_handler:
+            result_handler(result)
+        elif isinstance(result, str) and result:
             ui.echo(result)
-        elif isinstance(result, tuple) and command == "read_anti_rollback":
-            ui.echo(get_string("act_arb_complete").format(status=result[0]))
-            ui.echo(get_string("act_curr_boot_idx").format(idx=result[1]))
-            ui.echo(get_string("act_curr_vbmeta_idx").format(idx=result[2]))
         elif result:
             ui.echo(get_string("act_unhandled_success_result").format(res=result))
 
@@ -830,8 +854,19 @@ def _initialize_runtime(lang_code: str) -> Tuple[type, CommandRegistry, Any, Any
         ),
     ]
 
+    result_handlers = {
+        "read_anti_rollback": _handle_read_anti_rollback_result,
+    }
+
     for name, func, title, require_dev, extra_kwargs in command_specs:
-        registry.add(name, func, title, require_dev=require_dev, **extra_kwargs)
+        registry.add(
+            name,
+            func,
+            title,
+            require_dev=require_dev,
+            result_handler=result_handlers.get(name),
+            **extra_kwargs,
+        )
 
     return device.DeviceController, registry, constants, avb
 
