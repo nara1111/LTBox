@@ -103,24 +103,68 @@ def _format_command_failure_messages(
 # --- Settings & Init ---
 
 
-def _load_settings() -> Dict[str, Any]:
-    if SETTINGS_FILE.exists():
+@dataclass(frozen=True)
+class AppSettings:
+    language: Optional[str] = None
+    target_region: str = "PRC"
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AppSettings":
+        language = data.get("language")
+        if not isinstance(language, str):
+            language = None
+
+        target_region = data.get("target_region", "PRC")
+        if target_region not in ("PRC", "ROW"):
+            target_region = "PRC"
+
+        return cls(language=language, target_region=target_region)
+
+
+class SettingsStore:
+    def __init__(self, path: Path):
+        self._path = path
+
+    def load_raw(self) -> Dict[str, Any]:
+        if self._path.exists():
+            try:
+                with open(self._path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return data if isinstance(data, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    def load(self) -> AppSettings:
+        return AppSettings.from_dict(self.load_raw())
+
+    def update(self, **updates: Any) -> AppSettings:
+        data = self.load_raw()
+        validated = {}
+
+        if "language" in updates:
+            language = updates["language"]
+            if isinstance(language, str):
+                validated["language"] = language
+
+        if "target_region" in updates:
+            target_region = updates["target_region"]
+            if target_region in ("PRC", "ROW"):
+                validated["target_region"] = target_region
+
+        if not validated:
+            return AppSettings.from_dict(data)
+
+        data.update(validated)
         try:
-            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
+            with open(self._path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Failed to save settings: {e}", file=sys.stderr)
+        return AppSettings.from_dict(data)
 
 
-def _save_settings(data: Dict[str, Any]) -> None:
-    try:
-        current_settings = _load_settings()
-        current_settings.update(data)
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(current_settings, f, indent=2)
-    except Exception as e:
-        print(f"Warning: Failed to save settings: {e}", file=sys.stderr)
+SETTINGS_STORE = SettingsStore(SETTINGS_FILE)
 
 
 def _read_current_version() -> str:
@@ -467,7 +511,7 @@ def settings_menu(
             return skip_adb, skip_rollback, target_region
         elif action == "toggle_region":
             target_region = "ROW" if target_region == "PRC" else "PRC"
-            _save_settings({"target_region": target_region})
+            SETTINGS_STORE.update(target_region=target_region)
         elif action == "toggle_adb":
             skip_adb = not skip_adb
             dev.skip_adb = skip_adb
@@ -512,8 +556,8 @@ def settings_menu(
 
 def prompt_for_language(force_prompt: bool = False) -> str:
     if not force_prompt:
-        settings = _load_settings()
-        saved_lang = settings.get("language")
+        settings = SETTINGS_STORE.load()
+        saved_lang = settings.language
 
         if saved_lang:
             try:
@@ -548,17 +592,17 @@ def prompt_for_language(force_prompt: bool = False) -> str:
     choice = menu.ask(prompt, error_msg)
     selected_lang = lang_map[choice]
 
-    _save_settings({"language": selected_lang})
+    SETTINGS_STORE.update(language=selected_lang)
 
     return selected_lang
 
 
 def main_loop(device_controller_class, registry: CommandRegistry):
-    settings = _load_settings()
+    settings = SETTINGS_STORE.load()
 
     skip_adb = False
     skip_rollback = False
-    target_region = settings.get("target_region", "PRC")
+    target_region = settings.target_region
 
     dev = device_controller_class(skip_adb=skip_adb)
 
