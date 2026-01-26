@@ -32,6 +32,10 @@ def _wait_loop(
         time.sleep(interval)
 
 
+def _default_usb_port_hint() -> Callable[[], None]:
+    return lambda: ui.warn(get_string("device_usb_port_hint"))
+
+
 class AdbManager:
     def __init__(
         self,
@@ -40,9 +44,7 @@ class AdbManager:
     ):
         self.skip_adb = skip_adb
         self.connected_once = False
-        self._usb_port_hint = usb_port_hint or (
-            lambda: ui.warn(get_string("device_usb_port_hint"))
-        )
+        self._usb_port_hint = usb_port_hint or _default_usb_port_hint()
         if const.ADB_EXE.exists():
             adbutils.adb_path = str(const.ADB_EXE)
 
@@ -218,9 +220,7 @@ class AdbManager:
 
 class FastbootManager:
     def __init__(self, usb_port_hint: Optional[Callable[[], None]] = None):
-        self._usb_port_hint = usb_port_hint or (
-            lambda: ui.warn(get_string("device_usb_port_hint"))
-        )
+        self._usb_port_hint = usb_port_hint or _default_usb_port_hint()
 
     def force_kill_server(self) -> None:
         try:
@@ -307,9 +307,7 @@ class FastbootManager:
 
 class EdlManager:
     def __init__(self, usb_port_hint: Optional[Callable[[], None]] = None):
-        self._usb_port_hint = usb_port_hint or (
-            lambda: ui.warn(get_string("device_usb_port_hint"))
-        )
+        self._usb_port_hint = usb_port_hint or _default_usb_port_hint()
 
     def check_device(self, silent: bool = False) -> Optional[str]:
         if not silent:
