@@ -458,6 +458,11 @@ def _root_action_menu(dev, registry: CommandRegistry, gki: bool, root_type: str)
             run_task(action, dev, registry, extra_kwargs=extras)
 
 
+def _select_root_mode_action() -> Optional[str]:
+    menu_items = menu_data.get_root_mode_menu_data()
+    return select_menu_action(menu_items, "menu_root_mode_title")
+
+
 def root_menu(dev, registry: CommandRegistry):
     while True:
         mode_menu = TerminalMenu(get_string("menu_root_type_title"))
@@ -477,29 +482,22 @@ def root_menu(dev, registry: CommandRegistry):
         elif choice == "2":
             result = None
             while True:
-                mode_items = TerminalMenu(get_string("menu_root_mode_title"))
-                mode_items.add_option("1", get_string("menu_root_mode_1"))
-                mode_items.add_option("2", get_string("menu_root_mode_2"))
-                mode_items.add_separator()
-                mode_items.add_option("b", get_string("menu_back"))
-                mode_items.add_option("m", get_string("menu_root_m"))
-
-                mode_choice = mode_items.ask(
-                    get_string("prompt_select"), get_string("err_invalid_selection")
-                )
-                if mode_choice == "1":
+                mode_action = _select_root_mode_action()
+                if mode_action == "lkm":
                     result = _root_action_menu(
                         dev, registry, gki=False, root_type="ksu"
                     )
                     break
-                if mode_choice == "2":
+                if mode_action == "gki":
                     result = _root_action_menu(dev, registry, gki=True, root_type="ksu")
                     break
-                if mode_choice == "b":
+                if mode_action == "back":
                     result = None
                     break
-                if mode_choice == "m":
+                if mode_action == "return":
                     return
+                if mode_action == "exit":
+                    sys.exit()
         elif choice == "3":
             result = _root_action_menu(dev, registry, gki=False, root_type="sukisu")
         elif choice == "b":

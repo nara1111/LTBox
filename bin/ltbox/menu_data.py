@@ -149,11 +149,34 @@ def get_advanced_menu_data(target_region: str) -> List[MenuItem]:
 
 def get_root_mode_menu_data() -> List[MenuItem]:
     specs = [
-        MenuSpec("option", key="1", text=lambda: get_string("menu_root_mode_1")),
-        MenuSpec("option", key="2", text=lambda: get_string("menu_root_mode_2")),
+        MenuSpec(
+            "option",
+            key="1",
+            text=lambda: get_string("menu_root_mode_1"),
+            action="lkm",
+        ),
+        MenuSpec(
+            "option",
+            key="2",
+            text=lambda: get_string("menu_root_mode_2"),
+            action="gki",
+        ),
         MenuSpec("separator"),
-        MenuSpec("option", key="b", text=lambda: get_string("menu_back")),
-        MenuSpec("option", key="x", text=lambda: get_string("menu_main_exit")),
+        MenuSpec(
+            "option", key="b", text=lambda: get_string("menu_back"), action="back"
+        ),
+        MenuSpec(
+            "option",
+            key="m",
+            text=lambda: get_string("menu_root_m"),
+            action="return",
+        ),
+        MenuSpec(
+            "option",
+            key="x",
+            text=lambda: get_string("menu_main_exit"),
+            action="exit",
+        ),
     ]
     return _build_menu(specs)
 
