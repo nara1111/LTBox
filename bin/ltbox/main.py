@@ -422,40 +422,76 @@ def run_info_scan(paths, constants, avb_patch):
 # --- Menus ---
 
 
+def _handle_menu_navigation(action: Optional[str]) -> Optional[str]:
+    if action in ("back", "return", "exit"):
+        return action
+    return None
+
+
+def _run_task_menu(
+    dev: Any,
+    registry: CommandRegistry,
+    menu_items: List[Any],
+    title_key: str,
+    extra_kwargs_factory: Optional[Callable[[str], Dict[str, Any]]] = None,
+) -> Optional[str]:
+    action = select_menu_action(menu_items, title_key)
+    navigation = _handle_menu_navigation(action)
+    if navigation:
+        return navigation
+
+    if action:
+        extras: Dict[str, Any] = {}
+        if extra_kwargs_factory:
+            extras = extra_kwargs_factory(action)
+        run_task(action, dev, registry, extra_kwargs=extras)
+    return None
+
+
 def advanced_menu(dev, registry: CommandRegistry, target_region: str):
     while True:
         menu_items = get_advanced_menu_data(target_region)
-        action = select_menu_action(menu_items, "menu_adv_title")
 
-        if action == "back":
-            return
-        elif action == "return":
-            return
-        elif action == "exit":
-            sys.exit()
-        elif action:
-            extras: Dict[str, Any] = {}
+        def _extra_kwargs(action: str) -> Dict[str, Any]:
             if action == "convert":
-                extras["target_region"] = target_region
-            run_task(action, dev, registry, extra_kwargs=extras)
+                return {"target_region": target_region}
+            return {}
+
+        action = _run_task_menu(
+            dev,
+            registry,
+            menu_items,
+            "menu_adv_title",
+            extra_kwargs_factory=_extra_kwargs,
+        )
+        if action in ("back", "return"):
+            return
+        if action == "exit":
+            sys.exit()
 
 
 def _root_action_menu(dev, registry: CommandRegistry, gki: bool, root_type: str):
     while True:
         menu_items = menu_data.get_root_menu_data(gki)
-        action = select_menu_action(menu_items, "menu_root_title")
 
+        def _extra_kwargs(action: str) -> Dict[str, Any]:
+            if not gki:
+                return {"root_type": root_type}
+            return {}
+
+        action = _run_task_menu(
+            dev,
+            registry,
+            menu_items,
+            "menu_root_title",
+            extra_kwargs_factory=_extra_kwargs,
+        )
         if action == "back":
             return
-        elif action == "return":
+        if action == "return":
             return "main"
-        elif action == "exit":
+        if action == "exit":
             sys.exit()
-        elif action:
-            extras: Dict[str, Any] = {}
-            if not gki:
-                extras["root_type"] = root_type
-            run_task(action, dev, registry, extra_kwargs=extras)
 
 
 def _select_root_mode_action() -> Optional[str]:
