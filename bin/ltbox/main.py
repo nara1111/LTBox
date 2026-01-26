@@ -150,6 +150,21 @@ def _select_menu_action(menu_items: List[MenuItem], title_key: str) -> Optional[
     return action_map.get(choice)
 
 
+def _format_command_failure_messages(
+    error: subprocess.CalledProcessError,
+) -> List[str]:
+    messages = [
+        get_string("err_cmd_failed").format(
+            cmd=" ".join(error.cmd) if isinstance(error.cmd, list) else error.cmd
+        )
+    ]
+    if error.stdout:
+        messages.append(f"{get_string('err_cmd_stdout_header')}\n{error.stdout}")
+    if error.stderr:
+        messages.append(f"{get_string('err_cmd_stderr_header')}\n{error.stderr}")
+    return messages
+
+
 # --- Settings & Init ---
 
 
@@ -327,16 +342,7 @@ def run_task(
     except LTBoxError as e:
         ui.box_output([get_string("task_failed").format(title=title), str(e)], err=True)
     except subprocess.CalledProcessError as e:
-        msgs = [
-            get_string("err_cmd_failed").format(
-                cmd=" ".join(e.cmd) if isinstance(e.cmd, list) else e.cmd
-            )
-        ]
-        if e.stdout:
-            msgs.append(f"{get_string('err_cmd_stdout_header')}\n{e.stdout}")
-        if e.stderr:
-            msgs.append(f"{get_string('err_cmd_stderr_header')}\n{e.stderr}")
-        ui.box_output(msgs, err=True)
+        ui.box_output(_format_command_failure_messages(e), err=True)
     except (FileNotFoundError, RuntimeError, KeyError) as e:
         if not isinstance(e, SystemExit):
             ui.box_output([get_string("unexpected_error").format(e=e)], err=True)

@@ -142,6 +142,10 @@ def _flash_images(ctx: TaskContext, skip_dp_workflow: bool) -> None:
     )
 
 
+def _log_workflow_halt() -> None:
+    utils.ui.echo(get_string("wf_err_halted"), err=True)
+
+
 def patch_all(
     dev: device.DeviceController,
     wipe: int = 0,
@@ -227,7 +231,7 @@ def patch_all(
             return success_msg
 
     except LTBoxError as e:
-        utils.ui.echo(get_string("wf_err_halted"), err=True)
+        _log_workflow_halt()
         raise e
     except (
         subprocess.CalledProcessError,
@@ -235,11 +239,13 @@ def patch_all(
         RuntimeError,
         KeyError,
     ) as e:
-        utils.ui.echo(get_string("wf_err_halted"), err=True)
+        _log_workflow_halt()
         raise e
     except SystemExit as e:
+        _log_workflow_halt()
         raise LTBoxError(get_string("wf_err_halted_script").format(e=e), e)
     except KeyboardInterrupt:
+        _log_workflow_halt()
         raise UserCancelError(get_string("act_op_cancel"))
     finally:
         utils.ui.info(get_string("logging_finished").format(log_file=log_file))
