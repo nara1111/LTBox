@@ -16,22 +16,6 @@ from .i18n import get_string
 from .ui import ui
 
 
-def _wait_loop(
-    predicate: Callable[[], Any],
-    interval: float = 1.0,
-    on_loop: Optional[Callable[[], None]] = None,
-) -> Any:
-    while True:
-        res = predicate()
-        if res:
-            return res
-
-        if on_loop:
-            on_loop()
-
-        time.sleep(interval)
-
-
 def _default_usb_port_hint() -> Callable[[], None]:
     return lambda: ui.warn(get_string("device_usb_port_hint"))
 
@@ -98,7 +82,7 @@ class AdbManager:
             return False
 
         try:
-            _wait_loop(_check_adb, interval=1.0)
+            utils.wait_for_condition(_check_adb, interval=1.0)
 
             if not self.connected_once:
                 ui.info(get_string("device_adb_connected"))
@@ -295,7 +279,7 @@ class FastbootManager:
             ui.info(get_string("device_wait_fastboot_loop"))
 
         try:
-            _wait_loop(
+            utils.wait_for_condition(
                 lambda: self.check_device(silent=True), interval=2.0, on_loop=_loop_msg
             )
             ui.info(get_string("device_fastboot_connected"))
@@ -349,7 +333,7 @@ class EdlManager:
             ui.info(get_string("device_wait_edl_loop"))
 
         try:
-            port_name = _wait_loop(
+            port_name = utils.wait_for_condition(
                 lambda: self.check_device(silent=True), interval=2.0, on_loop=_loop_msg
             )
             ui.info(get_string("device_edl_connected").format(port=port_name))

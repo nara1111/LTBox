@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
@@ -65,6 +66,27 @@ def _get_tool_env() -> dict:
         paths = [str(const.TOOLS_DIR), str(const.DOWNLOAD_DIR)]
         _CACHED_ENV["PATH"] = os.pathsep.join(paths) + os.pathsep + _CACHED_ENV["PATH"]
     return _CACHED_ENV
+
+
+def wait_for_condition(
+    predicate: Callable[[], Any],
+    interval: float = 1.0,
+    timeout: Optional[float] = None,
+    on_loop: Optional[Callable[[], None]] = None,
+) -> Any:
+    start_time = time.monotonic()
+    while True:
+        result = predicate()
+        if result:
+            return result
+
+        if timeout is not None and time.monotonic() - start_time >= timeout:
+            return None
+
+        if on_loop:
+            on_loop()
+
+        time.sleep(interval)
 
 
 def _run_command(
@@ -163,10 +185,8 @@ def _wait_for_resource(
     item_list: Optional[List[str]] = None,
 ) -> bool:
     target_path.mkdir(exist_ok=True, parents=True)
-    while True:
-        if check_func(target_path, item_list):
-            return True
 
+    def _prompt_loop() -> None:
         ui.clear()
 
         ui.echo(get_string("utils_wait_resource"))
@@ -182,6 +202,14 @@ def _wait_for_resource(
             ui.prompt()
         except EOFError:
             raise RuntimeError(get_string("act_op_cancel"))
+
+    return bool(
+        wait_for_condition(
+            lambda: check_func(target_path, item_list),
+            interval=0.1,
+            on_loop=_prompt_loop,
+        )
+    )
 
 
 def wait_for_files(
