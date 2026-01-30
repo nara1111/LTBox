@@ -12,7 +12,7 @@ from types import TracebackType
 from typing import Callable, Dict, Optional
 
 import py7zr
-import requests
+import requests  # type: ignore[import-untyped]
 from ltbox import net
 
 FW_URL = (

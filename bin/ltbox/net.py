@@ -2,7 +2,7 @@ import time
 from contextlib import contextmanager
 from typing import Dict, Generator, Optional
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 
 @contextmanager

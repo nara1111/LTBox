@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 
 def check_url(url: str, description: str) -> bool:
@@ -46,7 +46,11 @@ def resolve_latest_tag(owner_repo: str, tag: str) -> Optional[str]:
 
 def fetch_workflow_run_id(owner_repo: str, tag: str) -> Optional[str]:
     api_url = f"https://api.github.com/repos/{owner_repo}/actions/runs"
-    params = {"per_page": 30, "status": "completed", "branch": tag}
+    params: dict[str, str | int] = {
+        "per_page": 30,
+        "status": "completed",
+        "branch": tag,
+    }
     try:
         response = requests.get(api_url, params=params, timeout=15)
         response.raise_for_status()

@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from typing import Dict, Optional
 
-import requests
+import requests  # type: ignore[import-untyped]
 
 from . import constants as const
 from . import net, utils
@@ -98,8 +98,8 @@ def extract_archive_files(archive_path: Path, extract_map: Dict[str, Path]) -> N
 def _download_github_asset(
     repo_url: str, tag: str, asset_pattern: str, dest_dir: Path
 ) -> Path:
-    import requests
-    from requests.exceptions import RequestException
+    import requests  # type: ignore[import-untyped]
+    from requests.exceptions import RequestException  # type: ignore[import-untyped]
 
     owner_repo = _get_owner_repo(repo_url)
 
@@ -189,7 +189,11 @@ def _select_workflow_run_for_tag(runs: list[dict], tag: str) -> Optional[dict]:
 
 def _get_workflow_run_id_for_tag(owner_repo: str, tag: str) -> str:
     api_url = f"https://api.github.com/repos/{owner_repo}/actions/runs"
-    params = {"per_page": 30, "status": "completed", "branch": tag}
+    params: dict[str, str | int] = {
+        "per_page": 30,
+        "status": "completed",
+        "branch": tag,
+    }
     try:
         response = requests.get(api_url, params=params, timeout=15)
         response.raise_for_status()

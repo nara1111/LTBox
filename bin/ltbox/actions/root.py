@@ -433,6 +433,8 @@ class LkmRootStrategy(RootStrategy):
             else:
                 tag = self.repo_config.get("tag")
                 try:
+                    if not repo:
+                        raise ToolError(get_string("err_download_workflow"))
                     workflow_id, resolved_tag = (
                         downloader.get_latest_tagged_workflow_run(repo, tag)
                     )
