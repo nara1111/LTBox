@@ -45,7 +45,7 @@ jobs:
 
       - name: Restore FW cache
         id: cache-fw
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             tests/data/extracted
@@ -64,7 +64,7 @@ jobs:
 
       - name: Save FW cache
         if: ${{ always() && hashFiles('tests/data/url.txt') != '' && steps.cache-fw.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             tests/data/extracted
@@ -103,7 +103,7 @@ jobs:
           python -m compileall bin/ltbox
 
       - name: Restore FW cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             tests/data/extracted
