@@ -13,6 +13,14 @@ from .i18n import get_string
 from .logger import logging_context
 
 
+@dataclass
+class WorkflowState:
+    skip_dp_workflow: bool = False
+    boot_target: Optional[str] = None
+    vbmeta_target: Optional[str] = None
+    backup_dir_name: Optional[str] = None
+
+
 def _cleanup_previous_outputs(ctx: TaskContext) -> None:
     output_folders_to_clean = [
         const.OUTPUT_DIR,
@@ -130,9 +138,10 @@ def _select_country_code_adapter(options, prompt_msg):
     return _prompt_for_country_code(options)
 
 
-def _check_and_patch_arb(
-    ctx: TaskContext, boot_target: str, vbmeta_target: str
-) -> None:
+def _check_and_patch_arb(boot_target: str, vbmeta_target: str) -> None:
+    if not boot_target or not vbmeta_target:
+        raise LTBoxError(get_string("wf_err_halted"))
+
     dumped_boot = const.BACKUP_DIR / f"{boot_target}.img"
     dumped_vbmeta = const.BACKUP_DIR / f"{vbmeta_target}.img"
 
@@ -176,7 +185,34 @@ def _run_steps(ctx: TaskContext, steps: list[WorkflowStep]) -> None:
         _run_step(ctx, step)
 
 
-def _build_steps(ctx: TaskContext) -> list[WorkflowStep]:
+def _run_dump_step(ctx: TaskContext, state: WorkflowState) -> None:
+    skip_dp_workflow, boot_target, vbmeta_target = _dump_images(ctx)
+    state.skip_dp_workflow = skip_dp_workflow
+    state.boot_target = boot_target
+    state.vbmeta_target = vbmeta_target
+
+
+def _run_patch_dp_step(ctx: TaskContext, state: WorkflowState) -> None:
+    if state.skip_dp_workflow:
+        ctx.on_log(get_string("wf_step7_skipped"))
+        return
+
+    ctx.on_log(get_string("wf_step7_patch_dp"))
+    state.backup_dir_name = _patch_devinfo(ctx, state.skip_dp_workflow)
+
+
+def _run_arb_step(ctx: TaskContext, state: WorkflowState) -> None:
+    if ctx.skip_rollback:
+        ctx.on_log(get_string("wf_step8_skipped"))
+        return
+
+    ctx.on_log(get_string("wf_step8_check_arb"))
+    if state.boot_target is None or state.vbmeta_target is None:
+        raise LTBoxError(get_string("wf_err_halted"))
+    _check_and_patch_arb(state.boot_target, state.vbmeta_target)
+
+
+def _build_steps(ctx: TaskContext, state: WorkflowState) -> list[WorkflowStep]:
     return [
         WorkflowStep("wf_step1_clean", lambda: _cleanup_previous_outputs(ctx)),
         WorkflowStep("wf_step2_device_info", lambda: _populate_device_info(ctx)),
@@ -188,6 +224,12 @@ def _build_steps(ctx: TaskContext) -> list[WorkflowStep]:
         ),
         WorkflowStep("wf_step4_convert", lambda: _convert_region_images(ctx)),
         WorkflowStep("wf_step5_modify_xml", lambda: _decrypt_and_modify_xml(ctx)),
+        WorkflowStep("wf_step6_dump", lambda: _run_dump_step(ctx, state)),
+        WorkflowStep(None, lambda: _run_patch_dp_step(ctx, state)),
+        WorkflowStep(None, lambda: _run_arb_step(ctx, state)),
+        WorkflowStep(
+            "wf_step9_flash", lambda: _flash_images(ctx, state.skip_dp_workflow)
+        ),
     ]
 
 
@@ -213,6 +255,7 @@ def patch_all(
         target_region=target_region,
         on_log=lambda s: utils.ui.info(s),
     )
+    state = WorkflowState()
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = f"log_{timestamp}.txt"
@@ -232,33 +275,13 @@ def patch_all(
                 ctx.on_log(get_string("wf_wipe_mode_start"))
             else:
                 ctx.on_log(get_string("wf_nowipe_mode_start"))
-            _run_steps(ctx, _build_steps(ctx))
-
-            ctx.on_log(get_string("wf_step6_dump"))
-            skip_dp_workflow, boot_target, vbmeta_target = _dump_images(ctx)
-
-            if skip_dp_workflow:
-                ctx.on_log(get_string("wf_step7_skipped"))
-            else:
-                ctx.on_log(get_string("wf_step7_patch_dp"))
-            backup_dir_name = _patch_devinfo(ctx, skip_dp_workflow)
-
-            if not ctx.skip_rollback:
-                ctx.on_log(get_string("wf_step8_check_arb"))
-                _check_and_patch_arb(ctx, boot_target, vbmeta_target)
-            else:
-                ctx.on_log(get_string("wf_step8_skipped"))
-
-            ctx.on_log(get_string("wf_step9_flash"))
-            _flash_images(ctx, skip_dp_workflow)
+            _run_steps(ctx, _build_steps(ctx, state))
 
             success_msg = get_string("wf_process_complete")
             success_msg += f"\n{get_string('wf_process_complete_info')}"
 
-            if backup_dir_name:
-                success_msg += (
-                    f"\n\n{get_string('wf_backup_notice').format(dir=backup_dir_name)}"
-                )
+            if state.backup_dir_name:
+                success_msg += f"\n\n{get_string('wf_backup_notice').format(dir=state.backup_dir_name)}"
 
             success_msg += f"\n\n{get_string('wf_notice_widevine')}"
             return success_msg
