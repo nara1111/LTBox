@@ -1,6 +1,6 @@
 # LTBox
 
-[🇰🇷 한국어](READMEs/README_ko-KR.md)
+[🇰🇷 한국어](READMEs/README_ko-KR.md) / [🇨🇳 简体中文](READMEs/README_zh-CN.md)
 
 [![License: CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
 
