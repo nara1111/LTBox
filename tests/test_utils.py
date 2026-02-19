@@ -174,3 +174,32 @@ class TestUtils:
 
             args, _ = m_dl.call_args
             assert args[0] == "http://stable-old"
+
+    def test_wildkernels_fallback_when_releases_json_invalid(self):
+        releases_response = MagicMock()
+        releases_response.raise_for_status.return_value = None
+        releases_response.json.side_effect = ValueError("invalid json")
+
+        latest_response = MagicMock()
+        latest_response.raise_for_status.return_value = None
+        latest_response.json.return_value = {
+            "assets": [
+                {
+                    "name": "6.6.89-Normal-AnyKernel3.zip",
+                    "browser_download_url": "http://latest-ok",
+                }
+            ]
+        }
+
+        with patch(
+            "requests.get", side_effect=[releases_response, latest_response]
+        ), patch("ltbox.downloader.download_resource") as m_dl:
+            downloader._download_github_asset(
+                "WildKernels/GKI_KernelSU_SUSFS",
+                "latest",
+                "6\\.6\\.89.*Normal.*AnyKernel3\\.zip",
+                Path("."),
+            )
+
+            args, _ = m_dl.call_args
+            assert args[0] == "http://latest-ok"

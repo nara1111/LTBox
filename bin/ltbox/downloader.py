@@ -111,36 +111,43 @@ def _download_github_asset(
             releases_url = f"https://api.github.com/repos/{owner_repo}/releases"
             response = requests.get(releases_url, params={"per_page": 100})
             response.raise_for_status()
-            releases = response.json()
 
-            first_non_testing_index = None
-            for index, release in enumerate(releases):
-                if release.get("draft"):
-                    continue
-                body = release.get("body") or ""
-                if "TESTING" not in body:
-                    first_non_testing_index = index
-                    break
+            releases: list[dict] = []
+            try:
+                payload = response.json()
+                if isinstance(payload, list):
+                    releases = payload
+            except ValueError:
+                releases = []
 
-            if first_non_testing_index is None:
-                raise ToolError(
-                    get_string("dl_err_download_tool").format(name=asset_pattern)
-                )
+            if releases:
+                first_non_testing_index = None
+                for index, release in enumerate(releases):
+                    if release.get("draft"):
+                        continue
+                    body = release.get("body") or ""
+                    if "TESTING" not in body:
+                        first_non_testing_index = index
+                        break
 
-            for release in releases[first_non_testing_index:]:
-                if release.get("draft"):
-                    continue
-                if any(
-                    re.match(asset_pattern, asset["name"])
-                    for asset in release.get("assets", [])
-                ):
-                    release_data = release
-                    break
+                if first_non_testing_index is not None:
+                    for release in releases[first_non_testing_index:]:
+                        if release.get("draft"):
+                            continue
+                        if any(
+                            re.match(asset_pattern, asset["name"])
+                            for asset in release.get("assets", [])
+                        ):
+                            release_data = release
+                            break
 
             if release_data is None:
-                raise ToolError(
-                    get_string("dl_err_download_tool").format(name=asset_pattern)
+                latest_url = (
+                    f"https://api.github.com/repos/{owner_repo}/releases/latest"
                 )
+                response = requests.get(latest_url)
+                response.raise_for_status()
+                release_data = response.json()
         else:
             if not tag or tag.lower() == "latest":
                 api_url = f"https://api.github.com/repos/{owner_repo}/releases/latest"
@@ -174,7 +181,7 @@ def _download_github_asset(
         download_resource(download_url, dest_path)
         return dest_path
 
-    except RequestException as e:
+    except (RequestException, ValueError) as e:
         utils.ui.error(get_string("dl_err_check_network"))
         raise ToolError(get_string("dl_github_failed").format(e=e))
 
