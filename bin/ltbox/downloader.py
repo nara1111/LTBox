@@ -103,21 +103,64 @@ def _download_github_asset(
 
     owner_repo = _get_owner_repo(repo_url)
 
-    if not tag or tag.lower() == "latest":
-        api_url = f"https://api.github.com/repos/{owner_repo}/releases/latest"
-    else:
-        api_url = f"https://api.github.com/repos/{owner_repo}/releases/tags/{tag}"
-
     try:
-        response = requests.get(api_url)
-        response.raise_for_status()
-        release_data = response.json()
+        release_data = None
+        if owner_repo.lower() == "wildkernels/gki_kernelsu_susfs" and (
+            not tag or tag.lower() == "latest"
+        ):
+            releases_url = f"https://api.github.com/repos/{owner_repo}/releases"
+            response = requests.get(releases_url, params={"per_page": 100})
+            response.raise_for_status()
+            releases = response.json()
 
-        target_asset = None
-        for asset in release_data.get("assets", []):
-            if re.match(asset_pattern, asset["name"]):
-                target_asset = asset
-                break
+            first_non_testing_index = None
+            for index, release in enumerate(releases):
+                if release.get("draft"):
+                    continue
+                body = release.get("body") or ""
+                if "TESTING" not in body:
+                    first_non_testing_index = index
+                    break
+
+            if first_non_testing_index is None:
+                raise ToolError(
+                    get_string("dl_err_download_tool").format(name=asset_pattern)
+                )
+
+            for release in releases[first_non_testing_index:]:
+                if release.get("draft"):
+                    continue
+                if any(
+                    re.match(asset_pattern, asset["name"])
+                    for asset in release.get("assets", [])
+                ):
+                    release_data = release
+                    break
+
+            if release_data is None:
+                raise ToolError(
+                    get_string("dl_err_download_tool").format(name=asset_pattern)
+                )
+        else:
+            if not tag or tag.lower() == "latest":
+                api_url = f"https://api.github.com/repos/{owner_repo}/releases/latest"
+            else:
+                api_url = (
+                    f"https://api.github.com/repos/{owner_repo}/releases/tags/{tag}"
+                )
+
+            response = requests.get(api_url)
+            response.raise_for_status()
+            release_data = response.json()
+
+        target_asset = next(
+            (
+                asset
+                for asset in release_data.get("assets", [])
+                if re.match(asset_pattern, asset["name"])
+            ),
+            None,
+        )
 
         if not target_asset:
             raise ToolError(

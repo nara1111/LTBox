@@ -126,3 +126,51 @@ class TestUtils:
             )
         assert latest_release is None
         assert latest_prerelease is None
+
+    def test_wildkernels_skip_testing_and_fallback_previous_release(self):
+        releases = [
+            {
+                "tag_name": "v3",
+                "draft": False,
+                "body": "Contains TESTING marker",
+                "assets": [
+                    {
+                        "name": "5.10-Normal-AnyKernel3.zip",
+                        "browser_download_url": "http://testing",
+                    }
+                ],
+            },
+            {
+                "tag_name": "v2",
+                "draft": False,
+                "body": "Stable release",
+                "assets": [],
+            },
+            {
+                "tag_name": "v1",
+                "draft": False,
+                "body": "Older stable release",
+                "assets": [
+                    {
+                        "name": "5.10-Normal-AnyKernel3.zip",
+                        "browser_download_url": "http://stable-old",
+                    }
+                ],
+            },
+        ]
+
+        with patch("requests.get") as m_get, patch(
+            "ltbox.downloader.download_resource"
+        ) as m_dl:
+            m_get.return_value.json.return_value = releases
+            m_get.return_value.raise_for_status.return_value = None
+
+            downloader._download_github_asset(
+                "WildKernels/GKI_KernelSU_SUSFS",
+                "latest",
+                ".*Normal.*AnyKernel3\\.zip",
+                Path("."),
+            )
+
+            args, _ = m_dl.call_args
+            assert args[0] == "http://stable-old"
