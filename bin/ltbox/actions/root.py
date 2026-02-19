@@ -2,6 +2,7 @@ import shutil
 import subprocess
 import zipfile
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -73,33 +74,59 @@ class RootStrategy(ABC):
         pass
 
 
-class GkiRootStrategy(RootStrategy):
+@dataclass(frozen=True)
+class RootStrategySpec:
+    image_name: str
+    backup_name: str
+    output_dir: Path
+    backup_dir: Path
+    required_files: List[str]
+    main_partition: str
+
+
+class ConfigurableRootStrategy(RootStrategy):
+    spec: RootStrategySpec
+
     @property
     def image_name(self) -> str:
-        return const.FN_BOOT
+        return self.spec.image_name
 
     @property
     def backup_name(self) -> str:
-        return const.FN_BOOT_BAK
+        return self.spec.backup_name
 
     @property
     def output_dir(self) -> Path:
-        return const.OUTPUT_ROOT_DIR
+        return self.spec.output_dir
 
     @property
     def backup_dir(self) -> Path:
-        return const.BACKUP_BOOT_DIR
+        return self.spec.backup_dir
 
     @property
     def required_files(self) -> List[str]:
-        return [self.image_name]
+        return self.spec.required_files
 
     @property
     def log_output_dir_name(self) -> str:
-        return const.OUTPUT_ROOT_DIR.name
+        return self.output_dir.name
 
     def get_partition_map(self, suffix: str) -> Dict[str, str]:
-        return {"main": f"boot{suffix}", "vbmeta": ""}
+        partition_map = {"main": f"{self.spec.main_partition}{suffix}", "vbmeta": ""}
+        if const.FN_VBMETA in self.required_files:
+            partition_map["vbmeta"] = f"vbmeta{suffix}"
+        return partition_map
+
+
+class GkiRootStrategy(ConfigurableRootStrategy):
+    spec = RootStrategySpec(
+        image_name=const.FN_BOOT,
+        backup_name=const.FN_BOOT_BAK,
+        output_dir=const.OUTPUT_ROOT_DIR,
+        backup_dir=const.BACKUP_BOOT_DIR,
+        required_files=[const.FN_BOOT],
+        main_partition="boot",
+    )
 
     def download_resources(self, kernel_version: Optional[str] = None) -> bool:
         downloader.download_ksu_manager_release(const.TOOLS_DIR)
@@ -125,36 +152,18 @@ class GkiRootStrategy(RootStrategy):
         return final_boot
 
 
-class MagiskRootStrategy(RootStrategy):
+class MagiskRootStrategy(ConfigurableRootStrategy):
+    spec = RootStrategySpec(
+        image_name=const.FN_INIT_BOOT,
+        backup_name=const.FN_INIT_BOOT_BAK,
+        output_dir=const.OUTPUT_ROOT_MAGISK_DIR,
+        backup_dir=const.BACKUP_MAGISK_DIR,
+        required_files=[const.FN_INIT_BOOT, const.FN_VBMETA],
+        main_partition="init_boot",
+    )
+
     def __init__(self) -> None:
         self.staging_dir = const.TOOLS_DIR / "magisk_staging"
-
-    @property
-    def image_name(self) -> str:
-        return const.FN_INIT_BOOT
-
-    @property
-    def backup_name(self) -> str:
-        return const.FN_INIT_BOOT_BAK
-
-    @property
-    def output_dir(self) -> Path:
-        return const.OUTPUT_ROOT_MAGISK_DIR
-
-    @property
-    def backup_dir(self) -> Path:
-        return const.BACKUP_MAGISK_DIR
-
-    @property
-    def required_files(self) -> List[str]:
-        return [self.image_name, const.FN_VBMETA]
-
-    @property
-    def log_output_dir_name(self) -> str:
-        return const.OUTPUT_ROOT_MAGISK_DIR.name
-
-    def get_partition_map(self, suffix: str) -> Dict[str, str]:
-        return {"main": f"init_boot{suffix}", "vbmeta": f"vbmeta{suffix}"}
 
     def download_resources(self, kernel_version: Optional[str] = None) -> bool:
         _cleanup_manager_apk(show_message=False)
@@ -238,7 +247,16 @@ class MagiskRootStrategy(RootStrategy):
         return final_boot
 
 
-class LkmRootStrategy(RootStrategy):
+class LkmRootStrategy(ConfigurableRootStrategy):
+    spec = RootStrategySpec(
+        image_name=const.FN_INIT_BOOT,
+        backup_name=const.FN_INIT_BOOT_BAK,
+        output_dir=const.OUTPUT_ROOT_LKM_DIR,
+        backup_dir=const.BACKUP_INIT_BOOT_DIR,
+        required_files=[const.FN_INIT_BOOT, const.FN_VBMETA],
+        main_partition="init_boot",
+    )
+
     def __init__(self, root_type: str = "ksu"):
         self.root_type = root_type
         self.is_nightly = False
@@ -246,33 +264,6 @@ class LkmRootStrategy(RootStrategy):
         self.workflow_id: Optional[str] = None
         self.repo_config: Dict[str, Any] = {}
         self.staging_dir = const.TOOLS_DIR / "lkm_staging"
-
-    @property
-    def image_name(self) -> str:
-        return const.FN_INIT_BOOT
-
-    @property
-    def backup_name(self) -> str:
-        return const.FN_INIT_BOOT_BAK
-
-    @property
-    def output_dir(self) -> Path:
-        return const.OUTPUT_ROOT_LKM_DIR
-
-    @property
-    def backup_dir(self) -> Path:
-        return const.BACKUP_INIT_BOOT_DIR
-
-    @property
-    def required_files(self) -> List[str]:
-        return [self.image_name, const.FN_VBMETA]
-
-    @property
-    def log_output_dir_name(self) -> str:
-        return const.OUTPUT_ROOT_LKM_DIR.name
-
-    def get_partition_map(self, suffix: str) -> Dict[str, str]:
-        return {"main": f"init_boot{suffix}", "vbmeta": f"vbmeta{suffix}"}
 
     def _get_mapped_kernel_name(self, kernel_version: str) -> Optional[str]:
         if not kernel_version:
