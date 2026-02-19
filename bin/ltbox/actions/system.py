@@ -12,6 +12,17 @@ def detect_active_slot_robust(dev: device.DeviceController) -> Optional[str]:
         raise ToolError(get_string("act_warn_slot_fail")) from e
 
 
+def _safe_shell(
+    dev: device.DeviceController, cmd: str, error_msg: Optional[str] = None
+) -> str:
+    try:
+        return dev.adb.shell(cmd)
+    except Exception as e:
+        if error_msg:
+            utils.ui.echo(f"{error_msg}: {e}", err=True)
+        return ""
+
+
 def disable_ota(dev: device.DeviceController) -> None:
 
     utils.ui.echo(get_string("act_start_ota"))
@@ -19,11 +30,16 @@ def disable_ota(dev: device.DeviceController) -> None:
     dev.adb.wait_for_device()
 
     utils.ui.echo(get_string("act_ota_settings_put"))
-    try:
-        dev.adb.shell("settings put global ota_disable_automatic_update 1")
-        dev.adb.shell("settings put secure lenovo_ota_new_version_found 0")
-    except Exception as e:
-        utils.ui.echo(f"Warning: Failed to update settings: {e}", err=True)
+    _safe_shell(
+        dev,
+        "settings put global ota_disable_automatic_update 1",
+        "Warning: Failed to update settings",
+    )
+    _safe_shell(
+        dev,
+        "settings put secure lenovo_ota_new_version_found 0",
+        "Warning: Failed to update settings",
+    )
 
     packages = ["com.lenovo.ota", "com.tblenovo.lenovowhatsnew", "com.lenovo.tbengine"]
     _disable_ota_packages(dev, packages)
@@ -43,18 +59,12 @@ def _disable_ota_packages(
 
 
 def _clear_package_data(dev: device.DeviceController, package: str) -> None:
-    try:
-        dev.adb.shell(f"pm clear {package}")
-    except Exception:
-        return
+    _safe_shell(dev, f"pm clear {package}")
 
 
 def _uninstall_package(dev: device.DeviceController, package: str) -> None:
-    try:
-        output = dev.adb.shell(f"pm uninstall -k --user 0 {package}")
-        if "Success" in output:
-            utils.ui.echo(get_string("act_ota_uninstall_success").format(pkg=package))
-        else:
-            utils.ui.echo(get_string("act_ota_uninstall_fail").format(pkg=package))
-    except Exception:
+    output = _safe_shell(dev, f"pm uninstall -k --user 0 {package}")
+    if "Success" in output:
+        utils.ui.echo(get_string("act_ota_uninstall_success").format(pkg=package))
+    else:
         utils.ui.echo(get_string("act_ota_uninstall_fail").format(pkg=package))
