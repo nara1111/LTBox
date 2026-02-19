@@ -4,9 +4,13 @@ from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 from .. import constants as const
-from .. import device, utils
+from .. import device
 from ..i18n import get_string
-from ..patch.avb import extract_image_avb_info, rebuild_vbmeta_with_chained_images
+from ..patch.avb import (
+    _apply_hash_footer,
+    extract_image_avb_info,
+    rebuild_vbmeta_with_chained_images,
+)
 from ..patch.region import detect_country_codes, edit_vendor_boot, patch_country_codes
 from . import edl
 
@@ -80,7 +84,7 @@ def convert_region_images(
 
     on_log(get_string("act_add_footer_vb"))
 
-    for key in ["partition_size", "name", "rollback", "salt"]:
+    for key in ["partition_size", "name", "rollback", "salt", "algorithm"]:
         if key not in vendor_boot_info:
             if key == "partition_size" and "data_size" in vendor_boot_info:
                 vendor_boot_info["partition_size"] = vendor_boot_info["data_size"]
@@ -91,39 +95,7 @@ def convert_region_images(
                     )
                 )
 
-    add_hash_footer_cmd = [
-        str(const.PYTHON_EXE),
-        str(const.AVBTOOL_PY),
-        "add_hash_footer",
-        "--image",
-        str(vendor_boot_prc),
-        "--partition_size",
-        vendor_boot_info["partition_size"],
-        "--partition_name",
-        vendor_boot_info["name"],
-        "--rollback_index",
-        vendor_boot_info["rollback"],
-        "--salt",
-        vendor_boot_info["salt"],
-    ]
-
-    if "props_args" in vendor_boot_info:
-        add_hash_footer_cmd.extend(vendor_boot_info["props_args"])
-        on_log(
-            get_string("act_restore_props").format(
-                count=len(vendor_boot_info["props_args"]) // 2
-            )
-        )
-
-    if "flags" in vendor_boot_info:
-        add_hash_footer_cmd.extend(["--flags", vendor_boot_info.get("flags", "0")])
-        on_log(
-            get_string("act_restore_flags").format(
-                flags=vendor_boot_info.get("flags", "0")
-            )
-        )
-
-    utils.run_command(add_hash_footer_cmd)
+    _apply_hash_footer(vendor_boot_prc, vendor_boot_info, None)
 
     vbmeta_img = const.BASE_DIR / const.FN_VBMETA
     rebuild_vbmeta_with_chained_images(
@@ -290,7 +262,7 @@ def edit_devinfo_persist(
 
     on_log(
         get_string("act_selected").format(name=replacement_code, code=replacement_code)
-    )  # Simplified log
+    )
     patch_country_codes(replacement_code, target_map)
 
     modified_devinfo = const.BASE_DIR / "devinfo_modified.img"
@@ -372,26 +344,18 @@ def rescue_after_ota(
         vb_info = extract_image_avb_info(vb_path)
         part_size = vb_info.get("partition_size", vb_info.get("data_size"))
 
-        cmd_footer = [
-            str(const.PYTHON_EXE),
-            str(const.AVBTOOL_PY),
-            "add_hash_footer",
-            "--image",
-            str(dest_vb),
-            "--partition_size",
-            part_size,
-            "--partition_name",
-            "vendor_boot",
-            "--rollback_index",
-            vb_info.get("rollback", "0"),
-            "--salt",
-            vb_info.get("salt", ""),
-        ]
-        if "props_args" in vb_info:
-            cmd_footer.extend(vb_info["props_args"])
-        if "flags" in vb_info:
-            cmd_footer.extend(["--flags", vb_info["flags"]])
-        utils.run_command(cmd_footer)
+        if "partition_size" not in vb_info:
+            vb_info["partition_size"] = part_size
+        if "name" not in vb_info:
+            vb_info["name"] = "vendor_boot"
+        if "rollback" not in vb_info:
+            vb_info["rollback"] = "0"
+        if "salt" not in vb_info:
+            vb_info["salt"] = ""
+        if "algorithm" not in vb_info:
+            vb_info["algorithm"] = "SHA256_RSA4096"
+
+        _apply_hash_footer(dest_vb, vb_info, None)
 
         dest_vbmeta = const.OUTPUT_DIR / f"{vbmeta_target}.img"
 
