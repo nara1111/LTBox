@@ -213,7 +213,10 @@ class TestUtils:
                 utils.get_string("utils_err_non_release_download")
             )
 
-    def test_check_dependencies_allows_when_one_edl_tool_exists(self, tmp_path):
+    @pytest.mark.integration
+    def test_check_dependencies_allows_release_package_edl_tools(
+        self, tmp_path, fw_pkg
+    ):
         base_dir = tmp_path / "workspace"
         base_dir.mkdir()
 
@@ -224,8 +227,16 @@ class TestUtils:
         edl_exe = tmp_path / "fh_loader.exe"
         qs_exe = tmp_path / "Qsaharaserver.exe"
 
-        for path in (python_exe, adb_exe, fastboot_exe, avbtool_py, qs_exe):
+        for path in (python_exe, adb_exe, fastboot_exe, avbtool_py):
             path.write_text("ok", encoding="utf-8")
+
+        src_fh_loader = fw_pkg.get("fh_loader.exe")
+        src_qsahara = fw_pkg.get("QSaharaServer.exe")
+        assert src_fh_loader is not None
+        assert src_qsahara is not None
+
+        edl_exe.write_bytes(Path(src_fh_loader).read_bytes())
+        qs_exe.write_bytes(Path(src_qsahara).read_bytes())
 
         with patch("ltbox.utils.const.BASE_DIR", base_dir), patch(
             "ltbox.utils.const.PYTHON_EXE", python_exe
