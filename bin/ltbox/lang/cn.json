@@ -649,6 +649,7 @@
   "update_avail_title": "\n[!] 发现新版本！",
   "update_open_web": "[*] 正在打开浏览器...",
   "utils_check_deps": "[*] 正在检查依赖项...",
+  "utils_err_non_release_download": "看起来你下载的是源代码而不是发布包。请下载正确的文件。",
   "utils_deps_found": "[+] 依赖项已验证。",
   "utils_missing_dep": "[!] 错误：缺失依赖项 '{name}'。",
   "utils_missing_item_format": " - {item}",

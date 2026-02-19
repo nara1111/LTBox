@@ -648,6 +648,7 @@
   "update_avail_prompt": "  현재 버전: {curr} -> 최신 버전: {new}\n  GitHub 페이지를 열까요? (y/n): ",
   "update_avail_title": "\n[!] 새로운 업데이트가 있습니다!",
   "update_open_web": "[*] 브라우저를 엽니다...",
+  "utils_err_non_release_download": "소스 코드를 다운로드한 것으로 보입니다. 올바른 릴리즈 패키지를 다운로드하세요.",
   "utils_check_deps": "[*] 필요한 파일 확인 중...",
   "utils_deps_found": "[+] 필요한 파일 확인됨.",
   "utils_missing_dep": "[!] 오류: 필요한 파일 '{name}'이(가) 누락되었습니다.",

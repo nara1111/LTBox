@@ -175,6 +175,77 @@ class TestUtils:
             args, _ = m_dl.call_args
             assert args[0] == "http://stable-old"
 
+    def test_check_dependencies_blocks_source_download_without_edl_tools(
+        self, tmp_path
+    ):
+        base_dir = tmp_path / "workspace"
+        base_dir.mkdir()
+
+        python_exe = tmp_path / "python.exe"
+        adb_exe = tmp_path / "adb.exe"
+        fastboot_exe = tmp_path / "fastboot.exe"
+        avbtool_py = tmp_path / "avbtool.py"
+        edl_exe = tmp_path / "fh_loader.exe"
+        qs_exe = tmp_path / "Qsaharaserver.exe"
+
+        for path in (python_exe, adb_exe, fastboot_exe, avbtool_py):
+            path.write_text("ok", encoding="utf-8")
+
+        with patch("ltbox.utils.const.BASE_DIR", base_dir), patch(
+            "ltbox.utils.const.PYTHON_EXE", python_exe
+        ), patch("ltbox.utils.const.ADB_EXE", adb_exe), patch(
+            "ltbox.utils.const.FASTBOOT_EXE", fastboot_exe
+        ), patch(
+            "ltbox.utils.const.AVBTOOL_PY", avbtool_py
+        ), patch(
+            "ltbox.utils.const.EDL_EXE", edl_exe
+        ), patch(
+            "ltbox.utils.const.QSAHARASERVER_EXE", qs_exe
+        ), patch(
+            "ltbox.utils.const.KEY_MAP", {}
+        ), patch(
+            "ltbox.utils.ui"
+        ) as mock_ui:
+            with pytest.raises(RuntimeError):
+                utils.check_dependencies()
+
+            mock_ui.echo.assert_called_once_with(
+                utils.get_string("utils_err_non_release_download")
+            )
+
+    def test_check_dependencies_allows_when_one_edl_tool_exists(self, tmp_path):
+        base_dir = tmp_path / "workspace"
+        base_dir.mkdir()
+
+        python_exe = tmp_path / "python.exe"
+        adb_exe = tmp_path / "adb.exe"
+        fastboot_exe = tmp_path / "fastboot.exe"
+        avbtool_py = tmp_path / "avbtool.py"
+        edl_exe = tmp_path / "fh_loader.exe"
+        qs_exe = tmp_path / "Qsaharaserver.exe"
+
+        for path in (python_exe, adb_exe, fastboot_exe, avbtool_py, qs_exe):
+            path.write_text("ok", encoding="utf-8")
+
+        with patch("ltbox.utils.const.BASE_DIR", base_dir), patch(
+            "ltbox.utils.const.PYTHON_EXE", python_exe
+        ), patch("ltbox.utils.const.ADB_EXE", adb_exe), patch(
+            "ltbox.utils.const.FASTBOOT_EXE", fastboot_exe
+        ), patch(
+            "ltbox.utils.const.AVBTOOL_PY", avbtool_py
+        ), patch(
+            "ltbox.utils.const.EDL_EXE", edl_exe
+        ), patch(
+            "ltbox.utils.const.QSAHARASERVER_EXE", qs_exe
+        ), patch(
+            "ltbox.utils.const.KEY_MAP", {}
+        ), patch(
+            "ltbox.utils.ui"
+        ) as mock_ui:
+            utils.check_dependencies()
+
+            mock_ui.echo.assert_called_once_with(utils.get_string("utils_deps_found"))
+
     def test_wildkernels_fallback_when_releases_json_invalid(self):
         releases_response = MagicMock()
         releases_response.raise_for_status.return_value = None

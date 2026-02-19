@@ -648,6 +648,7 @@
   "update_avail_prompt": "  Current: {curr} -> Latest: {new}\n  Open GitHub page? (y/n): ",
   "update_avail_title": "\n[!] Update Available!",
   "update_open_web": "[*] Opening browser...",
+  "utils_err_non_release_download": "It looks like you downloaded source code instead of the release package. Download the correct one.",
   "utils_check_deps": "[*] Checking Dependencies...",
   "utils_deps_found": "[+] Dependencies verified.",
   "utils_missing_dep": "[!] Error: Dependency '{name}' missing.",

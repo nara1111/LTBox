@@ -649,6 +649,7 @@
   "update_avail_title": "\n[!] Доступно обновление!",
   "update_open_web": "[*] Открытие браузера...",
   "utils_check_deps": "[*] Проверка зависимостей...",
+  "utils_err_non_release_download": "Похоже, вы скачали исходный код вместо релизного пакета. Скачайте правильный файл.",
   "utils_deps_found": "[+] Зависимости проверены.",
   "utils_missing_dep": "[!] Ошибка: Отсутствует зависимость '{name}'.",
   "utils_missing_item_format": " - {item}",
