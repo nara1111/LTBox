@@ -8,6 +8,7 @@ from .arb import (
 from .edl import (
     dump_partitions,
     flash_full_firmware,
+    flash_partition_labels,
     flash_partitions,
     write_anti_rollback,
 )

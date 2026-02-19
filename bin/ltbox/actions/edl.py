@@ -2,14 +2,164 @@ import shutil
 import subprocess
 import time
 import traceback
+import xml.etree.ElementTree as ET
+from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from .. import constants as const
 from .. import device, utils
 from ..i18n import get_string
 from ..partition import ensure_params_or_fail
 from . import xml
+
+
+def _collect_flashable_partitions() -> Dict[str, List[Dict[str, str]]]:
+    xml.ensure_xml_files()
+
+    xml_files = sorted(const.IMAGE_DIR.glob("rawprogram*.xml"))
+    if not xml_files:
+        xml_files = sorted(const.OUTPUT_XML_DIR.glob("rawprogram*.xml"))
+
+    partitions: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+
+    for xml_file in xml_files:
+        try:
+            tree = ET.parse(xml_file)
+            root = tree.getroot()
+        except (OSError, ET.ParseError) as e:
+            utils.ui.error(
+                get_string("act_xml_parse_err").format(name=xml_file.name, e=e)
+            )
+            continue
+
+        for prog in root.findall("program"):
+            label = prog.get("label", "").strip()
+            filename = prog.get("filename", "").strip()
+            if not label or not filename:
+                continue
+
+            partitions[label].append(
+                {
+                    "filename": filename,
+                    "lun": prog.get("physical_partition_number", "0"),
+                    "start_sector": prog.get("start_sector", "0"),
+                }
+            )
+
+    return dict(partitions)
+
+
+def _prompt_partition_selection(labels: List[str]) -> List[str]:
+    selected: Set[str] = set()
+
+    while True:
+        utils.ui.clear()
+        utils.ui.echo("\n" + "=" * 78)
+        utils.ui.echo(f"   {get_string('act_flash_partitions_label_title')}")
+        utils.ui.echo("=" * 78 + "\n")
+
+        for idx, label in enumerate(labels, start=1):
+            mark = " [v]" if label in selected else ""
+            utils.ui.echo(f"   {idx}. {label}{mark}")
+
+        utils.ui.echo(f"   f. {get_string('act_flash_partitions_select_done')}")
+        utils.ui.echo("\n" + "=" * 78 + "\n")
+
+        choice = (
+            utils.ui.prompt(get_string("act_flash_partitions_select_prompt"))
+            .strip()
+            .lower()
+        )
+        if choice == "f":
+            return [label for label in labels if label in selected]
+
+        try:
+            idx = int(choice)
+        except ValueError:
+            utils.ui.error(get_string("err_invalid_selection"))
+            input(get_string("press_enter_to_continue"))
+            continue
+
+        if not 1 <= idx <= len(labels):
+            utils.ui.error(get_string("err_invalid_selection"))
+            input(get_string("press_enter_to_continue"))
+            continue
+
+        label = labels[idx - 1]
+        if label in selected:
+            selected.remove(label)
+        else:
+            selected.add(label)
+
+
+def _validate_selected_partition_images(
+    selected_labels: List[str], partition_map: Dict[str, List[Dict[str, str]]]
+) -> None:
+    missing_files: List[str] = []
+
+    for label in selected_labels:
+        for entry in partition_map.get(label, []):
+            filename = entry["filename"]
+            if not (const.IMAGE_DIR / filename).exists():
+                missing_files.append(filename)
+
+    if missing_files:
+        unique_missing = sorted(set(missing_files))
+        raise FileNotFoundError(
+            get_string("act_err_selected_partitions_missing_images").format(
+                files=", ".join(unique_missing)
+            )
+        )
+
+
+def flash_partition_labels(
+    dev: device.DeviceController, skip_reset: bool = False
+) -> None:
+    utils.ui.echo(get_string("act_flash_partitions_label_start"))
+
+    partition_map = _collect_flashable_partitions()
+    if not partition_map:
+        raise FileNotFoundError(get_string("act_err_no_xml_dump"))
+
+    labels = sorted(partition_map.keys())
+    selected_labels = _prompt_partition_selection(labels)
+
+    if not selected_labels:
+        utils.ui.echo(get_string("act_op_cancel"))
+        return
+
+    _validate_selected_partition_images(selected_labels, partition_map)
+
+    port = _prepare_edl_session(dev)
+
+    for label in selected_labels:
+        entries = partition_map.get(label, [])
+        utils.ui.echo(get_string("act_flashing_target").format(target=label))
+
+        for entry in entries:
+            image_path = const.IMAGE_DIR / entry["filename"]
+            utils.ui.echo(
+                get_string("device_flashing_part").format(
+                    filename=image_path.name,
+                    lun=entry["lun"],
+                    start=entry["start_sector"],
+                )
+            )
+            dev.edl.write_partition(
+                port=port,
+                image_path=image_path,
+                lun=entry["lun"],
+                start_sector=entry["start_sector"],
+            )
+
+    if not skip_reset:
+        utils.ui.echo(get_string("act_reboot_device"))
+        dev.edl.reset(port)
+    else:
+        utils.ui.echo(get_string("act_skip_reboot"))
+
+    utils.ui.echo(get_string("act_write_finish"))
 
 
 def ensure_loader_file() -> None:

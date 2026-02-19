@@ -899,6 +899,13 @@ def _initialize_runtime(lang_code: str) -> Tuple[type, CommandRegistry, Any, Any
             {},
         ),
         (
+            "flash_partition_labels",
+            actions.flash_partition_labels,
+            get_string("task_title_flash_partitions_label"),
+            True,
+            {},
+        ),
+        (
             "patch_all",
             workflow.patch_all,
             get_string("task_title_install_nowipe"),

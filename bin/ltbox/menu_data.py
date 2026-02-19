@@ -167,6 +167,12 @@ def get_advanced_menu_data(target_region: str) -> List[MenuItem]:
             text=lambda: get_string("menu_adv_11"),
             action="flash_full_firmware",
         ),
+        MenuSpec(
+            "option",
+            key="12",
+            text=lambda: get_string("menu_adv_12"),
+            action="flash_partition_labels",
+        ),
         MenuSpec("separator"),
         MenuSpec("label", text=lambda: get_string("menu_adv_sub_nav")),
         *_nav_specs(include_back=True, include_exit=True),
