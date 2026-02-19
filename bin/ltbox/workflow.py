@@ -98,44 +98,8 @@ def _patch_devinfo(ctx: TaskContext, skip_dp_workflow: bool) -> Optional[str]:
             on_log=ctx.on_log,
             on_confirm=lambda msg: utils.ui.prompt(msg + " (y/n) ").lower().strip()
             == "y",
-            on_select=lambda opts, msg: _select_country_code_adapter(opts, msg),
         )
     return None
-
-
-def _format_country_code_options(options) -> list[str]:
-    formatted: list[str] = []
-    count = len(options)
-    for i in range(0, count, 2):
-        code1, name1 = options[i]
-        item1 = f"{i+1:3d}. {name1} ({code1})"
-
-        if i + 1 < count:
-            code2, name2 = options[i + 1]
-            item2 = f"{i+2:3d}. {name2} ({code2})"
-            formatted.append(f"{item1:<40} {item2}")
-        else:
-            formatted.append(item1)
-    return formatted
-
-
-def _prompt_for_country_code(options) -> str:
-    while True:
-        choice = utils.ui.prompt(get_string("act_enter_num").format(len=len(options)))
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(options):
-                return options[idx][0]
-        except ValueError:
-            pass
-        utils.ui.info(get_string("act_invalid_input"))
-
-
-def _select_country_code_adapter(options, prompt_msg):
-    utils.ui.info(prompt_msg)
-    for line in _format_country_code_options(options):
-        utils.ui.info(line)
-    return _prompt_for_country_code(options)
 
 
 def _check_and_patch_arb(boot_target: str, vbmeta_target: str) -> None:
