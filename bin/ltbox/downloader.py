@@ -109,7 +109,7 @@ def _download_github_asset(
             not tag or tag.lower() == "latest"
         ):
             releases_url = f"https://api.github.com/repos/{owner_repo}/releases"
-            response = requests.get(releases_url, params={"per_page": 100})
+            response = requests.get(releases_url, params={"per_page": 10})
             response.raise_for_status()
 
             releases: list[dict] = []
