@@ -6,7 +6,7 @@ import time
 import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Generator, List, Optional, Union
+from typing import Any, Callable, Generator, Iterable, List, Optional, Union
 
 from . import constants as const
 from .i18n import get_string
@@ -268,6 +268,16 @@ def check_dependencies() -> None:
         raise RuntimeError(get_string("utils_run_install"))
 
     ui.echo(get_string("utils_deps_found"))
+
+
+def move_existing_files(files: Iterable[Path], dst_dir: Path) -> int:
+    dst_dir.mkdir(exist_ok=True, parents=True)
+    moved_count = 0
+    for f in files:
+        if f.exists():
+            shutil.move(str(f), str(dst_dir / f.name))
+            moved_count += 1
+    return moved_count
 
 
 @contextmanager

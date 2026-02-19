@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 from .. import constants as const
-from .. import device
+from .. import device, utils
 from ..i18n import get_string
 from ..patch.avb import (
     _apply_hash_footer,
@@ -113,15 +113,10 @@ def convert_region_images(
     final_images = [final_vendor_boot, const.BASE_DIR / const.FN_VBMETA]
 
     on_log(get_string("act_move_final").format(dir=const.OUTPUT_DIR.name))
-    const.OUTPUT_DIR.mkdir(exist_ok=True)
-    for img in final_images:
-        if img.exists():
-            shutil.move(img, const.OUTPUT_DIR / img.name)
+    utils.move_existing_files(final_images, const.OUTPUT_DIR)
 
     on_log(get_string("act_move_backup").format(dir=const.BACKUP_DIR.name))
-    const.BACKUP_DIR.mkdir(exist_ok=True)
-    for bak_file in const.BASE_DIR.glob("*.bak.img"):
-        shutil.move(bak_file, const.BACKUP_DIR / bak_file.name)
+    utils.move_existing_files(const.BASE_DIR.glob("*.bak.img"), const.BACKUP_DIR)
     on_log("")
 
     on_log("  " + "=" * 78)
