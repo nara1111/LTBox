@@ -9,28 +9,23 @@ from ..crypto import decrypt_file
 from ..i18n import get_string
 
 
-def auto_decrypt_if_needed() -> None:
-    x_files = list(const.IMAGE_DIR.glob("rawprogram*.x"))
-    if not x_files:
+def _clean_existing_files(files: List[Path], log_msg: str, prefix: str = "") -> None:
+    if not files:
         return
+    utils.ui.info(f"{prefix}{log_msg}")
+    for f in files:
+        try:
+            f.unlink()
+        except OSError as e:
+            utils.ui.info(
+                f"{prefix}{get_string('xml_err_delete_fail').format(name=f.name, e=e)}"
+            )
 
-    xml_files = list(const.IMAGE_DIR.glob("rawprogram*.xml"))
-    if xml_files:
-        utils.ui.info(get_string("xml_cleaning_pollution"))
-        for xml_file in xml_files:
-            try:
-                xml_file.unlink()
-            except OSError as e:
-                utils.ui.info(
-                    get_string("xml_err_delete_fail").format(name=xml_file.name, e=e)
-                )
-        utils.ui.info("-" * 60)
 
-    utils.ui.info(get_string("img_xml_scan"))
-
-    decrypted_count = 0
+def _decrypt_files(x_files: List[Path], target_dir: Path) -> int:
+    success_count = 0
     for x_file in x_files:
-        xml_file = x_file.with_suffix(".xml")
+        xml_file = target_dir / x_file.with_suffix(".xml").name
         try:
             if decrypt_file(str(x_file), str(xml_file)):
                 utils.ui.info(
@@ -38,15 +33,46 @@ def auto_decrypt_if_needed() -> None:
                         src=x_file.name, dst=xml_file.name
                     )
                 )
-                decrypted_count += 1
+                success_count += 1
             else:
                 utils.ui.info(
                     get_string("img_xml_decrypt_fail").format(name=x_file.name)
                 )
         except (OSError, ValueError) as e:
-            utils.ui.info(
+            utils.ui.error(
                 get_string("img_xml_decrypt_err").format(name=x_file.name, e=e)
             )
+    return success_count
+
+
+def _move_files(src_files: List[Path], target_dir: Path) -> int:
+    success_count = 0
+    for file in src_files:
+        out_file = target_dir / file.name
+        try:
+            if out_file.exists():
+                out_file.unlink()
+            shutil.move(str(file), str(out_file))
+            utils.ui.info(get_string("img_xml_moved").format(name=file.name))
+            success_count += 1
+        except OSError as e:
+            utils.ui.error(get_string("img_xml_move_err").format(name=file.name, e=e))
+    return success_count
+
+
+def auto_decrypt_if_needed() -> None:
+    x_files = list(const.IMAGE_DIR.glob("rawprogram*.x"))
+    if not x_files:
+        return
+
+    xml_files = list(const.IMAGE_DIR.glob("rawprogram*.xml"))
+    if xml_files:
+        _clean_existing_files(xml_files, get_string("xml_cleaning_pollution"))
+        utils.ui.info("-" * 60)
+
+    utils.ui.info(get_string("img_xml_scan"))
+
+    decrypted_count = _decrypt_files(x_files, const.IMAGE_DIR)
 
     if decrypted_count > 0:
         utils.ui.info(get_string("act_xml_ready").format(dir=const.IMAGE_DIR.name))
@@ -94,15 +120,9 @@ def decrypt_x_files() -> None:
     if x_files:
         utils.ui.info(get_string("xml_check_conflicts"))
         existing_xmls = list(const.IMAGE_DIR.glob("*.xml"))
-        if existing_xmls:
-            utils.ui.info(f"  {get_string('xml_cleaning_clean_decrypt')}")
-            for xml_file in existing_xmls:
-                try:
-                    xml_file.unlink()
-                except OSError as e:
-                    utils.ui.info(
-                        f"  {get_string('xml_err_delete_fail').format(name=xml_file.name, e=e)}"
-                    )
+        _clean_existing_files(
+            existing_xmls, get_string("xml_cleaning_clean_decrypt"), prefix="  "
+        )
 
     xml_files = list(const.IMAGE_DIR.glob("*.xml"))
 
@@ -114,24 +134,8 @@ def decrypt_x_files() -> None:
                 count=len(x_files), dir=const.OUTPUT_XML_DIR.name
             )
         )
-        for file in x_files:
-            out_file = const.OUTPUT_XML_DIR / file.with_suffix(".xml").name
-            try:
-                if decrypt_file(str(file), str(out_file)):
-                    utils.ui.info(
-                        get_string("img_xml_decrypt_ok").format(
-                            src=file.name, dst=out_file.name
-                        )
-                    )
-                    processed_files = True
-                else:
-                    utils.ui.info(
-                        get_string("img_xml_decrypt_fail").format(name=file.name)
-                    )
-            except (OSError, ValueError) as e:
-                utils.ui.error(
-                    get_string("img_xml_decrypt_err").format(name=file.name, e=e)
-                )
+        if _decrypt_files(x_files, const.OUTPUT_XML_DIR) > 0:
+            processed_files = True
 
     if xml_files:
         utils.ui.info(
@@ -139,18 +143,8 @@ def decrypt_x_files() -> None:
                 count=len(xml_files), dir=const.OUTPUT_XML_DIR.name
             )
         )
-        for file in xml_files:
-            out_file = const.OUTPUT_XML_DIR / file.name
-            try:
-                if out_file.exists():
-                    out_file.unlink()
-                shutil.move(str(file), str(out_file))
-                utils.ui.info(get_string("img_xml_moved").format(name=file.name))
-                processed_files = True
-            except OSError as e:
-                utils.ui.error(
-                    get_string("img_xml_move_err").format(name=file.name, e=e)
-                )
+        if _move_files(xml_files, const.OUTPUT_XML_DIR) > 0:
+            processed_files = True
 
     if not processed_files:
         utils.ui.info(get_string("img_xml_no_files").format(dir=const.IMAGE_DIR.name))
