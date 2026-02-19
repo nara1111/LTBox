@@ -59,9 +59,19 @@ def _prompt_partition_selection(labels: List[str]) -> List[str]:
         utils.ui.echo(f"   {get_string('act_flash_partitions_label_title')}")
         utils.ui.echo("=" * 78 + "\n")
 
-        for idx, label in enumerate(labels, start=1):
-            mark = " [v]" if label in selected else ""
-            utils.ui.echo(f"   {idx}. {label}{mark}")
+        count = len(labels)
+        for i in range(0, count, 2):
+            label1 = labels[i]
+            mark1 = " [v]" if label1 in selected else ""
+            item1 = f" {i+1:3d}. {label1}{mark1}"
+
+            if i + 1 < count:
+                label2 = labels[i + 1]
+                mark2 = " [v]" if label2 in selected else ""
+                item2 = f"{i+2:3d}. {label2}{mark2}"
+                utils.ui.echo(f"  {item1:<38} {item2}")
+            else:
+                utils.ui.echo(f"  {item1}")
 
         utils.ui.echo(f"   f. {get_string('act_flash_partitions_select_done')}")
         utils.ui.echo("\n" + "=" * 78 + "\n")
