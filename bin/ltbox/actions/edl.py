@@ -129,6 +129,8 @@ def flash_partition_labels(
         utils.ui.echo(get_string("act_op_cancel"))
         return
 
+    utils.ui.clear()
+
     _validate_selected_partition_images(selected_labels, partition_map)
 
     port = _prepare_edl_session(dev)
