@@ -1,7 +1,6 @@
 import platform
 import re
 import shutil
-import subprocess
 import sys
 import tarfile
 import zipfile
@@ -795,12 +794,6 @@ def install_base_tools(lang_code: str = "en"):
     const.DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
     try:
         utils.ui.echo(get_string("utils_check_deps"))
-        req_path = const.BASE_DIR / "bin" / "requirements.txt"
-        if req_path.exists():
-            subprocess.run(
-                [str(const.PYTHON_EXE), "-m", "pip", "install", "-r", str(req_path)],
-                check=True,
-            )
 
         ensure_platform_tools()
         ensure_avb_tools()
