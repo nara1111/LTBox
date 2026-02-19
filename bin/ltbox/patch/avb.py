@@ -9,6 +9,41 @@ from .. import utils
 from ..i18n import get_string
 
 
+def _analyze_rollback_target(
+    image_name: str,
+    current_rb_index: int,
+    new_image_path: Path,
+    patched_image_path: Path,
+) -> Optional[Dict[str, Any]]:
+    utils.ui.info(get_string("img_analyze_new").format(name=image_name))
+    info = extract_image_avb_info(new_image_path)
+    new_rb_index = int(info.get("rollback", "0"))
+    utils.ui.info(get_string("img_new_index").format(index=new_rb_index))
+
+    if new_rb_index == current_rb_index:
+        utils.ui.info(get_string("img_index_ok").format(name=image_name))
+        shutil.copy(new_image_path, patched_image_path)
+        return None
+
+    utils.ui.info(
+        get_string("img_patch_bypass").format(
+            name=image_name, old=new_rb_index, new=current_rb_index
+        )
+    )
+
+    return info
+
+
+def _require_info_keys(
+    info: Dict[str, Any], required_keys: List[str], image_path: Path
+) -> None:
+    for key in required_keys:
+        if key not in info:
+            raise KeyError(
+                get_string("img_err_missing_key").format(key=key, name=image_path.name)
+            )
+
+
 def extract_image_avb_info(image_path: Path) -> Dict[str, Any]:
     info_proc = utils.run_command(
         [
@@ -138,29 +173,15 @@ def patch_chained_image_rollback(
     patched_image_path: Path,
 ) -> None:
     try:
-        utils.ui.info(get_string("img_analyze_new").format(name=image_name))
-        info = extract_image_avb_info(new_image_path)
-        new_rb_index = int(info.get("rollback", "0"))
-        utils.ui.info(get_string("img_new_index").format(index=new_rb_index))
-
-        if new_rb_index == current_rb_index:
-            utils.ui.info(get_string("img_index_ok").format(name=image_name))
-            shutil.copy(new_image_path, patched_image_path)
+        info = _analyze_rollback_target(
+            image_name, current_rb_index, new_image_path, patched_image_path
+        )
+        if info is None:
             return
 
-        utils.ui.info(
-            get_string("img_patch_bypass").format(
-                name=image_name, old=new_rb_index, new=current_rb_index
-            )
+        _require_info_keys(
+            info, ["partition_size", "name", "salt", "algorithm"], new_image_path
         )
-
-        for key in ["partition_size", "name", "salt", "algorithm"]:
-            if key not in info:
-                raise KeyError(
-                    get_string("img_err_missing_key").format(
-                        key=key, name=new_image_path.name
-                    )
-                )
 
         key_file = None
         if "pubkey_sha1" in info:
@@ -193,29 +214,13 @@ def patch_vbmeta_image_rollback(
     patched_image_path: Path,
 ) -> None:
     try:
-        utils.ui.info(get_string("img_analyze_new").format(name=image_name))
-        info = extract_image_avb_info(new_image_path)
-        new_rb_index = int(info.get("rollback", "0"))
-        utils.ui.info(get_string("img_new_index").format(index=new_rb_index))
-
-        if new_rb_index == current_rb_index:
-            utils.ui.info(get_string("img_index_ok").format(name=image_name))
-            shutil.copy(new_image_path, patched_image_path)
+        info = _analyze_rollback_target(
+            image_name, current_rb_index, new_image_path, patched_image_path
+        )
+        if info is None:
             return
 
-        utils.ui.info(
-            get_string("img_patch_bypass").format(
-                name=image_name, old=new_rb_index, new=current_rb_index
-            )
-        )
-
-        for key in ["algorithm", "pubkey_sha1"]:
-            if key not in info:
-                raise KeyError(
-                    get_string("img_err_missing_key").format(
-                        key=key, name=new_image_path.name
-                    )
-                )
+        _require_info_keys(info, ["algorithm", "pubkey_sha1"], new_image_path)
 
         key_file = const.KEY_MAP.get(info["pubkey_sha1"])
         if not key_file:
