@@ -29,7 +29,8 @@
     "repo": "SukiSU-Ultra/SukiSU-Ultra",
     "tag": "latest",
     "workflow": "21065531649",
-    "manager": "Spoofed-Manager.zip"
+    "manager": "Spoofed-Manager.zip",
+    "manager_fallbacks": ["Manager.zip"]
   },
   "edl": {
     "loader_filename": "xbl_s_devprg_ns.melf"

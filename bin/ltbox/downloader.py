@@ -472,10 +472,10 @@ def download_nightly_artifacts(
     target_dir: Path,
     ksuinit_variants: Optional[list[str]] = None,
     download_all_ksuinit: bool = False,
+    manager_fallback_names: Optional[list[str]] = None,
 ):
     base_url = f"https://nightly.link/{repo}/actions/runs/{workflow_id}"
 
-    manager_url = f"{base_url}/{manager_name}"
     lkm_url = f"{base_url}/{mapped_name}-lkm.zip"
 
     manager_zip = target_dir / manager_name
@@ -485,7 +485,35 @@ def download_nightly_artifacts(
     utils.ui.info(f"Fetching artifacts from Workflow {workflow_id}...")
 
     try:
-        download_resource(manager_url, manager_zip)
+        manager_candidates = [manager_name]
+        if manager_fallback_names:
+            manager_candidates.extend(
+                name
+                for name in manager_fallback_names
+                if name not in manager_candidates
+            )
+
+        manager_downloaded = False
+        for candidate in manager_candidates:
+            candidate_url = f"{base_url}/{candidate}"
+            candidate_path = target_dir / candidate
+            try:
+                download_resource(candidate_url, candidate_path)
+                if candidate_path != manager_zip:
+                    if manager_zip.exists():
+                        manager_zip.unlink()
+                    shutil.move(candidate_path, manager_zip)
+                manager_downloaded = True
+                break
+            except Exception:
+                if candidate_path.exists():
+                    candidate_path.unlink()
+                continue
+
+        if not manager_downloaded:
+            raise ToolError(
+                f"Failed to download manager artifact (tried: {manager_candidates})"
+            )
 
         artifact_names: list[str] = []
         if download_all_ksuinit:

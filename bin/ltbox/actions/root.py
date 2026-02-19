@@ -373,6 +373,7 @@ class LkmRootStrategy(RootStrategy):
                 mapped_name=mapped_name,
                 target_dir=temp_dl_dir,
                 download_all_ksuinit=download_all_ksuinit,
+                manager_fallback_names=self.repo_config.get("manager_fallbacks"),
             )
 
             mgr_zip_path = temp_dl_dir / manager_zip
