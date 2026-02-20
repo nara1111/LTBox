@@ -185,6 +185,19 @@ def _download_github_asset(
         raise ToolError(get_string("dl_github_failed").format(e=e))
 
 
+def _download_and_move_github_asset(
+    repo_url: str, tag: str, asset_pattern: str, target_file: Path
+) -> Path:
+    downloaded_path = _download_github_asset(
+        repo_url, tag, asset_pattern, target_file.parent
+    )
+    if downloaded_path.resolve() != target_file.resolve():
+        if target_file.exists():
+            target_file.unlink()
+        shutil.move(str(downloaded_path), str(target_file))
+    return target_file
+
+
 def _get_latest_release_tag(owner_repo: str) -> str:
     api_url = f"https://api.github.com/repos/{owner_repo}/releases/latest"
     try:
@@ -483,12 +496,8 @@ def get_gki_kernel(kernel_version: str, work_dir: Path) -> Path:
     asset_pattern = f"{re.escape(kernel_version)}.*Normal.*AnyKernel3\\.zip"
 
     try:
-        downloaded_zip = _download_github_asset(repo_ref, tag, asset_pattern, work_dir)
-
         anykernel_zip = work_dir / const.ANYKERNEL_ZIP_FILENAME
-        if anykernel_zip.exists():
-            anykernel_zip.unlink()
-        shutil.move(downloaded_zip, anykernel_zip)
+        _download_and_move_github_asset(repo_ref, tag, asset_pattern, anykernel_zip)
 
         utils.ui.echo(get_string("dl_gki_download_ok"))
 
@@ -641,88 +650,54 @@ def download_nightly_artifacts(
 
 def download_ksu_manager_release(target_dir: Path) -> None:
     utils.ui.echo(get_string("dl_ksu_downloading"))
-
     target_file = target_dir / "manager.apk"
-    if target_file.exists():
-        target_file.unlink()
+    repo_url = f"https://github.com/{const.KSU_APK_REPO}"
 
-    downloaded_path = None
     try:
-        downloaded_path = _download_github_asset(
-            f"https://github.com/{const.KSU_APK_REPO}",
-            const.KSU_APK_TAG,
-            ".*spoofed.*\\.apk",
-            target_dir,
+        _download_and_move_github_asset(
+            repo_url, const.KSU_APK_TAG, ".*spoofed.*\\.apk", target_file
         )
     except ToolError:
         try:
-            downloaded_path = _download_github_asset(
-                f"https://github.com/{const.KSU_APK_REPO}",
-                const.KSU_APK_TAG,
-                ".*\\.apk",
-                target_dir,
+            _download_and_move_github_asset(
+                repo_url, const.KSU_APK_TAG, ".*\\.apk", target_file
             )
         except ToolError as e:
             utils.ui.error(get_string("dl_err_ksu_download").format(e=e))
             return
 
-    if downloaded_path and downloaded_path.exists():
-        shutil.move(downloaded_path, target_file)
-        utils.ui.echo(get_string("dl_ksu_success"))
+    utils.ui.echo(get_string("dl_ksu_success"))
 
 
 def download_magisk_apk(target_dir: Path) -> Path:
     utils.ui.echo(get_string("dl_magisk_downloading"))
-
     target_file = target_dir / "magisk.apk"
-    if target_file.exists():
-        target_file.unlink()
 
-    downloaded_path = _download_github_asset(
+    _download_and_move_github_asset(
         f"https://github.com/{const.MAGISK_REPO}",
         const.MAGISK_TAG,
         r"Magisk.*\.apk",
-        target_dir,
+        target_file,
     )
-    shutil.move(downloaded_path, target_file)
     utils.ui.echo(get_string("dl_magisk_success"))
     return target_file
 
 
 def extract_magisk_libs(apk_path: Path, target_dir: Path) -> None:
-    utils.ui.echo(get_string("dl_magisk_extracting"))
-    lib_map = {
-        "libmagiskinit.so": "magiskinit",
-        "libmagisk.so": "magisk",
-        "libinit-ld.so": "init-ld",
+    extract_map = {
+        "lib/arm64-v8a/libmagiskinit.so": target_dir / "magiskinit",
+        "lib/arm64-v8a/libmagisk.so": target_dir / "magisk",
+        "lib/arm64-v8a/libinit-ld.so": target_dir / "init-ld",
+        "assets/stub.apk": target_dir / "stub.apk",
     }
-    asset_map = {
-        "assets/stub.apk": "stub.apk",
-    }
-    missing = []
 
-    with zipfile.ZipFile(apk_path, "r") as zf:
-        for source_name, target_name in lib_map.items():
-            source_path = f"lib/arm64-v8a/{source_name}"
-            try:
-                member = zf.getinfo(source_path)
-            except KeyError:
-                missing.append(source_name)
-                continue
+    extract_archive_files(apk_path, extract_map)
 
-            target_path = target_dir / target_name
-            _extract_zip_member(zf, member, target_path)
-
-        for source_name, target_name in asset_map.items():
-            try:
-                member = zf.getinfo(source_name)
-            except KeyError:
-                missing.append(source_name)
-                continue
-
-            target_path = target_dir / target_name
-            _extract_zip_member(zf, member, target_path)
-
+    missing = [
+        target_path.name
+        for target_path in extract_map.values()
+        if not target_path.exists()
+    ]
     if missing:
         raise ToolError(
             get_string("dl_magisk_lib_missing").format(files=", ".join(missing))
@@ -760,9 +735,6 @@ def download_ksuinit_release(target_path: Path) -> None:
 
 
 def get_lkm_kernel_release(target_path: Path, kernel_version: str) -> None:
-    if target_path.exists():
-        target_path.unlink()
-
     if not kernel_version:
         raise ToolError(get_string("err_req_kernel_ver_lkm"))
 
@@ -772,13 +744,12 @@ def get_lkm_kernel_release(target_path: Path, kernel_version: str) -> None:
     utils.ui.echo(get_string("dl_lkm_downloading").format(asset=asset_pattern_regex))
 
     try:
-        downloaded_file = _download_github_asset(
+        _download_and_move_github_asset(
             f"https://github.com/{const.KSU_APK_REPO}",
             const.KSU_APK_TAG,
             asset_pattern_regex,
-            target_path.parent,
+            target_path,
         )
-        shutil.move(downloaded_file, target_path)
         utils.ui.echo(get_string("dl_lkm_download_ok"))
     except (ToolError, OSError) as e:
         utils.ui.error(
