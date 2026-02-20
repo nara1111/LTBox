@@ -45,11 +45,11 @@ if not exist "%PYTHON_DIR%\Scripts\pip.exe" (
     del "%GETPIP_PATH%"
 )
 
-:: Install Python dependencies
+:: Install and Update Python dependencies
 set "REQUIREMENTS_PATH=%BASE_DIR%\requirements.txt"
 if exist "%REQUIREMENTS_PATH%" (
-    echo [*] Installing Python dependencies...
-    "%PYTHON_DIR%\python.exe" -m pip install -r "%REQUIREMENTS_PATH%" || exit /b 1
+    echo [*] Installing/Updating Python dependencies...
+    "%PYTHON_DIR%\python.exe" -m pip install --upgrade -r "%REQUIREMENTS_PATH%" || exit /b 1
 ) else (
     echo [!] Requirements file not found: %REQUIREMENTS_PATH%
     exit /b 1
