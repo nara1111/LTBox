@@ -247,12 +247,7 @@ def flash_partition_labels(
             start_sector=start_sector,
         )
 
-    if not skip_reset:
-        utils.ui.echo(get_string("act_reboot_device"))
-        dev.edl.reset(port)
-    else:
-        utils.ui.echo(get_string("act_skip_reboot"))
-
+    _handle_edl_reset(dev, port, skip_reset)
     utils.ui.echo(get_string("act_write_finish"))
 
 
@@ -285,6 +280,37 @@ def _prepare_edl_session(dev: device.DeviceController) -> str:
         utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
 
     return port
+
+
+def _handle_edl_reset(
+    dev: device.DeviceController,
+    port: str,
+    skip_reset: bool,
+    reset_msg_key: str = "act_reboot_device",
+    skip_msg_key: str = "act_skip_reboot",
+    pre_sleep: int = 0,
+    post_sleep: int = 0,
+) -> None:
+    if skip_reset:
+        utils.ui.echo(get_string(skip_msg_key))
+        return
+
+    if pre_sleep > 0:
+        utils.ui.echo(get_string("act_wait_stability"))
+        time.sleep(pre_sleep)
+
+    utils.ui.echo(get_string(reset_msg_key))
+    try:
+        utils.ui.echo(get_string("device_resetting"))
+        dev.edl.reset(port)
+        utils.ui.echo(get_string("act_reset_sent"))
+
+        if post_sleep > 0:
+            utils.ui.echo(get_string("act_wait_stability_long"))
+            time.sleep(post_sleep)
+
+    except Exception as e:
+        utils.ui.error(get_string("act_err_reset").format(e=e))
 
 
 def flash_partition_target(
@@ -401,15 +427,14 @@ def dump_partitions(
     utils.ui.echo(get_string("act_dump_finish"))
     utils.ui.echo(get_string("act_dump_saved").format(dir=const.BACKUP_DIR.name))
 
-    if not skip_reset:
-        utils.ui.echo(get_string("act_reset_sys"))
-        utils.ui.echo(get_string("device_resetting"))
-        dev.edl.reset(port)
-        utils.ui.echo(get_string("act_reset_sent"))
-        utils.ui.echo(get_string("act_wait_stability_long"))
-        time.sleep(15)
-    else:
-        utils.ui.echo(get_string("act_skip_reset"))
+    _handle_edl_reset(
+        dev,
+        port,
+        skip_reset,
+        reset_msg_key="act_reset_sys",
+        skip_msg_key="act_skip_reset",
+        post_sleep=15,
+    )
 
 
 def flash_partitions(
@@ -447,16 +472,7 @@ def flash_partitions(
             utils.ui.error(get_string("act_err_edl_write").format(e=e))
             raise
 
-    if not skip_reset:
-        utils.ui.echo(get_string("act_reboot_device"))
-        try:
-            utils.ui.echo(get_string("device_resetting"))
-            dev.edl.reset(port)
-        except Exception as e:
-            utils.ui.echo(get_string("device_err_reboot").format(e=e))
-    else:
-        utils.ui.echo(get_string("act_skip_reboot"))
-
+    _handle_edl_reset(dev, port, skip_reset)
     utils.ui.echo(get_string("act_write_finish"))
 
 
@@ -514,13 +530,13 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
         flash_partition_target(dev, port, target_boot, boot_img)
         flash_partition_target(dev, port, target_vbmeta, vbmeta_img)
 
-        if not skip_reset:
-            utils.ui.echo(get_string("act_arb_reset"))
-            utils.ui.echo(get_string("device_resetting"))
-            dev.edl.reset(port)
-            utils.ui.echo(get_string("act_reset_sent"))
-        else:
-            utils.ui.echo(get_string("act_arb_skip_reset"))
+        _handle_edl_reset(
+            dev,
+            port,
+            skip_reset,
+            reset_msg_key="act_arb_reset",
+            skip_msg_key="act_arb_skip_reset",
+        )
 
     except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
         utils.ui.error(get_string("act_err_edl_write").format(e=e))
@@ -716,18 +732,15 @@ def flash_full_firmware(
 
     if not skip_reset:
         utils.ui.echo(get_string("act_flash_step3"))
-        try:
-            utils.ui.echo(get_string("act_wait_stability"))
-            time.sleep(5)
 
-            utils.ui.echo(get_string("act_reset_sys"))
-            utils.ui.echo(get_string("device_resetting"))
-            dev.edl.reset(port)
-            utils.ui.echo(get_string("act_reset_sent"))
-        except (subprocess.CalledProcessError, FileNotFoundError, Exception) as e:
-            utils.ui.error(get_string("act_err_reset").format(e=e))
-    else:
-        utils.ui.echo(get_string("act_skip_final_reset"))
+    _handle_edl_reset(
+        dev,
+        port,
+        skip_reset,
+        reset_msg_key="act_reset_sys",
+        skip_msg_key="act_skip_final_reset",
+        pre_sleep=5,
+    )
 
     if not skip_reset:
         utils.ui.echo(get_string("act_flash_finish"))
