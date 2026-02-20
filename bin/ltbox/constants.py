@@ -133,7 +133,7 @@ class LTBoxConfig:
 
     @property
     def sukisu_workflow(self) -> str:
-        return self._get_val("sukisu-ultra", "workflow")
+        return self._get_val("sukisu-ultra", "workflow", default="")
 
     @property
     def release_owner(self) -> str:
