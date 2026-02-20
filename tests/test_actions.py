@@ -326,7 +326,6 @@ def test_root_lkm(fw_pkg, tmp_path):
 
         strategy = LkmRootStrategy()
 
-        strategy.staging_dir = mock_dirs["TOOLS_DIR"] / "lkm_staging"
         strategy.staging_dir.mkdir(parents=True, exist_ok=True)
 
         print(
