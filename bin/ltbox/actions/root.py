@@ -118,6 +118,79 @@ class ConfigurableRootStrategy(RootStrategy):
         return partition_map
 
 
+class InitBootRootStrategy(ConfigurableRootStrategy):
+
+    @property
+    @abstractmethod
+    def payload_files(self) -> List[str]:
+        pass
+
+    @property
+    @abstractmethod
+    def root_type(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def staging_dir(self) -> Path:
+        pass
+
+    def patch(
+        self,
+        work_dir: Path,
+        dev: Optional[device.DeviceController] = None,
+        lkm_kernel_version: Optional[str] = None,
+    ) -> Optional[Path]:
+        magiskboot_exe = utils.get_platform_executable("magiskboot")
+        ensure_magiskboot()
+
+        init_boot_source = work_dir / self.image_name
+        init_boot_backup = const.BASE_DIR / self.backup_name
+        if init_boot_source.exists() and not init_boot_backup.exists():
+            shutil.copy(init_boot_source, init_boot_backup)
+
+        if not all((self.staging_dir / name).exists() for name in self.payload_files):
+            if not self.download_resources(lkm_kernel_version):
+                return None
+
+        for name in self.payload_files:
+            shutil.copy(self.staging_dir / name, work_dir / name)
+
+        kernel_ver_arg = lkm_kernel_version if self.root_type != "magisk" else None
+
+        return patch_boot_with_root_algo(
+            work_dir,
+            magiskboot_exe,
+            dev,
+            gki=False,
+            lkm_kernel_version=kernel_ver_arg,
+            root_type=self.root_type,
+            skip_lkm_download=True,
+        )
+
+    def finalize_patch(
+        self, patched_boot: Path, output_dir: Path, backup_source_dir: Path
+    ) -> Path:
+        process_boot_image_avb(patched_boot, gki=False, backup_dir=backup_source_dir)
+
+        vbmeta_bak = backup_source_dir / const.FN_VBMETA_BAK
+        patched_vbmeta_path = const.BASE_DIR / const.FN_VBMETA_ROOT
+
+        rebuild_vbmeta_with_chained_images(
+            output_path=patched_vbmeta_path,
+            original_vbmeta_path=vbmeta_bak,
+            chained_images=[patched_boot],
+        )
+
+        final_boot = output_dir / self.image_name
+        shutil.move(patched_boot, final_boot)
+
+        if patched_vbmeta_path.exists():
+            shutil.move(patched_vbmeta_path, output_dir / const.FN_VBMETA)
+
+        return final_boot
+
+
 class GkiRootStrategy(ConfigurableRootStrategy):
     spec = RootStrategySpec(
         image_name=const.FN_BOOT,
@@ -152,7 +225,7 @@ class GkiRootStrategy(ConfigurableRootStrategy):
         return final_boot
 
 
-class MagiskRootStrategy(ConfigurableRootStrategy):
+class MagiskRootStrategy(InitBootRootStrategy):
     spec = RootStrategySpec(
         image_name=const.FN_INIT_BOOT,
         backup_name=const.FN_INIT_BOOT_BAK,
@@ -163,7 +236,19 @@ class MagiskRootStrategy(ConfigurableRootStrategy):
     )
 
     def __init__(self) -> None:
-        self.staging_dir = const.TOOLS_DIR / "magisk_staging"
+        self._staging_dir = const.TOOLS_DIR / "magisk_staging"
+
+    @property
+    def staging_dir(self) -> Path:
+        return self._staging_dir
+
+    @property
+    def payload_files(self) -> List[str]:
+        return ["magiskinit", "magisk", "init-ld", "stub.apk"]
+
+    @property
+    def root_type(self) -> str:
+        return "magisk"
 
     def download_resources(self, kernel_version: Optional[str] = None) -> bool:
         _cleanup_manager_apk(show_message=False)
@@ -185,69 +270,8 @@ class MagiskRootStrategy(ConfigurableRootStrategy):
         shutil.copy(apk_path, manager_path)
         return True
 
-    def patch(
-        self,
-        work_dir: Path,
-        dev: Optional[device.DeviceController] = None,
-        lkm_kernel_version: Optional[str] = None,
-    ) -> Optional[Path]:
-        magiskboot_exe = utils.get_platform_executable("magiskboot")
-        ensure_magiskboot()
 
-        init_boot_source = work_dir / self.image_name
-        init_boot_backup = const.BASE_DIR / self.backup_name
-        if init_boot_source.exists() and not init_boot_backup.exists():
-            shutil.copy(init_boot_source, init_boot_backup)
-
-        magisk_files = [
-            "magiskinit",
-            "magisk",
-            "init-ld",
-            "stub.apk",
-        ]
-        if all((self.staging_dir / name).exists() for name in magisk_files):
-            for name in magisk_files:
-                shutil.copy(self.staging_dir / name, work_dir / name)
-        else:
-            if not self.download_resources(lkm_kernel_version):
-                return None
-            for name in magisk_files:
-                shutil.copy(self.staging_dir / name, work_dir / name)
-
-        return patch_boot_with_root_algo(
-            work_dir,
-            magiskboot_exe,
-            dev,
-            gki=False,
-            lkm_kernel_version=None,
-            root_type="magisk",
-            skip_lkm_download=True,
-        )
-
-    def finalize_patch(
-        self, patched_boot: Path, output_dir: Path, backup_source_dir: Path
-    ) -> Path:
-        process_boot_image_avb(patched_boot, gki=False, backup_dir=backup_source_dir)
-
-        vbmeta_bak = backup_source_dir / const.FN_VBMETA_BAK
-        patched_vbmeta_path = const.BASE_DIR / const.FN_VBMETA_ROOT
-
-        rebuild_vbmeta_with_chained_images(
-            output_path=patched_vbmeta_path,
-            original_vbmeta_path=vbmeta_bak,
-            chained_images=[patched_boot],
-        )
-
-        final_boot = output_dir / self.image_name
-        shutil.move(patched_boot, final_boot)
-
-        if patched_vbmeta_path.exists():
-            shutil.move(patched_vbmeta_path, output_dir / const.FN_VBMETA)
-
-        return final_boot
-
-
-class LkmRootStrategy(ConfigurableRootStrategy):
+class LkmRootStrategy(InitBootRootStrategy):
     spec = RootStrategySpec(
         image_name=const.FN_INIT_BOOT,
         backup_name=const.FN_INIT_BOOT_BAK,
@@ -258,12 +282,24 @@ class LkmRootStrategy(ConfigurableRootStrategy):
     )
 
     def __init__(self, root_type: str = "ksu"):
-        self.root_type = root_type
+        self._root_type = root_type
         self.is_nightly = False
         self.is_tagged_build = False
         self.workflow_id: Optional[str] = None
         self.repo_config: Dict[str, Any] = {}
-        self.staging_dir = const.TOOLS_DIR / "lkm_staging"
+        self._staging_dir = const.TOOLS_DIR / "lkm_staging"
+
+    @property
+    def staging_dir(self) -> Path:
+        return self._staging_dir
+
+    @property
+    def payload_files(self) -> List[str]:
+        return ["init", "kernelsu.ko"]
+
+    @property
+    def root_type(self) -> str:
+        return self._root_type
 
     def _get_mapped_kernel_name(self, kernel_version: str) -> Optional[str]:
         if not kernel_version:
@@ -468,58 +504,6 @@ class LkmRootStrategy(ConfigurableRootStrategy):
                     self.staging_dir / "kernelsu.ko", kernel_version
                 )
             return True
-
-    def patch(
-        self,
-        work_dir: Path,
-        dev: Optional[device.DeviceController] = None,
-        lkm_kernel_version: Optional[str] = None,
-    ) -> Optional[Path]:
-        magiskboot_exe = utils.get_platform_executable("magiskboot")
-        ensure_magiskboot()
-
-        if (self.staging_dir / "init").exists() and (
-            self.staging_dir / "kernelsu.ko"
-        ).exists():
-            shutil.copy(self.staging_dir / "init", work_dir / "init")
-            shutil.copy(self.staging_dir / "kernelsu.ko", work_dir / "kernelsu.ko")
-        else:
-            if not self.download_resources(lkm_kernel_version):
-                return None
-            shutil.copy(self.staging_dir / "init", work_dir / "init")
-            shutil.copy(self.staging_dir / "kernelsu.ko", work_dir / "kernelsu.ko")
-
-        return patch_boot_with_root_algo(
-            work_dir,
-            magiskboot_exe,
-            dev,
-            gki=False,
-            lkm_kernel_version=lkm_kernel_version,
-            root_type=self.root_type,
-            skip_lkm_download=True,
-        )
-
-    def finalize_patch(
-        self, patched_boot: Path, output_dir: Path, backup_source_dir: Path
-    ) -> Path:
-        process_boot_image_avb(patched_boot, gki=False, backup_dir=backup_source_dir)
-
-        vbmeta_bak = backup_source_dir / const.FN_VBMETA_BAK
-        patched_vbmeta_path = const.BASE_DIR / const.FN_VBMETA_ROOT
-
-        rebuild_vbmeta_with_chained_images(
-            output_path=patched_vbmeta_path,
-            original_vbmeta_path=vbmeta_bak,
-            chained_images=[patched_boot],
-        )
-
-        final_boot = output_dir / self.image_name
-        shutil.move(patched_boot, final_boot)
-
-        if patched_vbmeta_path.exists():
-            shutil.move(patched_vbmeta_path, output_dir / const.FN_VBMETA)
-
-        return final_boot
 
 
 def _patch_root_image_from_image_folder(
