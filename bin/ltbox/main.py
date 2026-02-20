@@ -342,26 +342,35 @@ def run_task(
     require_dev = cmd_info.require_dev
     result_handler = cmd_info.result_handler
 
+    is_workflow = command in ("patch_all", "patch_all_wipe")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = f"log_{command}_{timestamp}.txt" if not is_workflow else None
+
     try:
-        if dev and hasattr(dev, "reset_task_state"):
-            dev.reset_task_state()
+        with logging_context(log_filename):
+            if dev and hasattr(dev, "reset_task_state"):
+                dev.reset_task_state()
 
-        final_kwargs = base_kwargs.copy()
+            if not is_workflow:
+                ui.info(get_string("logging_enabled").format(log_file=log_filename))
+                ui.info(get_string("logging_command").format(command=command))
 
-        if extra_kwargs:
-            final_kwargs.update(extra_kwargs)
+            final_kwargs = base_kwargs.copy()
 
-        if require_dev:
-            final_kwargs["dev"] = dev
+            if extra_kwargs:
+                final_kwargs.update(extra_kwargs)
 
-        result = func(**final_kwargs)
+            if require_dev:
+                final_kwargs["dev"] = dev
 
-        if result_handler:
-            result_handler(result)
-        elif isinstance(result, str) and result:
-            ui.echo(result)
-        elif result:
-            ui.echo(get_string("act_unhandled_success_result").format(res=result))
+            result = func(**final_kwargs)
+
+            if result_handler:
+                result_handler(result)
+            elif isinstance(result, str) and result:
+                ui.echo(result)
+            elif result:
+                ui.echo(get_string("act_unhandled_success_result").format(res=result))
 
     except Exception as e:
         _handle_task_error(e, title)
@@ -370,6 +379,9 @@ def run_task(
             dev.adb.force_kill_server()
         if dev and hasattr(dev, "fastboot"):
             dev.fastboot.force_kill_server()
+
+        if not is_workflow:
+            ui.info(get_string("logging_finished").format(log_file=log_filename))
 
         ui.echo("")
         input(get_string("press_enter_to_continue"))

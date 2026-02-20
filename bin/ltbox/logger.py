@@ -21,8 +21,10 @@ def get_logger() -> logging.Logger:
 def logging_context(log_filename: Optional[str] = None):
     handlers_to_remove = []
 
+    has_file_handler = any(isinstance(h, logging.FileHandler) for h in _logger.handlers)
+
     try:
-        if log_filename:
+        if log_filename and not has_file_handler:
             file_handler = logging.FileHandler(log_filename, encoding="utf-8")
             file_handler.setFormatter(
                 logging.Formatter("%(asctime)s - %(message)s", datefmt="%H:%M:%S")
