@@ -4,7 +4,7 @@ import time
 import traceback
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .. import constants as const
 from .. import device, utils
@@ -13,14 +13,14 @@ from ..partition import ensure_params_or_fail
 from . import xml
 
 
-def _collect_base_partitions() -> Dict[str, Dict]:
+def _collect_base_partitions() -> Dict[str, Any]:
     xml.ensure_xml_files()
 
     xml_files = sorted(const.IMAGE_DIR.glob("rawprogram*.xml"))
     if not xml_files:
         xml_files = sorted(const.OUTPUT_XML_DIR.glob("rawprogram*.xml"))
 
-    partitions = {}
+    partitions: Dict[str, Any] = {}
 
     for xml_file in xml_files:
         try:
