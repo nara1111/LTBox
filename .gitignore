@@ -13,5 +13,6 @@ desktop.ini
 get-pip.py
 image/
 input*/
+log/
 output*/
 working/

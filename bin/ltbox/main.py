@@ -344,7 +344,12 @@ def run_task(
 
     is_workflow = command in ("patch_all", "patch_all_wipe")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = f"log_{command}_{timestamp}.txt" if not is_workflow else None
+
+    log_filename = None
+    if not is_workflow:
+        log_dir = BASE_DIR / "log"
+        log_dir.mkdir(exist_ok=True)
+        log_filename = str(log_dir / f"log_{command}_{timestamp}.txt")
 
     try:
         with logging_context(log_filename):
@@ -391,7 +396,9 @@ def run_info_scan(paths, constants, avb_patch):
     print(get_string("scan_start"))
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = constants.BASE_DIR / f"image_info_{timestamp}.txt"
+    log_dir = constants.BASE_DIR / "log"
+    log_dir.mkdir(exist_ok=True)
+    log_filename = log_dir / f"image_info_{timestamp}.txt"
 
     files_to_scan = []
     for path_str in paths:
