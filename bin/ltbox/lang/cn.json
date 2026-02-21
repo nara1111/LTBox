@@ -171,6 +171,7 @@
   "act_rom_mismatch_abort": "[!] ROM 不匹配。正在中止。",
   "act_root_err_lkm_skip_adb": "[!] LKM root 与 '跳过 ADB' 不兼容，因为它需要获取内核版本。",
   "act_root_err_lkm_skip_adb_exc": "LKM root 需要 ADB 获取内核版本。",
+  "act_root_warn_brick": "[!] 警告：请勿尝试在管理器应用内安装、更新或卸载 Root。这一定会导致您的设备变砖。",
   "act_root_finish": "\n[*] Root 流程完成",
   "act_root_manual_flash_notice": "  [注意] 您必须使用 Fastboot 手动将生成的\n       镜像刷入您的设备。",
   "act_root_saved_file": "  修补后的 {name} 保存至 '{dir}'。",

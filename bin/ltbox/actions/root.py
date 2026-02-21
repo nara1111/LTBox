@@ -944,6 +944,9 @@ def root_device(
 
     _flash_root_image(dev, strategy, partition_map, gki)
 
+    utils.ui.echo("\n" + "!" * 78)
+    utils.ui.error(get_string("act_root_warn_brick"))
+    utils.ui.echo("!" * 78 + "\n")
     utils.ui.echo(get_string("act_root_finish"))
 
 

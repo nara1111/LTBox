@@ -174,6 +174,7 @@
   "act_root_finish": "\n[*] Root Process Finished",
   "act_root_manual_flash_notice": "  [NOTICE] You must manually flash the generated\n       images to your device using Fastboot.",
   "act_root_saved_file": "  Patched {name} saved to '{dir}'.",
+  "act_root_warn_brick": "[!] WARNING: Do NOT attempt to install, update, or uninstall root from within the manager app. It WILL BRICK your device.",
   "act_root_step1": "\n[STEP 1/6] ADB Connection & Slot Detection",
   "act_root_step2": "\n[STEP 2/6] Rebooting to EDL",
   "act_root_step3_dump": "\n[STEP 3/6] Dumping {part}{suffix}",
