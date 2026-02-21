@@ -17,7 +17,7 @@ on:
       - '.github/workflows/windows_test.yml'
 
 jobs:
-  prepare-fw-cache:
+  test:
     runs-on: windows-latest
 
     steps:
@@ -29,88 +29,15 @@ jobs:
           if (Test-Path "C:\Android") { Remove-Item -Recurse -Force "C:\Android" -ErrorAction SilentlyContinue }
           Get-PSDrive C | Select-Object Used,Free
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Setup Environment & FW Cache
+        uses: ./.github/actions/setup-fw-env
         with:
-          python-version: '3.14'
-          cache: 'pip'
-          cache-dependency-path: |
-            bin/requirements.txt
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r bin/requirements.txt
-          pip install pypdl py7zr requests
-
-      - name: Restore FW cache
-        id: cache-fw
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            tests/data/extracted
-            tests/data/url.txt
-          key: fw-extracted-v1-${{ hashFiles('tests/scripts/cache_fw.py') }}
-          restore-keys: |
-            fw-extracted-v1-
-
-      - name: Prefetch FW archive
-        env:
-          TEST_FW_PASSWORD: ${{ secrets.TEST_FW_PASSWORD }}
-          PYTHONUNBUFFERED: "1"
-          PYTHONPATH: "bin"
-        run: |
-          python tests/scripts/cache_fw.py
-
-      - name: Save FW cache
-        if: ${{ always() && hashFiles('tests/data/url.txt') != '' && steps.cache-fw.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v5
-        with:
-          path: |
-            tests/data/extracted
-            tests/data/url.txt
-          key: fw-extracted-v1-${{ hashFiles('tests/scripts/cache_fw.py') }}
-
-  build:
-    runs-on: windows-latest
-    needs: prepare-fw-cache
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Free Disk Space (Windows)
-        run: |
-          Write-Host "Cleaning up disk space..."
-          if (Test-Path "C:\Android") { Remove-Item -Recurse -Force "C:\Android" -ErrorAction SilentlyContinue }
-          Get-PSDrive C | Select-Object Used,Free
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.14'
-          cache: 'pip'
-          cache-dependency-path: |
-            bin/requirements.txt
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r bin/requirements.txt
-          pip install pytest pytest-cov py7zr requests
+          fw-password: ${{ secrets.TEST_FW_PASSWORD }}
+          install-test-deps: 'true'
 
       - name: Smoke Test (Compile)
         run: |
           python -m compileall bin/ltbox
-
-      - name: Restore FW cache
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            tests/data/extracted
-            tests/data/url.txt
-          key: fw-extracted-v1-${{ hashFiles('tests/scripts/cache_fw.py') }}
-          restore-keys: |
-            fw-extracted-v1-
 
       - name: Run Unit Tests
         env:
