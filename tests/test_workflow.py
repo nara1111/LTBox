@@ -9,12 +9,12 @@ def test_patch_all_flow_standard(mock_env):
     mock_dev.detect_active_slot.return_value = "_a"
     mock_dev.adb.get_model.return_value = "TestModel"
 
-    with patch("ltbox.workflow.actions") as mock_actions, patch(
-        "ltbox.workflow.utils.ui"
-    ), patch("ltbox.workflow._wait_for_input_images"), patch(
-        "ltbox.workflow._cleanup_previous_outputs"
+    with (
+        patch("ltbox.workflow.actions") as mock_actions,
+        patch("ltbox.workflow.utils.ui"),
+        patch("ltbox.workflow._wait_for_input_images"),
+        patch("ltbox.workflow._cleanup_previous_outputs"),
     ):
-
         mock_actions.read_anti_rollback.return_value = ("OK", "PASS")
 
         workflow.patch_all(dev=mock_dev, wipe=0, target_region="PRC")
@@ -30,12 +30,12 @@ def test_patch_all_flow_standard(mock_env):
 
 def test_patch_all_skip_arb():
     mock_dev = MagicMock()
-    with patch("ltbox.workflow.actions") as mock_actions, patch(
-        "ltbox.workflow.utils.ui"
-    ), patch("ltbox.workflow._wait_for_input_images"), patch(
-        "ltbox.workflow._cleanup_previous_outputs"
+    with (
+        patch("ltbox.workflow.actions") as mock_actions,
+        patch("ltbox.workflow.utils.ui"),
+        patch("ltbox.workflow._wait_for_input_images"),
+        patch("ltbox.workflow._cleanup_previous_outputs"),
     ):
-
         workflow.patch_all(dev=mock_dev, skip_rollback=True)
 
         mock_actions.read_anti_rollback.assert_not_called()

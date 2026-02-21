@@ -173,7 +173,6 @@ class ConfigurableRootStrategy(RootStrategy):
 
 
 class InitBootRootStrategy(ConfigurableRootStrategy):
-
     @property
     @abstractmethod
     def payload_files(self) -> List[str]:
@@ -526,9 +525,10 @@ class LkmRootStrategy(InitBootRootStrategy):
                 with zipfile.ZipFile(mgr_zip_path, "r") as zf:
                     for name in zf.namelist():
                         if name.endswith(".apk"):
-                            with zf.open(name) as src, open(
-                                const.TOOLS_DIR / "manager.apk", "wb"
-                            ) as dst:
+                            with (
+                                zf.open(name) as src,
+                                open(const.TOOLS_DIR / "manager.apk", "wb") as dst,
+                            ):
                                 shutil.copyfileobj(src, dst)
                             apk_found = True
                             break
@@ -546,9 +546,10 @@ class LkmRootStrategy(InitBootRootStrategy):
                 with zipfile.ZipFile(lkm_zip, "r") as zf:
                     for name in zf.namelist():
                         if name.endswith("kernelsu.ko"):
-                            with zf.open(name) as src, open(
-                                self.staging_dir / "kernelsu.ko", "wb"
-                            ) as dst:
+                            with (
+                                zf.open(name) as src,
+                                open(self.staging_dir / "kernelsu.ko", "wb") as dst,
+                            ):
                                 shutil.copyfileobj(src, dst)
                             ko_found = True
                             break

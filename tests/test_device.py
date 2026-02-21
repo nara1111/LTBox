@@ -11,10 +11,13 @@ def test_adb_get_model_retry_success():
     mock_device.get_state.return_value = "device"
     mock_device.prop.model = "Lenovo TB-Test"
 
-    with patch(
-        "adbutils.adb.device_list", side_effect=[[], [], [mock_device], [mock_device]]
-    ), patch("ltbox.device.time.sleep", return_value=None):
-
+    with (
+        patch(
+            "adbutils.adb.device_list",
+            side_effect=[[], [], [mock_device], [mock_device]],
+        ),
+        patch("ltbox.device.time.sleep", return_value=None),
+    ):
         model = manager.get_model()
         assert model == "Lenovo TB-Test"
 

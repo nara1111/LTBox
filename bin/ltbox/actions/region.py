@@ -131,11 +131,11 @@ def _default_select_callback(options: List[Tuple[str, str]], prompt_msg: str) ->
     count = len(options)
     for i in range(0, count, 2):
         code1, name1 = options[i]
-        item1 = f"{i+1:3d}. {name1} ({code1})"
+        item1 = f"{i + 1:3d}. {name1} ({code1})"
 
         if i + 1 < count:
             code2, name2 = options[i + 1]
-            item2 = f"{i+2:3d}. {name2} ({code2})"
+            item2 = f"{i + 2:3d}. {name2} ({code2})"
             print(f"{item1:<40} {item2}")
         else:
             print(item1)

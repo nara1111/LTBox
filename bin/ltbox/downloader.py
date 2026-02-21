@@ -629,17 +629,19 @@ def download_nightly_artifacts(
                 with zipfile.ZipFile(temp_ksuinit_zip, "r") as zf:
                     for member in zf.namelist():
                         if member.endswith("ksuinit"):
-                            with zf.open(member) as src, open(
-                                ksuinit_dest, "wb"
-                            ) as dst:
+                            with (
+                                zf.open(member) as src,
+                                open(ksuinit_dest, "wb") as dst,
+                            ):
                                 shutil.copyfileobj(src, dst)
                             ksuinit_downloaded = True
                             if download_all_ksuinit:
                                 variant_name = variant.replace("/", "_")
                                 variant_dest = target_dir / f"{variant_name}.ksuinit"
-                                with zf.open(member) as src, open(
-                                    variant_dest, "wb"
-                                ) as dst:
+                                with (
+                                    zf.open(member) as src,
+                                    open(variant_dest, "wb") as dst,
+                                ):
                                     shutil.copyfileobj(src, dst)
                             break
                 temp_ksuinit_zip.unlink()

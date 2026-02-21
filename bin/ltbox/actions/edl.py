@@ -82,12 +82,12 @@ def _prompt_partition_selection(labels: List[str]) -> List[str]:
         for i in range(0, count, 2):
             label1 = labels[i]
             mark1 = " [v]" if label1 in selected else ""
-            item1 = f" {i+1:3d}. {label1}{mark1}"
+            item1 = f" {i + 1:3d}. {label1}{mark1}"
 
             if i + 1 < count:
                 label2 = labels[i + 1]
                 mark2 = " [v]" if label2 in selected else ""
-                item2 = f"{i+2:3d}. {label2}{mark2}"
+                item2 = f"{i + 2:3d}. {label2}{mark2}"
                 utils.ui.echo(f"  {item1:<38} {item2}")
             else:
                 utils.ui.echo(f"  {item1}")

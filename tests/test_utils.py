@@ -59,10 +59,10 @@ class TestUtils:
             ]
         }
 
-        with patch("requests.get") as m_get, patch(
-            "ltbox.downloader.download_resource"
-        ) as m_dl:
-
+        with (
+            patch("requests.get") as m_get,
+            patch("ltbox.downloader.download_resource") as m_dl,
+        ):
             m_get.return_value.json.return_value = resp
             m_get.return_value.status_code = 200
 
@@ -159,9 +159,10 @@ class TestUtils:
             },
         ]
 
-        with patch("requests.get") as m_get, patch(
-            "ltbox.downloader.download_resource"
-        ) as m_dl:
+        with (
+            patch("requests.get") as m_get,
+            patch("ltbox.downloader.download_resource") as m_dl,
+        ):
             m_get.return_value.json.return_value = releases
             m_get.return_value.raise_for_status.return_value = None
 
@@ -191,21 +192,17 @@ class TestUtils:
         for path in (python_exe, adb_exe, fastboot_exe, avbtool_py):
             path.write_text("ok", encoding="utf-8")
 
-        with patch("ltbox.utils.const.BASE_DIR", base_dir), patch(
-            "ltbox.utils.const.PYTHON_EXE", python_exe
-        ), patch("ltbox.utils.const.ADB_EXE", adb_exe), patch(
-            "ltbox.utils.const.FASTBOOT_EXE", fastboot_exe
-        ), patch(
-            "ltbox.utils.const.AVBTOOL_PY", avbtool_py
-        ), patch(
-            "ltbox.utils.const.EDL_EXE", edl_exe
-        ), patch(
-            "ltbox.utils.const.QSAHARASERVER_EXE", qs_exe
-        ), patch(
-            "ltbox.utils.const.KEY_MAP", {}
-        ), patch(
-            "ltbox.utils.ui"
-        ) as mock_ui:
+        with (
+            patch("ltbox.utils.const.BASE_DIR", base_dir),
+            patch("ltbox.utils.const.PYTHON_EXE", python_exe),
+            patch("ltbox.utils.const.ADB_EXE", adb_exe),
+            patch("ltbox.utils.const.FASTBOOT_EXE", fastboot_exe),
+            patch("ltbox.utils.const.AVBTOOL_PY", avbtool_py),
+            patch("ltbox.utils.const.EDL_EXE", edl_exe),
+            patch("ltbox.utils.const.QSAHARASERVER_EXE", qs_exe),
+            patch("ltbox.utils.const.KEY_MAP", {}),
+            patch("ltbox.utils.ui") as mock_ui,
+        ):
             with pytest.raises(RuntimeError):
                 utils.check_dependencies()
 
@@ -238,21 +235,17 @@ class TestUtils:
         edl_exe.write_bytes(Path(src_fh_loader).read_bytes())
         qs_exe.write_bytes(Path(src_qsahara).read_bytes())
 
-        with patch("ltbox.utils.const.BASE_DIR", base_dir), patch(
-            "ltbox.utils.const.PYTHON_EXE", python_exe
-        ), patch("ltbox.utils.const.ADB_EXE", adb_exe), patch(
-            "ltbox.utils.const.FASTBOOT_EXE", fastboot_exe
-        ), patch(
-            "ltbox.utils.const.AVBTOOL_PY", avbtool_py
-        ), patch(
-            "ltbox.utils.const.EDL_EXE", edl_exe
-        ), patch(
-            "ltbox.utils.const.QSAHARASERVER_EXE", qs_exe
-        ), patch(
-            "ltbox.utils.const.KEY_MAP", {}
-        ), patch(
-            "ltbox.utils.ui"
-        ) as mock_ui:
+        with (
+            patch("ltbox.utils.const.BASE_DIR", base_dir),
+            patch("ltbox.utils.const.PYTHON_EXE", python_exe),
+            patch("ltbox.utils.const.ADB_EXE", adb_exe),
+            patch("ltbox.utils.const.FASTBOOT_EXE", fastboot_exe),
+            patch("ltbox.utils.const.AVBTOOL_PY", avbtool_py),
+            patch("ltbox.utils.const.EDL_EXE", edl_exe),
+            patch("ltbox.utils.const.QSAHARASERVER_EXE", qs_exe),
+            patch("ltbox.utils.const.KEY_MAP", {}),
+            patch("ltbox.utils.ui") as mock_ui,
+        ):
             utils.check_dependencies()
 
             mock_ui.echo.assert_called_once_with(utils.get_string("utils_deps_found"))
@@ -273,9 +266,10 @@ class TestUtils:
             ]
         }
 
-        with patch(
-            "requests.get", side_effect=[releases_response, latest_response]
-        ), patch("ltbox.downloader.download_resource") as m_dl:
+        with (
+            patch("requests.get", side_effect=[releases_response, latest_response]),
+            patch("ltbox.downloader.download_resource") as m_dl,
+        ):
             downloader._download_github_asset(
                 "WildKernels/GKI_KernelSU_SUSFS",
                 "latest",

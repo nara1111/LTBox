@@ -41,8 +41,9 @@ def test_flash_partition_labels_fails_when_image_missing(mock_env):
         encoding="utf-8",
     )
 
-    with patch("ltbox.actions.edl.xml.ensure_xml_files"), patch(
-        "ltbox.actions.edl._prompt_partition_selection", return_value=["super"]
+    with (
+        patch("ltbox.actions.edl.xml.ensure_xml_files"),
+        patch("ltbox.actions.edl._prompt_partition_selection", return_value=["super"]),
     ):
         with pytest.raises(FileNotFoundError):
             edl.flash_partition_labels(MagicMock())
@@ -62,10 +63,11 @@ def test_flash_partition_labels_writes_selected_entries(mock_env):
 
     dev = MagicMock()
 
-    with patch("ltbox.actions.edl.xml.ensure_xml_files"), patch(
-        "ltbox.actions.edl._prompt_partition_selection", return_value=["super"]
-    ), patch("ltbox.actions.edl._prepare_edl_session", return_value="COM1"), patch(
-        "ltbox.actions.edl._handle_edl_reset"
+    with (
+        patch("ltbox.actions.edl.xml.ensure_xml_files"),
+        patch("ltbox.actions.edl._prompt_partition_selection", return_value=["super"]),
+        patch("ltbox.actions.edl._prepare_edl_session", return_value="COM1"),
+        patch("ltbox.actions.edl._handle_edl_reset"),
     ):
         edl.flash_partition_labels(dev, skip_reset=True)
 
@@ -86,12 +88,12 @@ def test_flash_partition_labels_ab_slot_selection(mock_env):
 
     dev = MagicMock()
 
-    with patch("ltbox.actions.edl.xml.ensure_xml_files"), patch(
-        "ltbox.actions.edl._prompt_partition_selection", return_value=["boot"]
-    ), patch("ltbox.utils.ui.prompt", return_value="2"), patch(
-        "ltbox.actions.edl._prepare_edl_session", return_value="COM1"
-    ), patch(
-        "ltbox.actions.edl._handle_edl_reset"
+    with (
+        patch("ltbox.actions.edl.xml.ensure_xml_files"),
+        patch("ltbox.actions.edl._prompt_partition_selection", return_value=["boot"]),
+        patch("ltbox.utils.ui.prompt", return_value="2"),
+        patch("ltbox.actions.edl._prepare_edl_session", return_value="COM1"),
+        patch("ltbox.actions.edl._handle_edl_reset"),
     ):
         edl.flash_partition_labels(dev, skip_reset=True)
 

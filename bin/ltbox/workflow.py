@@ -96,8 +96,9 @@ def _patch_devinfo(ctx: TaskContext, skip_dp_workflow: bool) -> Optional[str]:
     if not skip_dp_workflow:
         return actions.edit_devinfo_persist(
             on_log=ctx.on_log,
-            on_confirm=lambda msg: utils.ui.prompt(msg + " (y/n) ").lower().strip()
-            == "y",
+            on_confirm=lambda msg: (
+                utils.ui.prompt(msg + " (y/n) ").lower().strip() == "y"
+            ),
         )
     return None
 
