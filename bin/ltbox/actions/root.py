@@ -318,7 +318,7 @@ class LkmRootStrategy(InitBootRootStrategy):
         utils.ui.clear()
         msg_enter = get_string("prompt_workflow_id").replace("{name}", root_name)
 
-        display_id = default_id if default_id else "Auto-detect latest release"
+        display_id = default_id if default_id else get_string("act_root_auto_detect")
         msg_default = get_string("prompt_workflow_default").replace("{id}", display_id)
 
         utils.ui.echo("-" * 60)
@@ -405,7 +405,7 @@ class LkmRootStrategy(InitBootRootStrategy):
                             break
 
             if not apk_found:
-                raise ToolError("Manager APK not found in zip.")
+                raise ToolError(get_string("act_err_manager_apk_not_found_zip"))
 
             if self.staging_dir.exists():
                 shutil.rmtree(self.staging_dir)
@@ -425,7 +425,7 @@ class LkmRootStrategy(InitBootRootStrategy):
                             break
 
             if not ko_found:
-                raise ToolError("kernelsu.ko not found in zip.")
+                raise ToolError(get_string("act_err_kernelsu_ko_not_found_zip"))
 
             if (temp_dl_dir / "ksuinit").exists():
                 shutil.copy(temp_dl_dir / "ksuinit", self.staging_dir / "init")
@@ -456,7 +456,9 @@ class LkmRootStrategy(InitBootRootStrategy):
                         downloader.get_latest_tagged_workflow_run(repo, tag)
                     )
                     utils.ui.info(
-                        f"Using latest tagged CI run for {resolved_tag} ({workflow_id})"
+                        get_string("act_using_tagged_run").format(
+                            tag=resolved_tag, id=workflow_id
+                        )
                     )
                 except Exception as e:
                     utils.ui.error(f"{e}")

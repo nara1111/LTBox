@@ -33,12 +33,12 @@ def disable_ota(dev: device.DeviceController) -> None:
     _safe_shell(
         dev,
         "settings put global ota_disable_automatic_update 1",
-        "Warning: Failed to update settings",
+        get_string("act_ota_warn_failed_settings"),
     )
     _safe_shell(
         dev,
         "settings put secure lenovo_ota_new_version_found 0",
-        "Warning: Failed to update settings",
+        get_string("act_ota_warn_failed_settings"),
     )
 
     packages = ["com.lenovo.ota", "com.tblenovo.lenovowhatsnew", "com.lenovo.tbengine"]
