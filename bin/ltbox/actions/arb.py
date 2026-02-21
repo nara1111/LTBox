@@ -80,12 +80,12 @@ def read_anti_rollback(
     utils.ui.echo(get_string("act_new_boot_idx").format(idx=new_boot_rb))
     utils.ui.echo(get_string("act_new_vbmeta_idx").format(idx=new_vbmeta_rb))
 
-    if new_boot_rb == current_boot_rb and new_vbmeta_rb == current_vbmeta_rb:
-        utils.ui.echo(get_string("act_arb_match"))
-        status = "MATCH"
-    else:
+    if new_boot_rb < current_boot_rb or new_vbmeta_rb < current_vbmeta_rb:
         utils.ui.echo(get_string("act_arb_patch_req"))
         status = "NEEDS_PATCH"
+    else:
+        utils.ui.echo(get_string("act_arb_match"))
+        status = "MATCH"
 
     utils.ui.echo(get_string("act_arb_complete").format(status=status))
     return status, current_boot_rb, current_vbmeta_rb
