@@ -31,6 +31,12 @@
     "manager": "Spoofed-Manager.zip",
     "manager_fallbacks": ["Manager.zip"]
   },
+  "resukisu": {
+    "repo": "ReSukiSU/ReSukiSU",
+    "tag": "latest",
+    "manager": "Spoofed-Manager-release.zip",
+    "manager_fallbacks": ["Manager-release.zip"]
+  },
   "edl": {
     "loader_filename": "xbl_s_devprg_ns.melf"
   },

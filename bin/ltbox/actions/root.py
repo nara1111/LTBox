@@ -462,31 +462,41 @@ class LkmRootStrategy(InitBootRootStrategy):
     def configure_source(self) -> None:
         settings = const.load_settings_raw()
 
-        menu = TerminalMenu(get_string("menu_root_subtype_title"))
-        menu.add_option("1", get_string("menu_root_subtype_release"))
-        menu.add_option("2", get_string("menu_root_subtype_nightly"))
-
-        choice = menu.ask(
-            get_string("prompt_select"), get_string("err_invalid_selection")
-        )
-
         if self.root_type == "sukisu":
             self.repo_config = settings.get("sukisu-ultra", {})
             root_name = "SukiSU Ultra"
+        elif self.root_type == "resukisu":
+            self.repo_config = settings.get("resukisu", {})
+            root_name = "ReSukiSU"
         else:
             self.repo_config = settings.get("kernelsu-next", {})
             root_name = "KernelSU Next"
 
-        if choice == "2":
+        if self.root_type == "resukisu":
             self.is_nightly = True
             self.is_tagged_build = False
             self.workflow_id = self._prompt_workflow(
                 root_name, str(self.repo_config.get("workflow", ""))
             )
         else:
-            self.is_nightly = False
-            self.is_tagged_build = True
-            self.workflow_id = ""
+            menu = TerminalMenu(get_string("menu_root_subtype_title"))
+            menu.add_option("1", get_string("menu_root_subtype_release"))
+            menu.add_option("2", get_string("menu_root_subtype_nightly"))
+
+            choice = menu.ask(
+                get_string("prompt_select"), get_string("err_invalid_selection")
+            )
+
+            if choice == "2":
+                self.is_nightly = True
+                self.is_tagged_build = False
+                self.workflow_id = self._prompt_workflow(
+                    root_name, str(self.repo_config.get("workflow", ""))
+                )
+            else:
+                self.is_nightly = False
+                self.is_tagged_build = True
+                self.workflow_id = ""
 
     def _perform_nightly_download(
         self,
@@ -574,7 +584,7 @@ class LkmRootStrategy(InitBootRootStrategy):
         repo = self.repo_config.get("repo")
         manager = self.repo_config.get("manager")
 
-        if self.root_type == "sukisu" or self.is_nightly:
+        if self.root_type in ("sukisu", "resukisu") or self.is_nightly:
             if self.is_nightly and self.workflow_id:
                 workflow_id = self.workflow_id
             else:

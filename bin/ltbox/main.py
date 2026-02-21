@@ -536,6 +536,7 @@ def root_menu(dev, registry: CommandRegistry):
         mode_menu.add_option("1", get_string("menu_root_type_magisk"))
         mode_menu.add_option("2", get_string("menu_root_type_ksu_next"))
         mode_menu.add_option("3", get_string("menu_root_type_sukisu"))
+        mode_menu.add_option("4", get_string("menu_root_type_resukisu"))
         mode_menu.add_separator()
         mode_menu.add_option("b", get_string("menu_back"))
         mode_menu.add_option("x", get_string("menu_main_exit"))
@@ -567,6 +568,8 @@ def root_menu(dev, registry: CommandRegistry):
                     sys.exit()
         elif choice == "3":
             result = _root_action_menu(dev, registry, gki=False, root_type="sukisu")
+        elif choice == "4":
+            result = _root_action_menu(dev, registry, gki=False, root_type="resukisu")
         elif choice == "b":
             return
         elif choice == "x":
