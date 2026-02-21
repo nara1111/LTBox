@@ -3,13 +3,47 @@ import sys
 from contextlib import contextmanager
 from typing import Optional
 
+try:
+    import colorama
+
+    colorama.init()
+except ImportError:
+    pass
+
 LOGGER_NAME = "ltbox"
 _logger = logging.getLogger(LOGGER_NAME)
 _logger.setLevel(logging.INFO)
 
+
+class ColoredConsoleFormatter(logging.Formatter):
+    GREEN = "\033[92m"
+    CYAN = "\033[96m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    RESET = "\033[0m"
+
+    def format(self, record: logging.LogRecord) -> str:
+        msg = super().format(record)
+        stripped_msg = msg.lstrip()
+
+        if stripped_msg.startswith("[+]"):
+            return f"{self.GREEN}{msg}{self.RESET}"
+        elif stripped_msg.startswith("[*]"):
+            return f"{self.CYAN}{msg}{self.RESET}"
+        elif stripped_msg.startswith("[!]"):
+            return (
+                f"{self.RED}{msg}{self.RESET}"
+                if record.levelno >= logging.ERROR
+                else f"{self.YELLOW}{msg}{self.RESET}"
+            )
+        elif record.levelno >= logging.ERROR:
+            return f"{self.RED}{msg}{self.RESET}"
+        return msg
+
+
 if not _logger.handlers:
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(logging.Formatter("%(message)s"))
+    console_handler.setFormatter(ColoredConsoleFormatter("%(message)s"))
     _logger.addHandler(console_handler)
 
 

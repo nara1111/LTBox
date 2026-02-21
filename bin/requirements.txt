@@ -3,3 +3,4 @@ cryptography
 pyserial
 adbutils
 apkutils
+colorama
