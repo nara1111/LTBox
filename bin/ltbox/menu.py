@@ -1,3 +1,4 @@
+import shutil
 from typing import List, Optional, Tuple
 
 from .i18n import get_string
@@ -37,10 +38,11 @@ class TerminalMenu:
                 self.add_option(str(item.key), item.text)
 
     def show(self) -> None:
+        width = min(78, shutil.get_terminal_size((80, 24)).columns)
         ui.clear()
-        ui.echo("\n" + "=" * 78)
+        ui.echo("\n" + "=" * width)
         ui.echo(f"   {self.title}")
-        ui.echo("=" * 78 + "\n")
+        ui.echo("=" * width + "\n")
 
         for key, text, is_selectable in self.options:
             if is_selectable:
@@ -51,14 +53,15 @@ class TerminalMenu:
                 else:
                     ui.echo("")
 
-        ui.echo("\n" + "=" * 78 + "\n")
+        ui.echo("\n" + "=" * width + "\n")
 
     def ask(self, prompt_msg: str, error_msg: str) -> str:
         if questionary:
+            width = min(78, shutil.get_terminal_size((80, 24)).columns)
             ui.clear()
-            ui.echo("\n" + "=" * 78)
+            ui.echo("\n" + "=" * width)
             ui.echo(f"   {self.title}")
-            ui.echo("=" * 78 + "\n")
+            ui.echo("=" * width + "\n")
 
             choices = []
             for key, text, is_selectable in self.options:
