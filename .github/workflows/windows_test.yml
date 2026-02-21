@@ -19,6 +19,11 @@ on:
 jobs:
   test:
     runs-on: windows-latest
+    env:
+      TEST_FW_URL: ${{ secrets.TEST_FW_URL }}
+      TEST_FW_PASSWORD: ${{ secrets.TEST_FW_PASSWORD }}
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: "bin"
 
     steps:
       - uses: actions/checkout@v6
@@ -39,19 +44,9 @@ jobs:
           python -m compileall bin/ltbox
 
       - name: Run Unit Tests
-        env:
-          TEST_FW_URL: ${{ secrets.TEST_FW_URL }}
-          TEST_FW_PASSWORD: ${{ secrets.TEST_FW_PASSWORD }}
-          PYTHONUNBUFFERED: "1"
-          PYTHONPATH: "bin"
         run: |
           pytest -s tests/ -m "not integration" --cov=bin/ltbox --cov-report=term-missing
 
       - name: Run Integration Tests
-        env:
-          TEST_FW_URL: ${{ secrets.TEST_FW_URL }}
-          TEST_FW_PASSWORD: ${{ secrets.TEST_FW_PASSWORD }}
-          PYTHONUNBUFFERED: "1"
-          PYTHONPATH: "bin"
         run: |
           pytest -s tests/ -m integration --run-integration --cov=bin/ltbox --cov-report=term-missing --cov-append
