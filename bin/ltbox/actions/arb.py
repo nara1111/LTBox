@@ -1,5 +1,6 @@
 import os
 import shutil
+from enum import Enum
 from pathlib import Path
 from typing import Tuple
 
@@ -14,9 +15,16 @@ from ..patch.avb import (
 from . import edl, system
 
 
+class ArbStatus(str, Enum):
+    MATCH = "MATCH"
+    NEEDS_PATCH = "NEEDS_PATCH"
+    MISSING_NEW = "MISSING_NEW"
+    ERROR = "ERROR"
+
+
 def read_anti_rollback(
     dumped_boot_path: Path, dumped_vbmeta_path: Path
-) -> Tuple[str, int, int]:
+) -> Tuple[ArbStatus, int, int]:
     utils.ui.echo(get_string("act_start_arb"))
     utils.check_dependencies()
 
@@ -47,7 +55,7 @@ def read_anti_rollback(
 
         utils.ui.error(get_string("act_err_avb_info").format(e=e))
         utils.ui.echo(get_string("act_arb_error"))
-        return "ERROR", 0, 0
+        return ArbStatus.ERROR, 0, 0
 
     utils.ui.echo(get_string("act_curr_boot_idx").format(idx=current_boot_rb))
     utils.ui.echo(get_string("act_curr_vbmeta_idx").format(idx=current_vbmeta_rb))
@@ -62,7 +70,7 @@ def read_anti_rollback(
             get_string("act_err_new_rom_missing").format(dir=const.IMAGE_DIR.name)
         )
         utils.ui.echo(get_string("act_arb_missing_new"))
-        return "MISSING_NEW", 0, 0
+        return ArbStatus.MISSING_NEW, 0, 0
 
     new_boot_rb = 0
     new_vbmeta_rb = 0
@@ -75,23 +83,23 @@ def read_anti_rollback(
     except Exception as e:
         utils.ui.error(get_string("act_err_read_new_info").format(e=e))
         utils.ui.echo(get_string("act_arb_error"))
-        return "ERROR", 0, 0
+        return ArbStatus.ERROR, 0, 0
 
     utils.ui.echo(get_string("act_new_boot_idx").format(idx=new_boot_rb))
     utils.ui.echo(get_string("act_new_vbmeta_idx").format(idx=new_vbmeta_rb))
 
     if new_boot_rb < current_boot_rb or new_vbmeta_rb < current_vbmeta_rb:
         utils.ui.echo(get_string("act_arb_patch_req"))
-        status = "NEEDS_PATCH"
+        status = ArbStatus.NEEDS_PATCH
     else:
         utils.ui.echo(get_string("act_arb_match"))
-        status = "MATCH"
+        status = ArbStatus.MATCH
 
-    utils.ui.echo(get_string("act_arb_complete").format(status=status))
+    utils.ui.echo(get_string("act_arb_complete").format(status=status.value))
     return status, current_boot_rb, current_vbmeta_rb
 
 
-def patch_anti_rollback(comparison_result: Tuple[str, int, int]) -> None:
+def patch_anti_rollback(comparison_result: Tuple[ArbStatus, int, int]) -> None:
     utils.ui.echo(get_string("act_start_arb_patch"))
     utils.check_dependencies()
 
@@ -107,7 +115,7 @@ def patch_anti_rollback(comparison_result: Tuple[str, int, int]) -> None:
             utils.ui.echo(get_string("act_err_no_cmp"))
             return
 
-        if status != "NEEDS_PATCH":
+        if status != ArbStatus.NEEDS_PATCH:
             utils.ui.echo(get_string("act_arb_no_patch"))
             return
 
