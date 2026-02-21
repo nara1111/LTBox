@@ -28,6 +28,8 @@ def get_available_languages() -> List[Tuple[str, str]]:
                 languages.append((lang_code, lang_name))
         except Exception:
             languages.append((lang_code, lang_code))
+
+    languages.sort(key=lambda x: (0 if x[0] == "en" else 1, x[1].lower()))
     return languages
 
 
