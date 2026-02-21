@@ -9,7 +9,7 @@ try:
     import questionary
     from questionary import Choice, Separator
 except ImportError:
-    questionary = None
+    questionary = None  # type: ignore
 
 
 class TerminalMenu:
