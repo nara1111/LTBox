@@ -62,7 +62,7 @@ class TerminalMenu:
 
             choices = []
             for key, text, is_selectable in self.options:
-                if is_selectable:
+                if is_selectable and key is not None:
                     choices.append(Choice(f"{key}. {text}", value=key.lower()))
                 else:
                     display_text = f"  {text}" if text else " "
