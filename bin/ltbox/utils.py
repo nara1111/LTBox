@@ -344,3 +344,29 @@ def _process_binary_file(
             get_string("img_proc_error").format(name=input_path.name, e=e), err=True
         )
         return False
+
+
+class ExternalTool:
+    def __init__(self, base_cmd: List[Union[str, Path]]):
+        self.base_cmd = [str(c) for c in base_cmd]
+
+    def run(
+        self,
+        *args: Any,
+        capture: bool = False,
+        check: bool = True,
+        cwd: Optional[Union[str, Path]] = None,
+        **kwargs: Any,
+    ) -> subprocess.CompletedProcess:
+        cmd = self.base_cmd + [str(arg) for arg in args]
+        return run_command(cmd, capture=capture, check=check, cwd=cwd, **kwargs)
+
+
+class AvbToolWrapper(ExternalTool):
+    def __init__(self):
+        super().__init__([const.PYTHON_EXE, const.AVBTOOL_PY])
+
+
+class MagiskBootWrapper(ExternalTool):
+    def __init__(self, exe_path: Union[str, Path]):
+        super().__init__([exe_path])

@@ -56,9 +56,11 @@ def patch_boot_with_root_algo(
         )
         return None
 
+    mb = utils.MagiskBootWrapper(magiskboot_exe)
+
     if gki:
         print(get_string("img_root_step1").format(name=img_name))
-        utils.run_command([str(magiskboot_exe), "unpack", img_name], cwd=work_dir)
+        mb.run("unpack", img_name, cwd=work_dir)
         if not (work_dir / "kernel").exists():
             print(get_string("img_root_unpack_fail"))
             return None
@@ -86,7 +88,7 @@ def patch_boot_with_root_algo(
         print(get_string("img_root_kernel_replaced"))
 
         print(get_string("img_root_step6").format(name=img_name))
-        utils.run_command([str(magiskboot_exe), "repack", img_name], cwd=work_dir)
+        mb.run("repack", img_name, cwd=work_dir)
         if not (work_dir / "new-boot.img").exists():
             print(get_string("img_root_repack_fail"))
             return None
@@ -97,7 +99,7 @@ def patch_boot_with_root_algo(
 
     else:
         print(get_string("img_root_step1_init_boot").format(name=img_name))
-        utils.run_command([str(magiskboot_exe), "unpack", img_name], cwd=work_dir)
+        mb.run("unpack", img_name, cwd=work_dir)
         if not (work_dir / "ramdisk.cpio").exists():
             print(get_string("img_root_unpack_fail"))
             return None
@@ -149,17 +151,18 @@ def patch_boot_with_root_algo(
         else:
             print(get_string("img_root_lkm_patch"))
 
-        check_init_cmd = [str(magiskboot_exe), "cpio", "ramdisk.cpio", "exists init"]
-        init_exists_proc = utils.run_command(
-            check_init_cmd, cwd=work_dir, check=False, capture=True
+        init_exists_proc = mb.run(
+            "cpio",
+            "ramdisk.cpio",
+            "exists init",
+            cwd=work_dir,
+            check=False,
+            capture=True,
         )
 
         if init_exists_proc.returncode == 0 and root_type != "magisk":
             print(get_string("img_root_lkm_backup_init"))
-            utils.run_command(
-                [str(magiskboot_exe), "cpio", "ramdisk.cpio", "mv init init.real"],
-                cwd=work_dir,
-            )
+            mb.run("cpio", "ramdisk.cpio", "mv init init.real", cwd=work_dir)
 
         if root_type == "magisk":
             required_files = [
@@ -191,11 +194,8 @@ def patch_boot_with_root_algo(
             preinit_device = _detect_preinit_device(dev)
             if preinit_device:
                 config_entries.append(f"PREINITDEVICE={preinit_device}")
-            sha1_proc = utils.run_command(
-                [str(magiskboot_exe), "sha1", img_name],
-                cwd=work_dir,
-                check=False,
-                capture=True,
+            sha1_proc = mb.run(
+                "sha1", img_name, cwd=work_dir, check=False, capture=True
             )
             if sha1_proc.returncode == 0:
                 sha1 = sha1_proc.stdout.strip()
@@ -208,34 +208,24 @@ def patch_boot_with_root_algo(
             ramdisk_backup = work_dir / "ramdisk.cpio.orig"
             if not ramdisk_backup.exists():
                 shutil.copy(work_dir / "ramdisk.cpio", ramdisk_backup)
-            utils.run_command(
-                [str(magiskboot_exe), "compress=xz", "magisk", "magisk.xz"],
-                cwd=work_dir,
-            )
-            utils.run_command(
-                [str(magiskboot_exe), "compress=xz", "stub.apk", "stub.xz"],
-                cwd=work_dir,
-            )
-            utils.run_command(
-                [str(magiskboot_exe), "compress=xz", "init-ld", "init-ld.xz"],
-                cwd=work_dir,
-            )
-            utils.run_command(
-                [
-                    str(magiskboot_exe),
-                    "cpio",
-                    "ramdisk.cpio",
-                    "add 0750 init magiskinit",
-                    "mkdir 0750 overlay.d",
-                    "mkdir 0750 overlay.d/sbin",
-                    "add 0644 overlay.d/sbin/magisk.xz magisk.xz",
-                    "add 0644 overlay.d/sbin/stub.xz stub.xz",
-                    "add 0644 overlay.d/sbin/init-ld.xz init-ld.xz",
-                    "patch",
-                    "backup ramdisk.cpio.orig",
-                    "mkdir 000 .backup",
-                    "add 000 .backup/.magisk config",
-                ],
+
+            mb.run("compress=xz", "magisk", "magisk.xz", cwd=work_dir)
+            mb.run("compress=xz", "stub.apk", "stub.xz", cwd=work_dir)
+            mb.run("compress=xz", "init-ld", "init-ld.xz", cwd=work_dir)
+
+            mb.run(
+                "cpio",
+                "ramdisk.cpio",
+                "add 0750 init magiskinit",
+                "mkdir 0750 overlay.d",
+                "mkdir 0750 overlay.d/sbin",
+                "add 0644 overlay.d/sbin/magisk.xz magisk.xz",
+                "add 0644 overlay.d/sbin/stub.xz stub.xz",
+                "add 0644 overlay.d/sbin/init-ld.xz init-ld.xz",
+                "patch",
+                "backup ramdisk.cpio.orig",
+                "mkdir 000 .backup",
+                "add 000 .backup/.magisk config",
                 cwd=work_dir,
             )
             for temp_name in [
@@ -250,22 +240,13 @@ def patch_boot_with_root_algo(
                     temp_path.unlink()
         else:
             print(get_string("img_root_lkm_add_files"))
-            utils.run_command(
-                [str(magiskboot_exe), "cpio", "ramdisk.cpio", "add 0755 init init"],
-                cwd=work_dir,
-            )
-            utils.run_command(
-                [
-                    str(magiskboot_exe),
-                    "cpio",
-                    "ramdisk.cpio",
-                    "add 0755 kernelsu.ko kernelsu.ko",
-                ],
-                cwd=work_dir,
+            mb.run("cpio", "ramdisk.cpio", "add 0755 init init", cwd=work_dir)
+            mb.run(
+                "cpio", "ramdisk.cpio", "add 0755 kernelsu.ko kernelsu.ko", cwd=work_dir
             )
 
         print(get_string("img_root_step6_init_boot").format(name=img_name))
-        utils.run_command([str(magiskboot_exe), "repack", img_name], cwd=work_dir)
+        mb.run("repack", img_name, cwd=work_dir)
         if not (work_dir / "new-boot.img").exists():
             print(get_string("img_root_repack_fail"))
             return None

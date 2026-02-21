@@ -45,16 +45,8 @@ def _require_info_keys(
 
 
 def extract_image_avb_info(image_path: Path) -> Dict[str, Any]:
-    info_proc = utils.run_command(
-        [
-            str(const.PYTHON_EXE),
-            str(const.AVBTOOL_PY),
-            "info_image",
-            "--image",
-            str(image_path),
-        ],
-        capture=True,
-    )
+    avbtool = utils.AvbToolWrapper()
+    info_proc = avbtool.run("info_image", "--image", image_path, capture=True)
 
     output = info_proc.stdout.strip()
     info: Dict[str, Any] = {}
@@ -132,12 +124,11 @@ def _apply_hash_footer(
         )
     )
 
+    avbtool = utils.AvbToolWrapper()
     add_footer_cmd = [
-        str(const.PYTHON_EXE),
-        str(const.AVBTOOL_PY),
         "add_hash_footer",
         "--image",
-        str(image_path),
+        image_path,
         "--algorithm",
         image_info["algorithm"],
         "--partition_size",
@@ -152,7 +143,7 @@ def _apply_hash_footer(
     ]
 
     if key_file:
-        add_footer_cmd.extend(["--key", str(key_file)])
+        add_footer_cmd.extend(["--key", key_file])
 
     if "flags" in image_info:
         add_footer_cmd.extend(["--flags", image_info.get("flags", "0")])
@@ -162,7 +153,7 @@ def _apply_hash_footer(
             )
         )
 
-    utils.run_command(add_footer_cmd)
+    avbtool.run(*add_footer_cmd)
     utils.ui.info(get_string("img_footer_success").format(name=image_path.name))
 
 
@@ -230,25 +221,24 @@ def patch_vbmeta_image_rollback(
                 )
             )
 
+        avbtool = utils.AvbToolWrapper()
         remake_cmd = [
-            str(const.PYTHON_EXE),
-            str(const.AVBTOOL_PY),
             "make_vbmeta_image",
             "--output",
-            str(patched_image_path),
+            patched_image_path,
             "--key",
-            str(key_file),
+            key_file,
             "--algorithm",
             info["algorithm"],
             "--rollback_index",
-            str(current_rb_index),
+            current_rb_index,
             "--flags",
             info.get("flags", "0"),
             "--include_descriptors_from_image",
-            str(new_image_path),
+            new_image_path,
         ]
 
-        utils.run_command(remake_cmd)
+        avbtool.run(*remake_cmd)
         utils.ui.info(get_string("img_patch_success").format(name=image_name))
 
     except (KeyError, subprocess.CalledProcessError, FileNotFoundError) as e:
@@ -292,16 +282,9 @@ def process_boot_image_avb(
         utils.ui.info(
             get_string("img_avb_erase_footer").format(name=image_to_process.name)
         )
-        utils.run_command(
-            [
-                str(const.PYTHON_EXE),
-                str(const.AVBTOOL_PY),
-                "erase_footer",
-                "--image",
-                str(image_to_process),
-            ],
-            capture=True,
-            check=False,
+        avbtool = utils.AvbToolWrapper()
+        avbtool.run(
+            "erase_footer", "--image", image_to_process, capture=True, check=False
         )
         utils.ui.info(get_string("img_avb_erase_footer_ok"))
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
@@ -390,14 +373,14 @@ def rebuild_vbmeta_with_chained_images(
     utils.ui.info(get_string("img_key_matched").format(name=key_file.name))
 
     utils.ui.info(get_string("act_remaking_vbmeta"))
+
+    avbtool = utils.AvbToolWrapper()
     cmd = [
-        str(const.PYTHON_EXE),
-        str(const.AVBTOOL_PY),
         "make_vbmeta_image",
         "--output",
-        str(output_path),
+        output_path,
         "--key",
-        str(key_file),
+        key_file,
         "--algorithm",
         vbmeta_info["algorithm"],
         "--padding_size",
@@ -407,10 +390,10 @@ def rebuild_vbmeta_with_chained_images(
         "--rollback_index",
         vbmeta_info.get("rollback", "0"),
         "--include_descriptors_from_image",
-        str(original_vbmeta_path),
+        original_vbmeta_path,
     ]
 
     for img in chained_images:
-        cmd.extend(["--include_descriptors_from_image", str(img)])
+        cmd.extend(["--include_descriptors_from_image", img])
 
-    utils.run_command(cmd)
+    avbtool.run(*cmd)
