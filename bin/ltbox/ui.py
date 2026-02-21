@@ -17,10 +17,10 @@ class ConsoleUI:
         self.echo(message)
 
     def warn(self, message: str) -> None:
-        self.echo(message, err=True)
+        self.echo(f"\033[93m{message}\033[0m", err=True)
 
     def error(self, message: str) -> None:
-        self.echo(message, err=True)
+        self.echo(f"\033[91m{message}\033[0m", err=True)
 
     def box_output(self, lines: List[str], err: bool = False) -> None:
         self.echo("", err=err)
