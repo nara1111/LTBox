@@ -13,8 +13,9 @@ except ImportError:
 
 
 class TerminalMenu:
-    def __init__(self, title: str):
+    def __init__(self, title: str, breadcrumbs: Optional[str] = None):
         self.title = title
+        self.breadcrumbs = breadcrumbs
         self.options: List[Tuple[Optional[str], str, bool]] = []
         self.valid_keys: List[str] = []
 
@@ -41,7 +42,10 @@ class TerminalMenu:
         width = min(78, shutil.get_terminal_size((80, 24)).columns)
         ui.clear()
         ui.echo("\n" + "=" * width)
-        ui.echo(f"   {self.title}")
+        display_title = (
+            f"{self.breadcrumbs} > {self.title}" if self.breadcrumbs else self.title
+        )
+        ui.echo(f"   {display_title}")
         ui.echo("=" * width + "\n")
 
         for key, text, is_selectable in self.options:
@@ -60,7 +64,11 @@ class TerminalMenu:
             width = min(78, shutil.get_terminal_size((80, 24)).columns)
             ui.clear()
             ui.echo("\n" + "=" * width)
-            ui.echo(f"   {self.title}")
+
+            display_title = (
+                f"{self.breadcrumbs} > {self.title}" if self.breadcrumbs else self.title
+            )
+            ui.echo(f"   {display_title}")
             ui.echo("=" * width + "\n")
 
             choices = []
@@ -93,8 +101,10 @@ class TerminalMenu:
             input(get_string("press_enter_to_continue"))
 
 
-def select_menu_action(menu_items: List[MenuItem], title_key: str) -> Optional[str]:
-    menu = TerminalMenu(get_string(title_key))
+def select_menu_action(
+    menu_items: List[MenuItem], title_key: str, breadcrumbs: Optional[str] = None
+) -> Optional[str]:
+    menu = TerminalMenu(get_string(title_key), breadcrumbs)
     menu.populate(menu_items)
 
     action_map = {
