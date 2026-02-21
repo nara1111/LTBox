@@ -605,6 +605,7 @@
   "prompt_flash_image_folder_confirm": "Эти файлы не были извлечены с устройства, поэтому убедитесь, что они точно соответствуют вашей текущей версии прошивки.\nЕсли вы уверены, прошить патченные файлы? (y/n):",
   "prompt_input_arrow": "Ввод > ",
   "prompt_select": " Выбор: ",
+  "prompt_use_arrow_keys": " (Используйте стрелки)",
   "prompt_workflow_default": "По умолчанию: {id}",
   "prompt_workflow_id": "Введите номер запуска Workflow {name} в GitHub Actions:",
   "rescue_nothing_to_flash": "Нечего изменять.",

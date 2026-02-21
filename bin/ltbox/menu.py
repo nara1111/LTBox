@@ -4,6 +4,12 @@ from .i18n import get_string
 from .menu_data import MenuItem
 from .utils import ui
 
+try:
+    import questionary
+    from questionary import Choice, Separator
+except ImportError:
+    questionary = None
+
 
 class TerminalMenu:
     def __init__(self, title: str):
@@ -48,6 +54,32 @@ class TerminalMenu:
         ui.echo("\n" + "=" * 78 + "\n")
 
     def ask(self, prompt_msg: str, error_msg: str) -> str:
+        if questionary:
+            ui.clear()
+            ui.echo("\n" + "=" * 78)
+            ui.echo(f"   {self.title}")
+            ui.echo("=" * 78 + "\n")
+
+            choices = []
+            for key, text, is_selectable in self.options:
+                if is_selectable:
+                    choices.append(Choice(f"{key}. {text}", value=key.lower()))
+                else:
+                    display_text = f"  {text}" if text else " "
+                    choices.append(Separator(display_text))
+
+            answer = questionary.select(
+                prompt_msg.strip(),
+                choices=choices,
+                qmark=">",
+                pointer="->",
+                instruction=get_string("prompt_use_arrow_keys"),
+            ).ask()
+
+            if answer is not None:
+                return answer
+            raise KeyboardInterrupt()
+
         while True:
             self.show()
             choice = input(prompt_msg).strip().lower()

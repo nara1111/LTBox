@@ -605,6 +605,7 @@
   "prompt_flash_image_folder_confirm": "기기에서 추출된 파일이 아니므로 현재 사용 중인 펌웨어 버전과 정확히 일치하는지 확인해야 합니다.\n확인했다면 패치된 파일을 플래싱할까요? (y/n):",
   "prompt_input_arrow": "입력 > ",
   "prompt_select": " 선택: ",
+  "prompt_use_arrow_keys": " (방향키로 이동, Enter로 선택)",
   "prompt_workflow_default": "기본값은 {id} 입니다",
   "prompt_workflow_id": "{name} GitHub Actions 워크플로 실행 넘버를 입력하세요:",
   "rescue_nothing_to_flash": "수정할 필요가 없습니다.",
