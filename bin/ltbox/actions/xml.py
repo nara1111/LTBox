@@ -9,6 +9,45 @@ from ..crypto import decrypt_file
 from ..i18n import get_string
 
 
+class ProgramEntry:
+    def __init__(self, element: ET.Element):
+        self._element = element
+
+    @property
+    def label(self) -> str:
+        return self._element.get("label", "")
+
+    @property
+    def filename(self) -> str:
+        return self._element.get("filename", "")
+
+    @filename.setter
+    def filename(self, value: str) -> None:
+        self._element.set("filename", value)
+
+    @property
+    def start_sector(self) -> str:
+        return self._element.get("start_sector", "0")
+
+    @property
+    def lun(self) -> str:
+        return self._element.get("physical_partition_number", "0")
+
+
+class RawProgramXml:
+    def __init__(self, path: Path):
+        self.path = path
+        self.tree = ET.parse(path)
+        self.root = self.tree.getroot()
+
+    @property
+    def programs(self) -> List[ProgramEntry]:
+        return [ProgramEntry(el) for el in self.root.findall("program")]
+
+    def save(self, output_path: Path) -> None:
+        self.tree.write(output_path, encoding="utf-8", xml_declaration=True)
+
+
 def _clean_existing_files(files: List[Path], log_msg: str, prefix: str = "") -> None:
     if not files:
         return
@@ -176,17 +215,16 @@ def _ensure_rawprogram4(output_dir: Path) -> None:
     if not rawprogram4.exists() and rawprogram_unsparse4.exists():
         utils.ui.info(get_string("img_xml_copy_raw4"))
         try:
-            tree = ET.parse(rawprogram_unsparse4)
-            root = tree.getroot()
-
+            rp = RawProgramXml(rawprogram_unsparse4)
             devinfo_modified = False
-            for prog in root.findall("program"):
-                if prog.get("label", "").lower() == "devinfo":
-                    if "devinfo.img" in prog.get("filename", "").lower():
-                        prog.set("filename", "")
+
+            for prog in rp.programs:
+                if prog.label.lower() == "devinfo":
+                    if "devinfo.img" in prog.filename.lower():
+                        prog.filename = ""
                         devinfo_modified = True
 
-            tree.write(rawprogram4, encoding="utf-8", xml_declaration=True)
+            rp.save(rawprogram4)
 
             if devinfo_modified:
                 utils.ui.info(
@@ -244,16 +282,15 @@ def _ensure_rawprogram_save_persist(output_dir: Path) -> Path:
                     )
                 )
                 try:
-                    tree = ET.parse(cand_path)
-                    root = tree.getroot()
-
+                    rp = RawProgramXml(cand_path)
                     persist_found = False
-                    for prog in root.findall("program"):
-                        if prog.get("label", "").lower() == "persist":
-                            prog.set("filename", "")
+
+                    for prog in rp.programs:
+                        if prog.label.lower() == "persist":
+                            prog.filename = ""
                             persist_found = True
 
-                    tree.write(rawprogram_save, encoding="utf-8", xml_declaration=True)
+                    rp.save(rawprogram_save)
 
                     if persist_found:
                         utils.ui.info(
@@ -288,19 +325,18 @@ def _ensure_rawprogram_save_persist(output_dir: Path) -> Path:
 
 def _patch_xml_for_wipe(xml_path: Path, wipe: int) -> None:
     try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        rp = RawProgramXml(xml_path)
 
         if wipe == 0:
             utils.ui.info(get_string("img_xml_nowipe"))
-            for prog in root.findall("program"):
-                label = prog.get("label", "").lower()
+            for prog in rp.programs:
+                label = prog.label.lower()
                 if label.startswith("metadata") or label.startswith("userdata"):
-                    prog.set("filename", "")
+                    prog.filename = ""
         else:
             utils.ui.info(get_string("img_xml_wipe"))
 
-        tree.write(xml_path, encoding="utf-8", xml_declaration=True)
+        rp.save(xml_path)
         utils.ui.info(get_string("img_xml_patch_ok"))
     except (OSError, ET.ParseError) as e:
         utils.ui.error(get_string("img_xml_patch_err").format(e=e))
@@ -353,15 +389,15 @@ def _create_write_xml(
         return
 
     try:
-        tree = ET.parse(src_xml_path)
-        root = tree.getroot()
+        rp = RawProgramXml(src_xml_path)
         modified = False
-        for prog in root.findall("program"):
-            if prog.get("label", "").lower() == target_label:
-                prog.set("filename", new_filename)
+
+        for prog in rp.programs:
+            if prog.label.lower() == target_label.lower():
+                prog.filename = new_filename
                 modified = True
 
-        tree.write(dest_xml_path, encoding="utf-8", xml_declaration=True)
+        rp.save(dest_xml_path)
 
         if modified:
             utils.ui.info(

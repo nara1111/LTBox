@@ -24,22 +24,21 @@ def _collect_base_partitions() -> Dict[str, Any]:
 
     for xml_file in xml_files:
         try:
-            tree = ET.parse(xml_file)
-            root = tree.getroot()
+            rp = xml.RawProgramXml(xml_file)
         except (OSError, ET.ParseError) as e:
             utils.ui.error(
                 get_string("act_xml_parse_err").format(name=xml_file.name, e=e)
             )
             continue
 
-        for prog in root.findall("program"):
-            label = prog.get("label", "").strip()
+        for prog in rp.programs:
+            label = prog.label.strip()
             if not label:
                 continue
 
-            filename = prog.get("filename", "").strip()
-            lun = prog.get("physical_partition_number", "0")
-            start_sector = prog.get("start_sector", "0")
+            filename = prog.filename.strip()
+            lun = prog.lun
+            start_sector = prog.start_sector
 
             is_ab = label.endswith("_a") or label.endswith("_b")
             base_label = label[:-2] if is_ab else label
