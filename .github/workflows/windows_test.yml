@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - '**'
-    tags:
-      - 'v*'
     paths:
       - 'bin/**'
       - 'tests/**'
@@ -15,6 +13,7 @@ on:
       - 'bin/**'
       - 'tests/**'
       - '.github/workflows/windows_test.yml'
+  workflow_call:
 
 jobs:
   test:

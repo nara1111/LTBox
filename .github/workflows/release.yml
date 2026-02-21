@@ -1,43 +1,31 @@
 name: Release Based On Tag
 
 on:
-  workflow_run:
-    workflows:
-      - Windows Smoke Test & Unit Test
-    types:
-      - completed
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
+  test:
+    uses: ./.github/workflows/windows_test.yml
+    secrets: inherit
+
   release:
+    needs: test
     runs-on: windows-latest
-    if: >-
-      ${{
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'push' &&
-        startsWith(github.event.workflow_run.head_branch, 'v')
-      }}
     defaults:
       run:
         shell: pwsh
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Resolve Tag Name
         id: resolve-tag
         run: |
-          $sha = "${{ github.event.workflow_run.head_sha }}"
-          $tag = git tag --points-at $sha | Select-String -Pattern '^v' | Select-Object -First 1
-
-          if (-not $tag) {
-            Write-Error "No release tag found for commit $sha."
-            exit 1
-          }
+          $tag = "${{ github.ref_name }}"
 
           "TAG_NAME=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
