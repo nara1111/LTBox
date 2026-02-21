@@ -4,3 +4,4 @@ pyserial
 adbutils
 apkutils
 colorama
+tqdm

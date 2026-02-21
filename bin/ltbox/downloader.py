@@ -9,6 +9,11 @@ from typing import Dict, Optional
 
 import requests  # type: ignore[import-untyped]
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
 from . import constants as const
 from . import net, utils
 from .errors import ToolError
@@ -34,13 +39,30 @@ def download_resource(url: str, dest_path: Path, show_progress: bool = True) -> 
     utils.ui.echo(msg)
     try:
         with net.request_with_retries("GET", url, stream=True) as response:
+            total_size = int(response.headers.get("content-length", 0))
             downloaded = 0
 
             with open(dest_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
+                if show_progress and tqdm and total_size > 0:
+                    with tqdm(
+                        total=total_size,
+                        unit="B",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        leave=False,
+                        ncols=80,
+                        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
+                    ) as pbar:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                pbar.update(len(chunk))
+                else:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
 
         msg_success = get_string("dl_download_success").format(filename=dest_path.name)
         utils.ui.echo(msg_success)
