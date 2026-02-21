@@ -26,23 +26,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install flake8 black isort mypy types-requests types-setuptools
+          pip install ruff mypy types-requests types-setuptools
 
-      - name: Run Flake8 (Errors)
+      - name: Run Ruff (Linter & isort)
         run: |
-          flake8 bin/ltbox tests --count --select=E9,F63,F7,F82 --show-source --statistics
+          ruff check bin/ltbox tests
 
-      - name: Run Flake8 (Warnings)
+      - name: Run Ruff (Formatter)
         run: |
-          flake8 bin/ltbox tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
-      - name: Check Imports (isort)
-        run: |
-          isort bin/ltbox tests --check-only --profile black
-
-      - name: Check Black Formatting
-        run: |
-          black --check bin/ltbox tests
+          ruff format --check bin/ltbox tests
 
       - name: Run Mypy (Type Check)
         run: |
