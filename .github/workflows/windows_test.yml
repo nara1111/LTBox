@@ -33,7 +33,6 @@ jobs:
         uses: ./.github/actions/setup-fw-env
         with:
           fw-password: ${{ secrets.TEST_FW_PASSWORD }}
-          install-test-deps: 'true'
 
       - name: Smoke Test (Compile)
         run: |

@@ -80,6 +80,7 @@ jobs:
             ".gitattributes",
             ".editorconfig",
             ".pre-commit-config.yaml",
+            "bin\\requirements-dev.txt",
             "pytest.ini",
             "tests",
             "tests\\*"

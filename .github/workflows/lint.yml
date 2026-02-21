@@ -23,10 +23,12 @@ jobs:
           cache: 'pip'
           cache-dependency-path: |
             bin/requirements.txt
+            bin/requirements-dev.txt
 
       - name: Install dependencies
         run: |
-          pip install ruff mypy types-requests types-setuptools
+          python -m pip install --upgrade pip
+          pip install -r bin/requirements-dev.txt
 
       - name: Run Ruff (Linter & isort)
         run: |

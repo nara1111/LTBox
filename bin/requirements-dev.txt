@@ -1,0 +1,17 @@
+# Core requirements
+-r requirements.txt
+
+# Testing
+pytest
+pytest-cov
+pypdl
+
+# Linting & Formatting
+ruff
+mypy
+types-requests
+types-setuptools
+
+# Utilities / CI
+py7zr
+requests
