@@ -511,12 +511,35 @@ class EdlManager:
 
 
 class DeviceController:
-    def __init__(self, skip_adb: bool = False):
+    def __init__(
+        self,
+        skip_adb: bool = False,
+        adb_manager: Optional[AdbManager] = None,
+        fastboot_manager: Optional[FastbootManager] = None,
+        edl_manager: Optional[EdlManager] = None,
+    ):
         self._usb_port_hint_shown = False
         self._skip_adb = skip_adb
-        self.adb = AdbManager(skip_adb, self._maybe_warn_usb_port_hint)
-        self.fastboot = FastbootManager(self._maybe_warn_usb_port_hint)
-        self.edl = EdlManager(self._maybe_warn_usb_port_hint)
+
+        self.adb = (
+            adb_manager
+            if adb_manager is not None
+            else AdbManager(skip_adb, self._maybe_warn_usb_port_hint)
+        )
+        self.fastboot = (
+            fastboot_manager
+            if fastboot_manager is not None
+            else FastbootManager(self._maybe_warn_usb_port_hint)
+        )
+        self.edl = (
+            edl_manager
+            if edl_manager is not None
+            else EdlManager(self._maybe_warn_usb_port_hint)
+        )
+
+        self.adb._usb_port_hint = self._maybe_warn_usb_port_hint
+        self.fastboot._usb_port_hint = self._maybe_warn_usb_port_hint
+        self.edl._usb_port_hint = self._maybe_warn_usb_port_hint
 
     def reset_task_state(self) -> None:
         self._usb_port_hint_shown = False
