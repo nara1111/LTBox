@@ -1,4 +1,5 @@
 import os
+import contextlib
 import re
 import subprocess
 import time
@@ -616,3 +617,43 @@ class DeviceController:
         port = self.edl.wait_for_device()
         ui.info(get_string("device_edl_setup_done"))
         return port
+
+    @contextlib.contextmanager
+    def edl_session(
+        self,
+        load_programmer: bool = True,
+        auto_reset: bool = True,
+        reset_msg_key: str = "act_reboot_device",
+        skip_msg_key: str = "act_skip_reboot",
+        pre_sleep: int = 0,
+        post_sleep: int = 0,
+    ):
+        port = self.setup_edl_connection()
+
+        if load_programmer:
+            try:
+                self.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
+            except Exception as e:
+                ui.warn(get_string("act_warn_prog_load").format(e=e))
+
+        try:
+            yield port
+        finally:
+            if not auto_reset:
+                if skip_msg_key:
+                    ui.info(get_string(skip_msg_key))
+            else:
+                if pre_sleep > 0:
+                    ui.info(get_string("act_wait_stability"))
+                    time.sleep(pre_sleep)
+                if reset_msg_key:
+                    ui.info(get_string(reset_msg_key))
+                try:
+                    ui.info(get_string("device_resetting"))
+                    self.edl.reset(port)
+                    ui.info(get_string("act_reset_sent"))
+                except Exception as e:
+                    ui.error(get_string("act_err_reset").format(e=e))
+                if post_sleep > 0:
+                    ui.info(get_string("act_wait_stability_long"))
+                    time.sleep(post_sleep)

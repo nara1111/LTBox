@@ -227,28 +227,27 @@ def flash_partition_labels(
         utils.ui.echo(get_string("act_op_cancel"))
         return
 
-    port = _prepare_edl_session(dev)
+    ensure_edl_requirements()
+    with dev.edl_session(auto_reset=not skip_reset) as port:
+        for target_label, filename, lun, start_sector in flash_plan:
+            image_path = const.IMAGE_DIR / filename
 
-    for target_label, filename, lun, start_sector in flash_plan:
-        image_path = const.IMAGE_DIR / filename
-
-        utils.ui.echo(get_string("act_flashing_target").format(target=target_label))
-        utils.ui.echo(
-            get_string("device_flashing_part").format(
-                filename=image_path.name,
-                lun=lun,
-                start=start_sector,
+            utils.ui.echo(get_string("act_flashing_target").format(target=target_label))
+            utils.ui.echo(
+                get_string("device_flashing_part").format(
+                    filename=image_path.name,
+                    lun=lun,
+                    start=start_sector,
+                )
             )
-        )
 
-        dev.edl.write_partition(
-            port=port,
-            image_path=image_path,
-            lun=lun,
-            start_sector=start_sector,
-        )
+            dev.edl.write_partition(
+                port=port,
+                image_path=image_path,
+                lun=lun,
+                start_sector=start_sector,
+            )
 
-    _handle_edl_reset(dev, port, skip_reset)
     utils.ui.echo(get_string("act_write_finish"))
 
 
@@ -268,50 +267,6 @@ def ensure_loader_file() -> None:
 def ensure_edl_requirements() -> None:
     ensure_loader_file()
     xml.ensure_xml_files()
-
-
-def _prepare_edl_session(dev: device.DeviceController) -> str:
-    ensure_edl_requirements()
-
-    port = dev.setup_edl_connection()
-
-    try:
-        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
-    except Exception as e:
-        utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
-
-    return port
-
-
-def _handle_edl_reset(
-    dev: device.DeviceController,
-    port: str,
-    skip_reset: bool,
-    reset_msg_key: str = "act_reboot_device",
-    skip_msg_key: str = "act_skip_reboot",
-    pre_sleep: int = 0,
-    post_sleep: int = 0,
-) -> None:
-    if skip_reset:
-        utils.ui.echo(get_string(skip_msg_key))
-        return
-
-    if pre_sleep > 0:
-        utils.ui.echo(get_string("act_wait_stability"))
-        time.sleep(pre_sleep)
-
-    utils.ui.echo(get_string(reset_msg_key))
-    try:
-        utils.ui.echo(get_string("device_resetting"))
-        dev.edl.reset(port)
-        utils.ui.echo(get_string("act_reset_sent"))
-
-        if post_sleep > 0:
-            utils.ui.echo(get_string("act_wait_stability_long"))
-            time.sleep(post_sleep)
-
-    except Exception as e:
-        utils.ui.error(get_string("act_err_reset").format(e=e))
 
 
 def flash_partition_target(
@@ -348,8 +303,6 @@ def dump_partitions(
 ) -> None:
     utils.ui.echo(get_string("act_start_dump"))
 
-    port = _prepare_edl_session(dev)
-
     const.BACKUP_DIR.mkdir(exist_ok=True)
 
     targets = []
@@ -362,80 +315,80 @@ def dump_partitions(
             get_string("act_ext_dump_targets").format(targets=", ".join(targets))
         )
 
-    for target in targets:
-        out_file = const.BACKUP_DIR / f"{target}.img"
-        utils.ui.echo(get_string("act_prep_dump").format(target=target))
+    ensure_edl_requirements()
+    with dev.edl_session(
+        auto_reset=not skip_reset,
+        reset_msg_key="act_reset_sys",
+        skip_msg_key="act_skip_reset",
+        post_sleep=15,
+    ) as port:
+        for target in targets:
+            out_file = const.BACKUP_DIR / f"{target}.img"
+            utils.ui.echo(get_string("act_prep_dump").format(target=target))
 
-        try:
-            params = ensure_params_or_fail(target)
-            utils.ui.echo(
-                get_string("act_found_dump_info").format(
-                    xml=params["source_xml"],
-                    lun=params["lun"],
-                    start=params["start_sector"],
+            try:
+                params = ensure_params_or_fail(target)
+                utils.ui.echo(
+                    get_string("act_found_dump_info").format(
+                        xml=params["source_xml"],
+                        lun=params["lun"],
+                        start=params["start_sector"],
+                    )
                 )
-            )
 
-            utils.ui.echo(
-                get_string("device_dumping_part").format(
-                    lun=params["lun"],
-                    start=params["start_sector"],
-                    num=params["num_sectors"],
+                utils.ui.echo(
+                    get_string("device_dumping_part").format(
+                        lun=params["lun"],
+                        start=params["start_sector"],
+                        num=params["num_sectors"],
+                    )
                 )
-            )
 
-            dev.edl.read_partition(
-                port=port,
-                output_filename=str(out_file),
-                lun=params["lun"],
-                start_sector=params["start_sector"],
-                num_sectors=params["num_sectors"],
-            )
+                dev.edl.read_partition(
+                    port=port,
+                    output_filename=str(out_file),
+                    lun=params["lun"],
+                    start_sector=params["start_sector"],
+                    num_sectors=params["num_sectors"],
+                )
 
-            if params.get("size_in_kb"):
-                try:
-                    expected_size_bytes = int(float(params["size_in_kb"]) * 1024)
-                    actual_size_bytes = out_file.stat().st_size
+                if params.get("size_in_kb"):
+                    try:
+                        expected_size_bytes = int(float(params["size_in_kb"]) * 1024)
+                        actual_size_bytes = out_file.stat().st_size
 
-                    if expected_size_bytes != actual_size_bytes:
-                        raise RuntimeError(
-                            get_string("act_err_dump_size_mismatch").format(
-                                target=target,
-                                expected=expected_size_bytes,
-                                actual=actual_size_bytes,
+                        if expected_size_bytes != actual_size_bytes:
+                            raise RuntimeError(
+                                get_string("act_err_dump_size_mismatch").format(
+                                    target=target,
+                                    expected=expected_size_bytes,
+                                    actual=actual_size_bytes,
+                                )
+                            )
+                    except (ValueError, OSError) as e:
+                        utils.ui.echo(
+                            get_string("act_skip_dump").format(
+                                target=target, e=f"Size validation error: {e}"
                             )
                         )
-                except (ValueError, OSError) as e:
-                    utils.ui.echo(
-                        get_string("act_skip_dump").format(
-                            target=target, e=f"Size validation error: {e}"
-                        )
+
+                utils.ui.echo(
+                    get_string("act_dump_success").format(
+                        target=target, file=out_file.name
                     )
+                )
 
-            utils.ui.echo(
-                get_string("act_dump_success").format(target=target, file=out_file.name)
-            )
+            except (ValueError, FileNotFoundError) as e:
+                utils.ui.echo(get_string("act_skip_dump").format(target=target, e=e))
+            except Exception as e:
+                utils.ui.error(get_string("act_err_dump").format(target=target, e=e))
 
-        except (ValueError, FileNotFoundError) as e:
-            utils.ui.echo(get_string("act_skip_dump").format(target=target, e=e))
-        except Exception as e:
-            utils.ui.error(get_string("act_err_dump").format(target=target, e=e))
-
-        utils.ui.echo(get_string("act_wait_stability"))
-        time.sleep(5)
+            utils.ui.echo(get_string("act_wait_stability"))
+            time.sleep(5)
 
     utils.ui.echo(get_string("act_dump_ignore_warn"))
     utils.ui.echo(get_string("act_dump_finish"))
     utils.ui.echo(get_string("act_dump_saved").format(dir=const.BACKUP_DIR.name))
-
-    _handle_edl_reset(
-        dev,
-        port,
-        skip_reset,
-        reset_msg_key="act_reset_sys",
-        skip_msg_key="act_skip_reset",
-        post_sleep=15,
-    )
 
 
 def flash_partitions(
@@ -455,25 +408,24 @@ def flash_partitions(
         get_string("act_found_patched_folder").format(dir=const.OUTPUT_DP_DIR.name)
     )
 
-    port = _prepare_edl_session(dev)
+    ensure_edl_requirements()
+    with dev.edl_session(auto_reset=not skip_reset) as port:
+        targets = ["devinfo", "persist"]
 
-    targets = ["devinfo", "persist"]
+        for target in targets:
+            image_path = const.OUTPUT_DP_DIR / f"{target}.img"
 
-    for target in targets:
-        image_path = const.OUTPUT_DP_DIR / f"{target}.img"
+            if not image_path.exists():
+                utils.ui.echo(get_string(f"act_skip_{target}"))
+                continue
 
-        if not image_path.exists():
-            utils.ui.echo(get_string(f"act_skip_{target}"))
-            continue
+            try:
+                flash_partition_target(dev, port, target, image_path)
 
-        try:
-            flash_partition_target(dev, port, target, image_path)
+            except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
+                utils.ui.error(get_string("act_err_edl_write").format(e=e))
+                raise
 
-        except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
-            utils.ui.error(get_string("act_err_edl_write").format(e=e))
-            raise
-
-    _handle_edl_reset(dev, port, skip_reset)
     utils.ui.echo(get_string("act_write_finish"))
 
 
@@ -519,29 +471,22 @@ def write_anti_rollback(dev: device.DeviceController, skip_reset: bool = False) 
     target_vbmeta = f"vbmeta_system{active_slot}"
 
     utils.ui.echo(get_string("act_arb_write_step2"))
-    utils.ui.echo(get_string("act_manual_edl_now"))
-    utils.ui.echo(get_string("act_manual_edl_hint"))
-    port = dev.edl.wait_for_device()
+    if not dev.skip_adb:
+        utils.ui.echo(get_string("act_manual_edl_now"))
+        utils.ui.echo(get_string("act_manual_edl_hint"))
 
-    try:
-        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
-
-        utils.ui.echo(get_string("act_arb_write_step3").format(slot=active_slot))
-
-        flash_partition_target(dev, port, target_boot, boot_img)
-        flash_partition_target(dev, port, target_vbmeta, vbmeta_img)
-
-        _handle_edl_reset(
-            dev,
-            port,
-            skip_reset,
-            reset_msg_key="act_arb_reset",
-            skip_msg_key="act_arb_skip_reset",
-        )
-
-    except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
-        utils.ui.error(get_string("act_err_edl_write").format(e=e))
-        raise
+    with dev.edl_session(
+        auto_reset=not skip_reset,
+        reset_msg_key="act_arb_reset",
+        skip_msg_key="act_arb_skip_reset",
+    ) as port:
+        try:
+            utils.ui.echo(get_string("act_arb_write_step3").format(slot=active_slot))
+            flash_partition_target(dev, port, target_boot, boot_img)
+            flash_partition_target(dev, port, target_vbmeta, vbmeta_img)
+        except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
+            utils.ui.error(get_string("act_err_edl_write").format(e=e))
+            raise
 
     utils.ui.echo(get_string("act_arb_write_finish"))
 
@@ -707,42 +652,40 @@ def flash_full_firmware(
 
     _prepare_flash_files(skip_dp)
 
-    port = dev.setup_edl_connection()
-
     raw_xmls, patch_xmls = _select_flash_xmls(skip_dp)
 
     utils.ui.echo(get_string("act_flash_step1"))
 
-    try:
-        dev.edl.flash_rawprogram(
-            port, const.EDL_LOADER_FILE, "UFS", raw_xmls, patch_xmls
-        )
-    except Exception as e:
-        utils.ui.error(get_string("act_err_main_flash").format(e=e))
-        utils.ui.error(get_string("err_detailed_traceback") + traceback.format_exc())
-        utils.ui.echo(get_string("act_warn_unstable"))
-        raise
-
-    utils.ui.echo(get_string("act_flash_step2"))
-    if not skip_dp:
-        try:
-            (const.IMAGE_DIR / "devinfo.img").unlink(missing_ok=True)
-            (const.IMAGE_DIR / "persist.img").unlink(missing_ok=True)
-            utils.ui.echo(get_string("act_removed_temp_imgs"))
-        except OSError as e:
-            utils.ui.error(get_string("act_err_clean_imgs").format(e=e))
-
-    if not skip_reset:
-        utils.ui.echo(get_string("act_flash_step3"))
-
-    _handle_edl_reset(
-        dev,
-        port,
-        skip_reset,
+    with dev.edl_session(
+        load_programmer=False,
+        auto_reset=not skip_reset,
         reset_msg_key="act_reset_sys",
         skip_msg_key="act_skip_final_reset",
         pre_sleep=5,
-    )
+    ) as port:
+        try:
+            dev.edl.flash_rawprogram(
+                port, const.EDL_LOADER_FILE, "UFS", raw_xmls, patch_xmls
+            )
+        except Exception as e:
+            utils.ui.error(get_string("act_err_main_flash").format(e=e))
+            utils.ui.error(
+                get_string("err_detailed_traceback") + traceback.format_exc()
+            )
+            utils.ui.echo(get_string("act_warn_unstable"))
+            raise
+
+        utils.ui.echo(get_string("act_flash_step2"))
+        if not skip_dp:
+            try:
+                (const.IMAGE_DIR / "devinfo.img").unlink(missing_ok=True)
+                (const.IMAGE_DIR / "persist.img").unlink(missing_ok=True)
+                utils.ui.echo(get_string("act_removed_temp_imgs"))
+            except OSError as e:
+                utils.ui.error(get_string("act_err_clean_imgs").format(e=e))
+
+        if not skip_reset:
+            utils.ui.echo(get_string("act_flash_step3"))
 
     if not skip_reset:
         utils.ui.echo(get_string("act_flash_finish"))

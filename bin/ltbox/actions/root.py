@@ -876,7 +876,6 @@ def _dump_partition_to_workspace(
 
 def _dump_and_generate_root_image(
     dev: device.DeviceController,
-    port: str,
     strategy: RootStrategy,
     partition_map: Dict[str, str],
     gki: bool,
@@ -896,45 +895,48 @@ def _dump_and_generate_root_image(
         backup_main = strategy.backup_dir / strategy.image_name
         base_main_bak = const.BASE_DIR / strategy.backup_name
 
-        try:
-            _dump_partition_to_workspace(dev, port, main_partition, dumped_main)
+        with dev.edl_session(auto_reset=True, reset_msg_key="act_dump_reset") as port:
+            try:
+                _dump_partition_to_workspace(dev, port, main_partition, dumped_main)
+
+                if not gki:
+                    vbmeta_partition = partition_map["vbmeta"]
+                    dumped_vbmeta = const.WORKING_BOOT_DIR / const.FN_VBMETA
+                    _dump_partition_to_workspace(
+                        dev, port, vbmeta_partition, dumped_vbmeta
+                    )
+
+                read_ok_suffix = "" if gki else " (init_boot)"
+                utils.ui.echo(
+                    get_string("act_read_dump_ok").format(
+                        part=main_partition, suffix=read_ok_suffix, file=dumped_main
+                    )
+                )
+
+            except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
+                utils.ui.error(
+                    get_string("act_err_dump").format(part=main_partition, e=e)
+                )
+                raise
+
+            utils.ui.echo(
+                get_string("act_backup_boot_root").format(dir=strategy.backup_dir.name)
+            )
+            shutil.copy(dumped_main, backup_main)
+            utils.ui.echo(get_string("act_temp_backup_avb"))
+            shutil.copy(dumped_main, base_main_bak)
 
             if not gki:
-                vbmeta_partition = partition_map["vbmeta"]
-                dumped_vbmeta = const.WORKING_BOOT_DIR / const.FN_VBMETA
-                _dump_partition_to_workspace(dev, port, vbmeta_partition, dumped_vbmeta)
-
-            read_ok_suffix = "" if gki else " (init_boot)"
-            utils.ui.echo(
-                get_string("act_read_dump_ok").format(
-                    part=main_partition, suffix=read_ok_suffix, file=dumped_main
+                shutil.copy(
+                    const.WORKING_BOOT_DIR / const.FN_VBMETA,
+                    strategy.backup_dir / const.FN_VBMETA,
                 )
-            )
+                shutil.copy(
+                    const.WORKING_BOOT_DIR / const.FN_VBMETA,
+                    const.BASE_DIR / const.FN_VBMETA_BAK,
+                )
 
-        except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
-            utils.ui.error(get_string("act_err_dump").format(part=main_partition, e=e))
-            raise
-
-        utils.ui.echo(
-            get_string("act_backup_boot_root").format(dir=strategy.backup_dir.name)
-        )
-        shutil.copy(dumped_main, backup_main)
-        utils.ui.echo(get_string("act_temp_backup_avb"))
-        shutil.copy(dumped_main, base_main_bak)
-
-        if not gki:
-            shutil.copy(
-                const.WORKING_BOOT_DIR / const.FN_VBMETA,
-                strategy.backup_dir / const.FN_VBMETA,
-            )
-            shutil.copy(
-                const.WORKING_BOOT_DIR / const.FN_VBMETA,
-                const.BASE_DIR / const.FN_VBMETA_BAK,
-            )
-
-        utils.ui.echo(get_string("act_backups_done"))
-        utils.ui.echo(get_string("act_dump_reset"))
-        dev.edl.reset(port)
+            utils.ui.echo(get_string("act_backups_done"))
 
         utils.ui.echo(
             get_string("act_root_step4_patch").format(image=strategy.patch_image_name)
@@ -992,42 +994,33 @@ def _flash_root_image(
         utils.ui.echo(get_string("act_wait_sys_adb"))
         dev.adb.wait_for_device()
         utils.ui.echo(get_string("act_reboot_edl_flash"))
-        port = dev.setup_edl_connection()
     else:
         utils.ui.echo(get_string("act_skip_adb_on"))
         utils.ui.echo(get_string("act_manual_edl_now"))
-        port = dev.edl.wait_for_device()
 
-    try:
-        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
-    except Exception as e:
-        utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
+    with dev.edl_session(auto_reset=True, reset_msg_key="act_reset_sys") as port:
+        try:
+            final_boot_path = strategy.output_dir / strategy.image_name
+            edl.flash_partition_target(dev, port, main_partition, final_boot_path)
 
-    try:
-        final_boot_path = strategy.output_dir / strategy.image_name
-        edl.flash_partition_target(dev, port, main_partition, final_boot_path)
-
-        utils.ui.echo(
-            get_string("act_flash_img").format(
-                filename=strategy.image_name, part=main_partition
-            )
-        )
-
-        if not gki:
-            final_vbmeta_path = strategy.output_dir / const.FN_VBMETA
-            vbmeta_part = partition_map["vbmeta"]
-            edl.flash_partition_target(dev, port, vbmeta_part, final_vbmeta_path)
             utils.ui.echo(
                 get_string("act_flash_img").format(
-                    filename=const.FN_VBMETA, part=vbmeta_part
+                    filename=strategy.image_name, part=main_partition
                 )
             )
 
-        utils.ui.echo(get_string("act_reset_sys"))
-        dev.edl.reset(port)
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        utils.ui.error(get_string("act_err_edl_write").format(e=e))
-        raise
+            if not gki:
+                final_vbmeta_path = strategy.output_dir / const.FN_VBMETA
+                vbmeta_part = partition_map["vbmeta"]
+                edl.flash_partition_target(dev, port, vbmeta_part, final_vbmeta_path)
+                utils.ui.echo(
+                    get_string("act_flash_img").format(
+                        filename=const.FN_VBMETA, part=vbmeta_part
+                    )
+                )
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            utils.ui.error(get_string("act_err_edl_write").format(e=e))
+            raise
 
 
 def root_device(
@@ -1069,15 +1062,8 @@ def root_device(
             partition_map["main"] = "init_boot"
 
     utils.ui.echo(get_string("act_root_step2"))
-    port = dev.setup_edl_connection()
-    try:
-        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
-    except Exception as e:
-        utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
 
-    _dump_and_generate_root_image(
-        dev, port, strategy, partition_map, gki, lkm_kernel_version
-    )
+    _dump_and_generate_root_image(dev, strategy, partition_map, gki, lkm_kernel_version)
 
     _flash_root_image(dev, strategy, partition_map, gki)
 
@@ -1155,33 +1141,24 @@ def unroot_device(dev: device.DeviceController) -> None:
 
     active_slot = detect_active_slot_robust(dev)
     suffix = active_slot if active_slot else ""
-    port = dev.setup_edl_connection()
-
-    try:
-        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
-    except Exception as e:
-        utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
 
     if selected_strategy:
-        try:
-            partition_map = selected_strategy.get_partition_map(suffix)
-            selected_strategy.print_unroot_step(partition_map)
+        with dev.edl_session(auto_reset=True, reset_msg_key="act_reset_sys") as port:
+            try:
+                partition_map = selected_strategy.get_partition_map(suffix)
+                selected_strategy.print_unroot_step(partition_map)
 
-            for role, backup_path in selected_strategy.unroot_files.items():
-                target_part = partition_map[role]
-                edl.flash_partition_target(dev, port, target_part, backup_path)
-                utils.ui.echo(
-                    get_string("act_flash_img").format(
-                        filename=backup_path.name, part=target_part
+                for role, backup_path in selected_strategy.unroot_files.items():
+                    target_part = partition_map[role]
+                    edl.flash_partition_target(dev, port, target_part, backup_path)
+                    utils.ui.echo(
+                        get_string("act_flash_img").format(
+                            filename=backup_path.name, part=target_part
+                        )
                     )
-                )
-
-            utils.ui.echo(get_string("act_reset_sys"))
-            dev.edl.reset(port)
-
-        except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
-            utils.ui.error(get_string("act_err_edl_write").format(e=e))
-            raise
+            except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
+                utils.ui.error(get_string("act_err_edl_write").format(e=e))
+                raise
 
     utils.ui.echo(get_string("act_unroot_finish"))
 
@@ -1214,37 +1191,31 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
     target_partition = f"recovery{suffix}"
 
     utils.ui.echo(get_string("act_root_step2"))
-    port = dev.setup_edl_connection()
-    try:
-        dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
-    except Exception as e:
-        utils.ui.echo(get_string("act_warn_prog_load").format(e=e))
 
     with utils.temporary_workspace(const.WORK_DIR):
         dumped_recovery = const.WORK_DIR / f"recovery{suffix}.img"
 
-        utils.ui.echo(get_string("act_dump_recovery").format(part=target_partition))
-        try:
-            params = ensure_params_or_fail(target_partition)
-            dev.edl.read_partition(
-                port=port,
-                output_filename=str(dumped_recovery),
-                lun=params["lun"],
-                start_sector=params["start_sector"],
-                num_sectors=params["num_sectors"],
-            )
-        except Exception as e:
-            utils.ui.error(
-                get_string("act_err_dump").format(part=target_partition, e=e)
-            )
-            raise
+        with dev.edl_session(auto_reset=True, reset_msg_key="act_dump_reset") as port:
+            utils.ui.echo(get_string("act_dump_recovery").format(part=target_partition))
+            try:
+                params = ensure_params_or_fail(target_partition)
+                dev.edl.read_partition(
+                    port=port,
+                    output_filename=str(dumped_recovery),
+                    lun=params["lun"],
+                    start_sector=params["start_sector"],
+                    num_sectors=params["num_sectors"],
+                )
+            except Exception as e:
+                utils.ui.error(
+                    get_string("act_err_dump").format(part=target_partition, e=e)
+                )
+                raise
 
-        backup_recovery = const.BACKUP_DIR / f"recovery{suffix}.img"
-        const.BACKUP_DIR.mkdir(exist_ok=True)
-        shutil.copy(dumped_recovery, backup_recovery)
-        utils.ui.echo(get_string("act_backup_recovery_ok"))
-
-        dev.edl.reset(port)
+            backup_recovery = const.BACKUP_DIR / f"recovery{suffix}.img"
+            const.BACKUP_DIR.mkdir(exist_ok=True)
+            shutil.copy(dumped_recovery, backup_recovery)
+            utils.ui.echo(get_string("act_backup_recovery_ok"))
 
         utils.ui.echo(get_string("act_sign_twrp_start"))
 
@@ -1281,25 +1252,17 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
         utils.ui.echo(get_string("act_reboot_edl_flash"))
         if not dev.skip_adb:
             dev.adb.wait_for_device()
-            port = dev.setup_edl_connection()
         else:
-            port = dev.edl.wait_for_device()
+            utils.ui.echo(get_string("act_manual_edl_now"))
 
-        try:
-            dev.edl.load_programmer_safe(port, const.EDL_LOADER_FILE)
-        except Exception:
-            pass
+        with dev.edl_session(auto_reset=True, reset_msg_key="act_reset_sys") as port:
+            edl.flash_partition_target(dev, port, target_partition, final_twrp)
 
-        edl.flash_partition_target(dev, port, target_partition, final_twrp)
-
-        utils.ui.echo(
-            get_string("act_flash_img").format(
-                filename=twrp_name, part=target_partition
+            utils.ui.echo(
+                get_string("act_flash_img").format(
+                    filename=twrp_name, part=target_partition
+                )
             )
-        )
-
-        utils.ui.echo(get_string("act_reset_sys"))
-        dev.edl.reset(port)
 
     utils.ui.echo(get_string("act_success"))
 
