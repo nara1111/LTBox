@@ -125,6 +125,12 @@ class RootStrategySpec:
     backup_dir: Path
     required_files: List[str]
     main_partition: str
+    display_name: str
+    unroot_detect_msg_key: str
+    unroot_menu_msg_key: str
+    menu_shortcut: str
+    patch_image_name: str
+    requires_kernel_version: bool = False
 
 
 class ConfigurableRootStrategy(RootStrategy):
@@ -149,6 +155,30 @@ class ConfigurableRootStrategy(RootStrategy):
     @property
     def required_files(self) -> List[str]:
         return self.spec.required_files
+
+    @property
+    def display_name(self) -> str:
+        return self.spec.display_name
+
+    @property
+    def unroot_detect_msg_key(self) -> str:
+        return self.spec.unroot_detect_msg_key
+
+    @property
+    def unroot_menu_msg_key(self) -> str:
+        return self.spec.unroot_menu_msg_key
+
+    @property
+    def menu_shortcut(self) -> str:
+        return self.spec.menu_shortcut
+
+    @property
+    def patch_image_name(self) -> str:
+        return self.spec.patch_image_name
+
+    @property
+    def requires_kernel_version(self) -> bool:
+        return self.spec.requires_kernel_version
 
     @property
     def log_output_dir_name(self) -> str:
@@ -252,27 +282,12 @@ class GkiRootStrategy(ConfigurableRootStrategy):
         backup_dir=const.BACKUP_BOOT_DIR,
         required_files=[const.FN_BOOT],
         main_partition="boot",
+        display_name="GKI",
+        unroot_detect_msg_key="act_unroot_gki_detected",
+        unroot_menu_msg_key="act_unroot_menu_3_gki",
+        menu_shortcut="3",
+        patch_image_name="boot.img",
     )
-
-    @property
-    def display_name(self) -> str:
-        return "GKI"
-
-    @property
-    def unroot_detect_msg_key(self) -> str:
-        return "act_unroot_gki_detected"
-
-    @property
-    def unroot_menu_msg_key(self) -> str:
-        return "act_unroot_menu_3_gki"
-
-    @property
-    def menu_shortcut(self) -> str:
-        return "3"
-
-    @property
-    def patch_image_name(self) -> str:
-        return "boot.img"
 
     def print_unroot_step(self, partition_map: Dict[str, str]) -> None:
         utils.ui.echo(
@@ -311,6 +326,11 @@ class MagiskRootStrategy(InitBootRootStrategy):
         backup_dir=const.BACKUP_MAGISK_DIR,
         required_files=[const.FN_INIT_BOOT, const.FN_VBMETA],
         main_partition="init_boot",
+        display_name="Magisk",
+        unroot_detect_msg_key="act_unroot_magisk_detected",
+        unroot_menu_msg_key="act_unroot_menu_1_magisk",
+        menu_shortcut="1",
+        patch_image_name="init_boot.img",
     )
 
     def __init__(self) -> None:
@@ -327,26 +347,6 @@ class MagiskRootStrategy(InitBootRootStrategy):
     @property
     def root_type(self) -> str:
         return "magisk"
-
-    @property
-    def display_name(self) -> str:
-        return "Magisk"
-
-    @property
-    def unroot_detect_msg_key(self) -> str:
-        return "act_unroot_magisk_detected"
-
-    @property
-    def unroot_menu_msg_key(self) -> str:
-        return "act_unroot_menu_1_magisk"
-
-    @property
-    def menu_shortcut(self) -> str:
-        return "1"
-
-    @property
-    def patch_image_name(self) -> str:
-        return "init_boot.img"
 
     def print_unroot_step(self, partition_map: Dict[str, str]) -> None:
         utils.ui.echo(get_string("act_unroot_step4_magisk"))
@@ -378,6 +378,12 @@ class LkmRootStrategy(InitBootRootStrategy):
         backup_dir=const.BACKUP_INIT_BOOT_DIR,
         required_files=[const.FN_INIT_BOOT, const.FN_VBMETA],
         main_partition="init_boot",
+        display_name="LKM",
+        unroot_detect_msg_key="act_unroot_lkm_detected",
+        unroot_menu_msg_key="act_unroot_menu_2_lkm",
+        menu_shortcut="2",
+        patch_image_name="init_boot.img (LKM)",
+        requires_kernel_version=True,
     )
 
     def __init__(self, root_type: str = "ksu"):
@@ -399,30 +405,6 @@ class LkmRootStrategy(InitBootRootStrategy):
     @property
     def root_type(self) -> str:
         return self._root_type
-
-    @property
-    def display_name(self) -> str:
-        return "LKM"
-
-    @property
-    def unroot_detect_msg_key(self) -> str:
-        return "act_unroot_lkm_detected"
-
-    @property
-    def unroot_menu_msg_key(self) -> str:
-        return "act_unroot_menu_2_lkm"
-
-    @property
-    def menu_shortcut(self) -> str:
-        return "2"
-
-    @property
-    def patch_image_name(self) -> str:
-        return "init_boot.img (LKM)"
-
-    @property
-    def requires_kernel_version(self) -> bool:
-        return True
 
     def print_unroot_step(self, partition_map: Dict[str, str]) -> None:
         utils.ui.echo(get_string("act_unroot_step4_lkm"))
