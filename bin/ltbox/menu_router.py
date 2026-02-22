@@ -94,8 +94,47 @@ def _select_root_mode_action(breadcrumbs: str) -> Optional[str]:
     )
 
 
+def _handle_ksu_mode(dev: Any, registry: Any, type_breadcrumbs: str) -> Optional[str]:
+    mode_breadcrumbs = f"{type_breadcrumbs} > {get_string('menu_root_mode_title')}"
+    dispatch_map = {
+        "lkm": lambda: _root_action_menu(
+            dev, registry, gki=False, root_type="ksu", breadcrumbs=mode_breadcrumbs
+        ),
+        "gki": lambda: _root_action_menu(
+            dev, registry, gki=True, root_type="ksu", breadcrumbs=mode_breadcrumbs
+        ),
+    }
+
+    while True:
+        mode_action = _select_root_mode_action(breadcrumbs=type_breadcrumbs)
+        if mode_action in ("back", "return"):
+            return mode_action if mode_action == "return" else None
+        if mode_action == "exit":
+            sys.exit()
+
+        action_func = dispatch_map.get(mode_action)
+        if action_func:
+            return action_func()
+        return None
+
+
 def root_menu(dev: Any, registry: Any):
     main_title = get_string("menu_main_title")
+    type_breadcrumbs = f"{main_title} > {get_string('menu_root_type_title')}"
+
+    dispatch_map = {
+        "1": lambda: _root_action_menu(
+            dev, registry, gki=False, root_type="magisk", breadcrumbs=type_breadcrumbs
+        ),
+        "2": lambda: _handle_ksu_mode(dev, registry, type_breadcrumbs),
+        "3": lambda: _root_action_menu(
+            dev, registry, gki=False, root_type="sukisu", breadcrumbs=type_breadcrumbs
+        ),
+        "4": lambda: _root_action_menu(
+            dev, registry, gki=False, root_type="resukisu", breadcrumbs=type_breadcrumbs
+        ),
+    }
+
     while True:
         mode_menu = TerminalMenu(
             get_string("menu_root_type_title"), breadcrumbs=main_title
@@ -112,73 +151,44 @@ def root_menu(dev: Any, registry: Any):
             get_string("prompt_select"), get_string("err_invalid_selection")
         )
 
-        type_breadcrumbs = f"{main_title} > {get_string('menu_root_type_title')}"
-
-        if choice == "1":
-            result = _root_action_menu(
-                dev,
-                registry,
-                gki=False,
-                root_type="magisk",
-                breadcrumbs=type_breadcrumbs,
-            )
-        elif choice == "2":
-            result = None
-            while True:
-                mode_action = _select_root_mode_action(breadcrumbs=type_breadcrumbs)
-                mode_breadcrumbs = (
-                    f"{type_breadcrumbs} > {get_string('menu_root_mode_title')}"
-                )
-                if mode_action == "lkm":
-                    result = _root_action_menu(
-                        dev,
-                        registry,
-                        gki=False,
-                        root_type="ksu",
-                        breadcrumbs=mode_breadcrumbs,
-                    )
-                    break
-                if mode_action == "gki":
-                    result = _root_action_menu(
-                        dev,
-                        registry,
-                        gki=True,
-                        root_type="ksu",
-                        breadcrumbs=mode_breadcrumbs,
-                    )
-                    break
-                if mode_action == "back":
-                    result = None
-                    break
-                if mode_action == "return":
-                    return
-                if mode_action == "exit":
-                    sys.exit()
-        elif choice == "3":
-            result = _root_action_menu(
-                dev,
-                registry,
-                gki=False,
-                root_type="sukisu",
-                breadcrumbs=type_breadcrumbs,
-            )
-        elif choice == "4":
-            result = _root_action_menu(
-                dev,
-                registry,
-                gki=False,
-                root_type="resukisu",
-                breadcrumbs=type_breadcrumbs,
-            )
-        elif choice == "b":
+        if choice == "b":
             return
-        elif choice == "x":
+        if choice == "x":
             sys.exit()
-        else:
-            result = None
 
-        if result == "main":
-            return
+        action_func = dispatch_map.get(choice)
+        if action_func:
+            if action_func() == "main":
+                return
+
+
+def _handle_update_check():
+    ui.clear()
+    ui.echo(get_string("act_update_checking"))
+
+    current_version = _read_current_version()
+    latest_version, latest_release, latest_prerelease = _get_latest_version(
+        current_version
+    )
+
+    if latest_version:
+        ui.echo(get_string("update_avail_title"))
+        prompt_msg = get_string("update_avail_prompt").format(
+            curr=current_version, new=latest_version
+        )
+        choice = input(prompt_msg).strip().lower()
+        if choice == "y":
+            ui.echo(get_string("update_open_web"))
+            webbrowser.open("https://github.com/miner7222/LTBox/releases")
+            sys.exit(0)
+    else:
+        if latest_release or latest_prerelease:
+            ui.echo(get_string("act_update_not_found").format(version=current_version))
+        else:
+            ui.echo(get_string("act_update_error").format(e="Unknown version"))
+
+    ui.echo("")
+    input(get_string("press_enter_to_continue"))
 
 
 def settings_menu(
@@ -190,6 +200,36 @@ def settings_menu(
     settings_store: Any,
 ) -> Tuple[bool, bool, str]:
     main_title = get_string("menu_main_title")
+
+    def _toggle_region():
+        nonlocal target_region
+        target_region = "ROW" if target_region == "PRC" else "PRC"
+        settings_store.update(target_region=target_region)
+
+    def _toggle_adb():
+        nonlocal skip_adb
+        skip_adb = not skip_adb
+        dev.skip_adb = skip_adb
+
+    def _toggle_rollback():
+        nonlocal skip_rollback
+        skip_rollback = not skip_rollback
+
+    def _change_lang():
+        cmd_info = registry.get("change_language")
+        if cmd_info:
+            cmd_info.func(
+                breadcrumbs=f"{main_title} > {get_string('menu_settings_title')}"
+            )
+
+    action_handlers = {
+        "toggle_region": _toggle_region,
+        "toggle_adb": _toggle_adb,
+        "toggle_rollback": _toggle_rollback,
+        "change_lang": _change_lang,
+        "check_update": _handle_update_check,
+    }
+
     while True:
         skip_adb_state = "ON" if skip_adb else "OFF"
         skip_rb_state = "ON" if skip_rollback else "OFF"
@@ -201,56 +241,12 @@ def settings_menu(
             menu_items, "menu_settings_title", breadcrumbs=main_title
         )
 
-        if action == "back":
+        if action in ("back", "return"):
             return skip_adb, skip_rollback, target_region
-        elif action == "return":
-            return skip_adb, skip_rollback, target_region
-        elif action == "toggle_region":
-            target_region = "ROW" if target_region == "PRC" else "PRC"
-            settings_store.update(target_region=target_region)
-        elif action == "toggle_adb":
-            skip_adb = not skip_adb
-            dev.skip_adb = skip_adb
-        elif action == "toggle_rollback":
-            skip_rollback = not skip_rollback
-        elif action == "change_lang":
-            cmd_info = registry.get("change_language")
-            if cmd_info:
-                settings_breadcrumbs = (
-                    f"{main_title} > {get_string('menu_settings_title')}"
-                )
-                cmd_info.func(breadcrumbs=settings_breadcrumbs)
-        elif action == "check_update":
-            ui.clear()
-            ui.echo(get_string("act_update_checking"))
 
-            current_version = _read_current_version()
-            latest_version, latest_release, latest_prerelease = _get_latest_version(
-                current_version
-            )
-
-            if latest_version:
-                ui.echo(get_string("update_avail_title"))
-                prompt_msg = get_string("update_avail_prompt").format(
-                    curr=current_version, new=latest_version
-                )
-                choice = input(prompt_msg).strip().lower()
-                if choice == "y":
-                    ui.echo(get_string("update_open_web"))
-                    webbrowser.open("https://github.com/miner7222/LTBox/releases")
-                    sys.exit(0)
-            else:
-                if latest_release or latest_prerelease:
-                    ui.echo(
-                        get_string("act_update_not_found").format(
-                            version=current_version
-                        )
-                    )
-                else:
-                    ui.echo(get_string("act_update_error").format(e="Unknown version"))
-
-            ui.echo("")
-            input(get_string("press_enter_to_continue"))
+        action_func = action_handlers.get(action)
+        if action_func:
+            action_func()
 
 
 def prompt_for_language(
@@ -310,34 +306,43 @@ def main_loop(
 ):
     settings = settings_store.load()
 
-    skip_adb = False
-    skip_rollback = False
-    target_region = settings.target_region
+    state = {
+        "skip_adb": False,
+        "skip_rollback": False,
+        "target_region": settings.target_region,
+    }
+    dev = device_controller_class(skip_adb=state["skip_adb"])
 
-    dev = device_controller_class(skip_adb=skip_adb)
+    def _run_settings():
+        state["skip_adb"], state["skip_rollback"], state["target_region"] = (
+            settings_menu(
+                dev,
+                registry,
+                state["skip_adb"],
+                state["skip_rollback"],
+                state["target_region"],
+                settings_store,
+            )
+        )
+
+    menu_handlers = {
+        "menu_settings": _run_settings,
+        "menu_root": lambda: root_menu(dev, registry),
+        "menu_advanced": lambda: advanced_menu(dev, registry, state["target_region"]),
+    }
 
     while True:
-        menu_items = menu_data.get_main_menu_data(target_region)
+        menu_items = menu_data.get_main_menu_data(state["target_region"])
         action = select_menu_action(menu_items, "menu_main_title")
 
         if action == "exit":
             break
-        elif action == "menu_settings":
-            skip_adb, skip_rollback, target_region = settings_menu(
-                dev,
-                registry,
-                skip_adb,
-                skip_rollback,
-                target_region,
-                settings_store=settings_store,
-            )
-        elif action == "menu_root":
-            root_menu(dev, registry)
-        elif action == "menu_advanced":
-            advanced_menu(dev, registry, target_region)
+        action_func = menu_handlers.get(action)
+        if action_func:
+            action_func()
         elif action:
             extras: Dict[str, Any] = {}
             if action in ["patch_all", "patch_all_wipe"]:
-                extras["skip_rollback"] = skip_rollback
-                extras["target_region"] = target_region
+                extras["skip_rollback"] = state["skip_rollback"]
+                extras["target_region"] = state["target_region"]
             run_task(action, dev, registry, extra_kwargs=extras)
