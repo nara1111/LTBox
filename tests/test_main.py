@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from ltbox import main
+from ltbox import main, menu_router
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../bin")))
 
@@ -63,7 +63,7 @@ def test_main_loop_settings_flow(monkeypatch, tmp_path):
     def fake_select_menu_action(menu_items, title_key, **kwargs):
         return next(actions)
 
-    monkeypatch.setattr(main, "select_menu_action", fake_select_menu_action)
+    monkeypatch.setattr(menu_router, "select_menu_action", fake_select_menu_action)
 
     class DummyController:
         last_instance = None
@@ -72,7 +72,7 @@ def test_main_loop_settings_flow(monkeypatch, tmp_path):
             self.skip_adb = skip_adb
             DummyController.last_instance = self
 
-    main.main_loop(DummyController, main.CommandRegistry(), settings_store=store)
+    menu_router.main_loop(DummyController, main.CommandRegistry(), settings_store=store)
 
     assert DummyController.last_instance.skip_adb is True
     assert store.load().target_region == "ROW"
