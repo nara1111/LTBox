@@ -1,5 +1,6 @@
 import json
 import os
+import functools
 import platform
 import subprocess
 import sys
@@ -238,25 +239,36 @@ def check_path_encoding():
 # --- Task Execution ---
 
 
-def _handle_task_error(error: Exception, title: str) -> None:
-    if isinstance(error, LTBoxError):
-        ui.box_output(
-            [get_string("task_failed").format(title=title), str(error)], err=True
-        )
-        return
-    if isinstance(error, subprocess.CalledProcessError):
-        ui.box_output(_format_command_failure_messages(error), err=True)
-        return
-    if isinstance(error, (FileNotFoundError, RuntimeError, KeyError)):
-        if not isinstance(error, SystemExit):
-            ui.box_output([get_string("unexpected_error").format(e=error)], err=True)
-        return
-    if isinstance(error, SystemExit):
-        ui.error(get_string("process_halted"))
-        return
-    if isinstance(error, KeyboardInterrupt):
-        ui.error(get_string("process_cancelled"))
-        return
+@functools.singledispatch
+def _handle_task_error(error: BaseException, title: str) -> None:
+    pass
+
+
+@_handle_task_error.register
+def _(error: LTBoxError, title: str) -> None:
+    ui.box_output([get_string("task_failed").format(title=title), str(error)], err=True)
+
+
+@_handle_task_error.register
+def _(error: subprocess.CalledProcessError, title: str) -> None:
+    ui.box_output(_format_command_failure_messages(error), err=True)
+
+
+@_handle_task_error.register(FileNotFoundError)
+@_handle_task_error.register(RuntimeError)
+@_handle_task_error.register(KeyError)
+def _(error: Exception, title: str) -> None:
+    ui.box_output([get_string("unexpected_error").format(e=error)], err=True)
+
+
+@_handle_task_error.register
+def _(error: SystemExit, title: str) -> None:
+    ui.error(get_string("process_halted"))
+
+
+@_handle_task_error.register
+def _(error: KeyboardInterrupt, title: str) -> None:
+    ui.error(get_string("process_cancelled"))
 
 
 def run_task(
