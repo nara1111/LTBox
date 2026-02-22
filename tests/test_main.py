@@ -60,7 +60,7 @@ def test_main_loop_settings_flow(monkeypatch, tmp_path):
         ]
     )
 
-    def fake_select_menu_action(menu_items, title_key):
+    def fake_select_menu_action(menu_items, title_key, **kwargs):
         return next(actions)
 
     monkeypatch.setattr(main, "select_menu_action", fake_select_menu_action)
