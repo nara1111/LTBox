@@ -95,7 +95,9 @@ def test_run_info_scan_creates_log(tmp_path):
         return SimpleNamespace(stdout="FAKE-INFO", stderr="")
 
     constants = SimpleNamespace(
-        BASE_DIR=tmp_path, PYTHON_EXE=Path("python"), AVBTOOL_PY=Path("avbtool.py")
+        BASE_DIR=tmp_path / "bin",
+        PYTHON_EXE=Path("python"),
+        AVBTOOL_PY=Path("avbtool.py"),
     )
     avb_patch = SimpleNamespace(utils=SimpleNamespace(run_command=fake_run_command))
 
