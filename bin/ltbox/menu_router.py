@@ -9,114 +9,88 @@ from .utils import ui
 from .main import run_task, _read_current_version, _get_latest_version, SETTINGS_STORE
 
 
-def _handle_menu_navigation(action: Optional[str]) -> Optional[str]:
-    if action in ("back", "return", "exit"):
-        return action
-    return None
-
-
-def _run_task_menu(
-    dev: Any,
-    registry: Any,
-    menu_items: List[Any],
+def _loop_menu(
+    menu_items_factory: Callable[[], List[Any]],
     title_key: str,
-    breadcrumbs: Optional[str] = None,
-    extra_kwargs_factory: Optional[Callable[[str], Dict[str, Any]]] = None,
+    breadcrumbs: Optional[str],
+    action_handler: Callable[[str], Any],
 ) -> Optional[str]:
-    action = select_menu_action(menu_items, title_key, breadcrumbs=breadcrumbs)
-    navigation = _handle_menu_navigation(action)
-    if navigation:
-        return navigation
+    while True:
+        menu_items = menu_items_factory()
+        action = select_menu_action(menu_items, title_key, breadcrumbs=breadcrumbs)
 
-    if action:
-        extras: Dict[str, Any] = {}
-        if extra_kwargs_factory:
-            extras = extra_kwargs_factory(action)
-        run_task(action, dev, registry, extra_kwargs=extras)
-    return None
+        if action in ("back", "return", "exit"):
+            return action
+
+        if action is not None:
+            result = action_handler(action)
+            if result in ("back", "return", "exit"):
+                return result
 
 
 def advanced_menu(dev: Any, registry: Any, target_region: str):
     main_title = get_string("menu_main_title")
-    while True:
-        menu_items = menu_data.get_advanced_menu_data(target_region)
 
-        def _extra_kwargs(action: str) -> Dict[str, Any]:
-            if action == "convert":
-                return {"target_region": target_region}
-            return {}
-
-        action = _run_task_menu(
-            dev,
-            registry,
-            menu_items,
-            "menu_adv_title",
-            breadcrumbs=main_title,
-            extra_kwargs_factory=_extra_kwargs,
+    def _handler(action: str):
+        extras: Dict[str, Any] = (
+            {"target_region": target_region} if action == "convert" else {}
         )
-        if action in ("back", "return"):
-            return
-        if action == "exit":
-            sys.exit()
+        run_task(action, dev, registry, extra_kwargs=extras)
+
+    action = _loop_menu(
+        lambda: menu_data.get_advanced_menu_data(target_region),
+        "menu_adv_title",
+        main_title,
+        _handler,
+    )
+    if action == "exit":
+        sys.exit()
 
 
 def _root_action_menu(
     dev: Any, registry: Any, gki: bool, root_type: str, breadcrumbs: str
 ):
-    while True:
-        menu_items = menu_data.get_root_menu_data(gki)
+    def _handler(action: str):
+        extras: Dict[str, Any] = {"root_type": root_type} if not gki else {}
+        run_task(action, dev, registry, extra_kwargs=extras)
 
-        def _extra_kwargs(action: str) -> Dict[str, Any]:
-            if not gki:
-                return {"root_type": root_type}
-            return {}
-
-        action = _run_task_menu(
-            dev,
-            registry,
-            menu_items,
-            "menu_root_title",
-            breadcrumbs=breadcrumbs,
-            extra_kwargs_factory=_extra_kwargs,
-        )
-        if action == "back":
-            return
-        if action == "return":
-            return "main"
-        if action == "exit":
-            sys.exit()
-
-
-def _select_root_mode_action(breadcrumbs: str) -> Optional[str]:
-    menu_items = menu_data.get_root_mode_menu_data()
-    return select_menu_action(
-        menu_items, "menu_root_mode_title", breadcrumbs=breadcrumbs
+    res = _loop_menu(
+        lambda: menu_data.get_root_menu_data(gki),
+        "menu_root_title",
+        breadcrumbs,
+        _handler,
     )
+    if res == "return":
+        return "main"
+    if res == "exit":
+        sys.exit()
+    return res
 
 
 def _handle_ksu_mode(dev: Any, registry: Any, type_breadcrumbs: str) -> Optional[str]:
     mode_breadcrumbs = f"{type_breadcrumbs} > {get_string('menu_root_mode_title')}"
-    dispatch_map = {
-        "lkm": lambda: _root_action_menu(
-            dev, registry, gki=False, root_type="ksu", breadcrumbs=mode_breadcrumbs
-        ),
-        "gki": lambda: _root_action_menu(
-            dev, registry, gki=True, root_type="ksu", breadcrumbs=mode_breadcrumbs
-        ),
-    }
 
-    while True:
-        mode_action = _select_root_mode_action(breadcrumbs=type_breadcrumbs)
-        if mode_action in ("back", "return"):
-            return mode_action if mode_action == "return" else None
-        if mode_action == "exit":
-            sys.exit()
+    def _handler(mode_action: str):
+        if mode_action == "lkm":
+            return _root_action_menu(
+                dev, registry, gki=False, root_type="ksu", breadcrumbs=mode_breadcrumbs
+            )
+        elif mode_action == "gki":
+            return _root_action_menu(
+                dev, registry, gki=True, root_type="ksu", breadcrumbs=mode_breadcrumbs
+            )
 
-        if mode_action is not None:
-            action_func = dispatch_map.get(mode_action)
-            if action_func:
-                return action_func()
-        return None
+    res = _loop_menu(
+        menu_data.get_root_mode_menu_data,
+        "menu_root_mode_title",
+        type_breadcrumbs,
+        _handler,
+    )
+    if res == "return":
+        return "return"
+    if res == "exit":
+        sys.exit()
+    return None
 
 
 def root_menu(dev: Any, registry: Any):
@@ -157,10 +131,12 @@ def root_menu(dev: Any, registry: Any):
         if choice == "x":
             sys.exit()
 
-        action_func = dispatch_map.get(choice)
-        if action_func:
-            if action_func() == "main":
-                return
+        if choice is not None:
+            action_func = dispatch_map.get(choice)
+            if action_func is not None:
+                res = action_func()
+                if res in ("main", "return"):
+                    return
 
 
 def _handle_update_check():
@@ -231,24 +207,24 @@ def settings_menu(
         "check_update": _handle_update_check,
     }
 
-    while True:
-        skip_adb_state = "ON" if skip_adb else "OFF"
-        skip_rb_state = "ON" if skip_rollback else "OFF"
+    def _handler(act: str):
+        func = action_handlers.get(act)
+        if func:
+            func()
 
-        menu_items = menu_data.get_settings_menu_data(
-            skip_adb_state, skip_rb_state, target_region
-        )
-        action = select_menu_action(
-            menu_items, "menu_settings_title", breadcrumbs=main_title
-        )
+    action = _loop_menu(
+        lambda: menu_data.get_settings_menu_data(
+            "ON" if skip_adb else "OFF", "ON" if skip_rollback else "OFF", target_region
+        ),
+        "menu_settings_title",
+        main_title,
+        _handler,
+    )
 
-        if action in ("back", "return"):
-            return skip_adb, skip_rollback, target_region
+    if action == "exit":
+        sys.exit()
 
-        if action is not None:
-            action_func = action_handlers.get(action)
-            if action_func:
-                action_func()
+    return skip_adb, skip_rollback, target_region
 
 
 def prompt_for_language(
@@ -333,17 +309,20 @@ def main_loop(
         "menu_advanced": lambda: advanced_menu(dev, registry, state["target_region"]),
     }
 
-    while True:
-        menu_items = menu_data.get_main_menu_data(state["target_region"])
-        action = select_menu_action(menu_items, "menu_main_title")
+    def _handler(action: str):
+        action_func = menu_handlers.get(action)
+        if action_func:
+            action_func()
+        else:
+            extras: Dict[str, Any] = {}
+            if action in ["patch_all", "patch_all_wipe"]:
+                extras["skip_rollback"] = state["skip_rollback"]
+                extras["target_region"] = state["target_region"]
+            run_task(action, dev, registry, extra_kwargs=extras)
 
-        if action is not None:
-            action_func = menu_handlers.get(action)
-            if action_func:
-                action_func()
-            else:
-                extras: Dict[str, Any] = {}
-                if action in ["patch_all", "patch_all_wipe"]:
-                    extras["skip_rollback"] = state["skip_rollback"]
-                    extras["target_region"] = state["target_region"]
-                run_task(action, dev, registry, extra_kwargs=extras)
+    _loop_menu(
+        lambda: menu_data.get_main_menu_data(state["target_region"]),
+        "menu_main_title",
+        None,
+        _handler,
+    )
