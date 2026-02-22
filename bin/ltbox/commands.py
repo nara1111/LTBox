@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable, Dict, List, Tuple
 
 from . import actions, workflow
 from .i18n import get_string
@@ -18,7 +18,7 @@ def _handle_read_anti_rollback_result(result: Any) -> None:
 
 
 def register_all_commands() -> None:
-    command_specs = [
+    command_specs: List[Tuple[str, Callable[..., Any], str, bool, Dict[str, Any]]] = [
         (
             "convert",
             actions.convert_region_images,

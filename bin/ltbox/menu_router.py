@@ -112,9 +112,10 @@ def _handle_ksu_mode(dev: Any, registry: Any, type_breadcrumbs: str) -> Optional
         if mode_action == "exit":
             sys.exit()
 
-        action_func = dispatch_map.get(mode_action)
-        if action_func:
-            return action_func()
+        if mode_action is not None:
+            action_func = dispatch_map.get(mode_action)
+            if action_func:
+                return action_func()
         return None
 
 
@@ -244,9 +245,10 @@ def settings_menu(
         if action in ("back", "return"):
             return skip_adb, skip_rollback, target_region
 
-        action_func = action_handlers.get(action)
-        if action_func:
-            action_func()
+        if action is not None:
+            action_func = action_handlers.get(action)
+            if action_func:
+                action_func()
 
 
 def prompt_for_language(
@@ -335,14 +337,13 @@ def main_loop(
         menu_items = menu_data.get_main_menu_data(state["target_region"])
         action = select_menu_action(menu_items, "menu_main_title")
 
-        if action == "exit":
-            break
-        action_func = menu_handlers.get(action)
-        if action_func:
-            action_func()
-        elif action:
-            extras: Dict[str, Any] = {}
-            if action in ["patch_all", "patch_all_wipe"]:
-                extras["skip_rollback"] = state["skip_rollback"]
-                extras["target_region"] = state["target_region"]
-            run_task(action, dev, registry, extra_kwargs=extras)
+        if action is not None:
+            action_func = menu_handlers.get(action)
+            if action_func:
+                action_func()
+            else:
+                extras: Dict[str, Any] = {}
+                if action in ["patch_all", "patch_all_wipe"]:
+                    extras["skip_rollback"] = state["skip_rollback"]
+                    extras["target_region"] = state["target_region"]
+                run_task(action, dev, registry, extra_kwargs=extras)
