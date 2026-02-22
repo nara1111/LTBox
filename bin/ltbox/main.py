@@ -265,7 +265,19 @@ def setup_console():
         import ctypes
 
         if sys.platform == "win32":
-            ctypes.windll.kernel32.SetConsoleTitleW("LTBox")
+            kernel32 = ctypes.windll.kernel32
+            kernel32.SetConsoleTitleW("LTBox")
+
+            STD_INPUT_HANDLE = -10
+            ENABLE_QUICK_EDIT_MODE = 0x0040
+            ENABLE_EXTENDED_FLAGS = 0x0080
+
+            hStdIn = kernel32.GetStdHandle(STD_INPUT_HANDLE)
+            mode = ctypes.c_uint32()
+            if kernel32.GetConsoleMode(hStdIn, ctypes.byref(mode)):
+                mode.value &= ~ENABLE_QUICK_EDIT_MODE
+                mode.value |= ENABLE_EXTENDED_FLAGS
+                kernel32.SetConsoleMode(hStdIn, mode)
 
         sys.stdout.write("\x1b[8;40;80t")
         sys.stdout.flush()
