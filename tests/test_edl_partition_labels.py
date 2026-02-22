@@ -62,12 +62,12 @@ def test_flash_partition_labels_writes_selected_entries(mock_env):
     (img_dir / "super_2.img").write_text("b", encoding="utf-8")
 
     dev = MagicMock()
+    dev.edl_session.return_value.__enter__.return_value = "COM1"
 
     with (
         patch("ltbox.actions.edl.xml.ensure_xml_files"),
         patch("ltbox.actions.edl._prompt_partition_selection", return_value=["super"]),
-        patch("ltbox.actions.edl._prepare_edl_session", return_value="COM1"),
-        patch("ltbox.actions.edl._handle_edl_reset"),
+        patch("ltbox.actions.edl.ensure_edl_requirements"),
     ):
         edl.flash_partition_labels(dev, skip_reset=True)
 
@@ -87,13 +87,13 @@ def test_flash_partition_labels_ab_slot_selection(mock_env):
     (img_dir / "boot.img").write_text("boot_data", encoding="utf-8")
 
     dev = MagicMock()
+    dev.edl_session.return_value.__enter__.return_value = "COM1"
 
     with (
         patch("ltbox.actions.edl.xml.ensure_xml_files"),
         patch("ltbox.actions.edl._prompt_partition_selection", return_value=["boot"]),
         patch("ltbox.utils.ui.prompt", return_value="2"),
-        patch("ltbox.actions.edl._prepare_edl_session", return_value="COM1"),
-        patch("ltbox.actions.edl._handle_edl_reset"),
+        patch("ltbox.actions.edl.ensure_edl_requirements"),
     ):
         edl.flash_partition_labels(dev, skip_reset=True)
 
