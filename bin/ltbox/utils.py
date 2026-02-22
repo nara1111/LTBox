@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import time
 import urllib.request
+import functools
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Generator, Iterable, List, Optional, Union
@@ -14,8 +15,6 @@ from .logger import get_logger
 from .ui import ui
 
 logger = get_logger()
-
-_CACHED_ENV = None
 
 
 def get_latest_release_versions(
@@ -59,13 +58,12 @@ def is_update_available(current: str, latest: str) -> bool:
     return version_to_tuple(latest) > version_to_tuple(current)
 
 
+@functools.lru_cache(maxsize=1)
 def _get_tool_env() -> dict:
-    global _CACHED_ENV
-    if _CACHED_ENV is None:
-        _CACHED_ENV = os.environ.copy()
-        paths = [str(const.TOOLS_DIR), str(const.DOWNLOAD_DIR)]
-        _CACHED_ENV["PATH"] = os.pathsep.join(paths) + os.pathsep + _CACHED_ENV["PATH"]
-    return _CACHED_ENV
+    env = os.environ.copy()
+    paths = [str(const.TOOLS_DIR), str(const.DOWNLOAD_DIR)]
+    env["PATH"] = os.pathsep.join(paths) + os.pathsep + env["PATH"]
+    return env
 
 
 def wait_for_condition(
