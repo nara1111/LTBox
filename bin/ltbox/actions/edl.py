@@ -1,3 +1,4 @@
+import itertools
 import shutil
 import subprocess
 import time
@@ -174,11 +175,9 @@ def flash_partition_labels(
             target_entries = p_info[target_slot]
             other_entries = p_info[other_slot]
 
-            max_len = max(len(target_entries), len(other_entries))
-            for i in range(max_len):
-                t_entry = target_entries[i] if i < len(target_entries) else None
-                o_entry = other_entries[i] if i < len(other_entries) else None
-
+            for t_entry, o_entry in itertools.zip_longest(
+                target_entries, other_entries
+            ):
                 if not t_entry:
                     utils.ui.error(
                         f"Cannot find sector info for {base}_{target_slot}. Skipping."
