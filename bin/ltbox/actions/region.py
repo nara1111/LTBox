@@ -355,10 +355,7 @@ def rescue_after_ota(
 
     on_log(get_string("rescue_wait_adb_flash"))
 
-    port = edl._prepare_edl_session(dev)
-
-    for target, path in patched_map.items():
-        edl.flash_partition_target(dev, port, target, path)
-
-    on_log(get_string("act_reset_sys"))
-    dev.edl.reset(port)
+    edl.ensure_edl_requirements()
+    with dev.edl_session(auto_reset=True, reset_msg_key="act_reset_sys") as port:
+        for target, path in patched_map.items():
+            edl.flash_partition_target(dev, port, target, path)
