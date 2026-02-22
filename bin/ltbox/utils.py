@@ -278,6 +278,13 @@ def move_existing_files(files: Iterable[Path], dst_dir: Path) -> int:
     return moved_count
 
 
+def recreate_dir(path: Path) -> None:
+    """Removes the directory if it exists, then creates a fresh one."""
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=True)
+
+
 @contextmanager
 def temporary_workspace(path: Path) -> Generator[Path, None, None]:
     if path.exists():

@@ -104,9 +104,7 @@ def patch_anti_rollback(comparison_result: Tuple[ArbStatus, int, int]) -> None:
     utils.ui.echo(get_string("act_start_arb_patch"))
     utils.check_dependencies()
 
-    if const.OUTPUT_ANTI_ROLLBACK_DIR.exists():
-        shutil.rmtree(const.OUTPUT_ANTI_ROLLBACK_DIR)
-    const.OUTPUT_ANTI_ROLLBACK_DIR.mkdir(exist_ok=True)
+    utils.recreate_dir(const.OUTPUT_ANTI_ROLLBACK_DIR)
 
     try:
         if comparison_result:

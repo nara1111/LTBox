@@ -354,9 +354,7 @@ class MagiskRootStrategy(InitBootRootStrategy):
     def download_resources(self, kernel_version: Optional[str] = None) -> bool:
         _cleanup_manager_apk(show_message=False)
 
-        if self.staging_dir.exists():
-            shutil.rmtree(self.staging_dir)
-        self.staging_dir.mkdir(exist_ok=True)
+        utils.recreate_dir(self.staging_dir)
 
         try:
             apk_path = downloader.download_magisk_apk(self.staging_dir)
@@ -519,9 +517,7 @@ class LkmRootStrategy(InitBootRootStrategy):
 
         try:
             temp_dl_dir = const.TOOLS_DIR / "dl_temp"
-            if temp_dl_dir.exists():
-                shutil.rmtree(temp_dl_dir)
-            temp_dl_dir.mkdir(exist_ok=True)
+            utils.recreate_dir(temp_dl_dir)
 
             downloader.download_nightly_artifacts(
                 repo=repo,
@@ -550,9 +546,7 @@ class LkmRootStrategy(InitBootRootStrategy):
             if not apk_found:
                 raise ToolError(get_string("act_err_manager_apk_not_found_zip"))
 
-            if self.staging_dir.exists():
-                shutil.rmtree(self.staging_dir)
-            self.staging_dir.mkdir(exist_ok=True)
+            utils.recreate_dir(self.staging_dir)
 
             lkm_zip = temp_dl_dir / "lkm.zip"
             ko_found = False
@@ -617,9 +611,7 @@ class LkmRootStrategy(InitBootRootStrategy):
                 download_all_ksuinit=self.is_tagged_build,
             )
         else:
-            if self.staging_dir.exists():
-                shutil.rmtree(self.staging_dir)
-            self.staging_dir.mkdir(exist_ok=True)
+            utils.recreate_dir(self.staging_dir)
 
             downloader.download_ksu_manager_release(const.TOOLS_DIR)
             downloader.download_ksuinit_release(self.staging_dir / "init")
@@ -756,9 +748,7 @@ def patch_root_image_file(gki: bool = False, root_type: str = "ksu") -> None:
         strategy.configure_source()
 
     utils.ui.echo(get_string("act_clean_dir").format(dir=strategy.log_output_dir_name))
-    if strategy.output_dir.exists():
-        shutil.rmtree(strategy.output_dir)
-    strategy.output_dir.mkdir(exist_ok=True)
+    utils.recreate_dir(strategy.output_dir)
     utils.ui.echo("")
 
     _patch_root_image_from_image_folder(strategy, gki)
@@ -775,9 +765,7 @@ def patch_root_image_file_and_flash(
         strategy.configure_source()
 
     utils.ui.echo(get_string("act_clean_dir").format(dir=strategy.log_output_dir_name))
-    if strategy.output_dir.exists():
-        shutil.rmtree(strategy.output_dir)
-    strategy.output_dir.mkdir(exist_ok=True)
+    utils.recreate_dir(strategy.output_dir)
     utils.ui.echo("")
 
     if not dev.skip_adb:
@@ -821,9 +809,7 @@ def patch_root_image_file_and_flash(
 def _prepare_root_env(strategy: RootStrategy):
     utils.ui.echo(get_string("act_start_root"))
 
-    if strategy.output_dir.exists():
-        shutil.rmtree(strategy.output_dir)
-    strategy.output_dir.mkdir(exist_ok=True)
+    utils.recreate_dir(strategy.output_dir)
     strategy.backup_dir.mkdir(exist_ok=True)
 
     utils.check_dependencies()
@@ -1169,9 +1155,7 @@ def sign_and_flash_twrp(dev: device.DeviceController) -> None:
     twrp_name = const.FN_TWRP
     out_dir = const.OUTPUT_TWRP_DIR
 
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(exist_ok=True)
+    utils.recreate_dir(out_dir)
 
     utils.check_dependencies()
     edl.ensure_edl_requirements()
