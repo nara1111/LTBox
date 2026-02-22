@@ -3,6 +3,7 @@ import subprocess
 import time
 import traceback
 import xml.etree.ElementTree as ET
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -20,7 +21,15 @@ def _collect_base_partitions() -> Dict[str, Any]:
     if not xml_files:
         xml_files = sorted(const.OUTPUT_XML_DIR.glob("rawprogram*.xml"))
 
-    partitions: Dict[str, Any] = {}
+    partitions: Dict[str, Any] = defaultdict(
+        lambda: {
+            "is_ab": False,
+            "a": [],
+            "b": [],
+            "none": [],
+            "has_files": False,
+        }
+    )
 
     for xml_file in xml_files:
         try:
@@ -42,15 +51,6 @@ def _collect_base_partitions() -> Dict[str, Any]:
 
             is_ab = label.endswith("_a") or label.endswith("_b")
             base_label = label[:-2] if is_ab else label
-
-            if base_label not in partitions:
-                partitions[base_label] = {
-                    "is_ab": False,
-                    "a": [],
-                    "b": [],
-                    "none": [],
-                    "has_files": False,
-                }
 
             if is_ab:
                 partitions[base_label]["is_ab"] = True
