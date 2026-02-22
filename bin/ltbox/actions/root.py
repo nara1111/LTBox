@@ -1095,30 +1095,25 @@ def unroot_device(dev: device.DeviceController) -> None:
     selected_strategy: Optional[RootStrategy] = None
 
     if len(available_strategies) > 1:
-        utils.ui.clear()
-        utils.ui.echo("\n  " + "=" * 78)
-        utils.ui.echo(get_string("act_unroot_menu_title"))
-        utils.ui.echo("  " + "=" * 78 + "\n")
+        menu = TerminalMenu(get_string("act_unroot_menu_title"))
+        for s in available_strategies:
+            menu.add_option(s.menu_shortcut, get_string(s.unroot_menu_msg_key))
+
+        menu.add_separator()
+        menu.add_option("m", get_string("act_unroot_menu_m"))
+
+        choice = menu.ask(
+            get_string("prompt_select"), get_string("err_invalid_selection")
+        )
+
+        if choice == "m":
+            utils.ui.echo(get_string("act_op_cancel"))
+            return
 
         for s in available_strategies:
-            utils.ui.echo(get_string(s.unroot_menu_msg_key))
-
-        utils.ui.echo("\n" + get_string("act_unroot_menu_m"))
-        utils.ui.echo("\n  " + "=" * 78 + "\n")
-
-        while selected_strategy is None:
-            choice = utils.ui.prompt(get_string("prompt_select")).strip().lower()
-            if choice == "m":
-                utils.ui.echo(get_string("act_op_cancel"))
-                return
-
-            for s in available_strategies:
-                if choice == s.menu_shortcut:
-                    selected_strategy = s
-                    break
-
-            if not selected_strategy:
-                utils.ui.echo(get_string("err_invalid_selection"))
+            if choice == s.menu_shortcut:
+                selected_strategy = s
+                break
         utils.ui.clear()
 
     elif len(available_strategies) == 1:

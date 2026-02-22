@@ -6,6 +6,7 @@ from typing import Callable, List, Optional, Tuple
 from .. import constants as const
 from .. import device, utils
 from ..i18n import get_string
+from ..menu import TerminalMenu
 from ..patch.avb import (
     _apply_hash_footer,
     extract_image_avb_info,
@@ -126,31 +127,14 @@ def convert_region_images(
 
 
 def _default_select_callback(options: List[Tuple[str, str]], prompt_msg: str) -> str:
-    print("-" * 78)
+    menu = TerminalMenu(prompt_msg)
+    for idx, (code, name) in enumerate(options):
+        menu.add_option(str(idx + 1), f"{name} ({code})")
 
-    count = len(options)
-    for i in range(0, count, 2):
-        code1, name1 = options[i]
-        item1 = f"{i + 1:3d}. {name1} ({code1})"
+    choice = menu.ask(get_string("prompt_select"), get_string("act_invalid_selection"))
 
-        if i + 1 < count:
-            code2, name2 = options[i + 1]
-            item2 = f"{i + 2:3d}. {name2} ({code2})"
-            print(f"{item1:<40} {item2}")
-        else:
-            print(item1)
-
-    print("-" * 78)
-
-    while True:
-        try:
-            choice = input(f"{prompt_msg} ")
-            idx = int(choice) - 1
-            if 0 <= idx < len(options):
-                return options[idx][0]
-        except (ValueError, IndexError):
-            pass
-        print(get_string("act_invalid_selection"))
+    idx = int(choice) - 1
+    return options[idx][0]
 
 
 def edit_devinfo_persist(
