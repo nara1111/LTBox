@@ -20,15 +20,33 @@ def _default_usb_port_hint() -> Callable[[], None]:
     return lambda: ui.warn(get_string("device_usb_port_hint"))
 
 
-class AdbManager:
+class BaseDeviceManager:
+    def __init__(self, usb_port_hint: Optional[Callable[[], None]] = None):
+        self._usb_port_hint = usb_port_hint or _default_usb_port_hint()
+
+    def _force_kill_process(self, exe_name: str) -> None:
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/IM", exe_name, "/T"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=(
+                    getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+                ),
+            )
+        except Exception:
+            pass
+
+
+class AdbManager(BaseDeviceManager):
     def __init__(
         self,
         skip_adb: bool,
         usb_port_hint: Optional[Callable[[], None]] = None,
     ):
+        super().__init__(usb_port_hint)
         self.skip_adb = skip_adb
         self.connected_once = False
-        self._usb_port_hint = usb_port_hint or _default_usb_port_hint()
         if const.ADB_EXE.exists():
             adbutils.adb_path = str(const.ADB_EXE)
 
@@ -189,35 +207,15 @@ class AdbManager:
         return self._with_device(lambda d: d.shell(cmd)) or ""
 
     def force_kill_server(self):
-        try:
-            subprocess.run(
-                ["taskkill", "/F", "/IM", "adb.exe", "/T"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=(
-                    getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
-                ),
-            )
-        except Exception:
-            pass
+        self._force_kill_process("adb.exe")
 
 
-class FastbootManager:
+class FastbootManager(BaseDeviceManager):
     def __init__(self, usb_port_hint: Optional[Callable[[], None]] = None):
         self._usb_port_hint = usb_port_hint or _default_usb_port_hint()
 
     def force_kill_server(self) -> None:
-        try:
-            subprocess.run(
-                ["taskkill", "/F", "/IM", "fastboot.exe", "/T"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=(
-                    getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
-                ),
-            )
-        except Exception:
-            pass
+        self._force_kill_process("fastboot.exe")
 
     def get_slot_suffix(self) -> Optional[str]:
         try:
@@ -289,10 +287,7 @@ class FastbootManager:
             raise
 
 
-class EdlManager:
-    def __init__(self, usb_port_hint: Optional[Callable[[], None]] = None):
-        self._usb_port_hint = usb_port_hint or _default_usb_port_hint()
-
+class EdlManager(BaseDeviceManager):
     def check_device(self, silent: bool = False) -> Optional[str]:
         if not silent:
             ui.info(get_string("device_check_edl"))
