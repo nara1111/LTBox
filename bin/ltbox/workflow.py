@@ -2,7 +2,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional
 
 from . import actions
 from . import constants as const
@@ -11,14 +11,6 @@ from .context import TaskContext
 from .errors import DeviceError, LTBoxError, UserCancelError
 from .i18n import get_string
 from .logger import logging_context
-
-
-@dataclass
-class WorkflowState:
-    skip_dp_workflow: bool = False
-    boot_target: Optional[str] = None
-    vbmeta_target: Optional[str] = None
-    backup_dir_name: Optional[str] = None
 
 
 def _cleanup_previous_outputs(ctx: TaskContext) -> None:
@@ -71,44 +63,41 @@ def _decrypt_and_modify_xml(ctx: TaskContext) -> None:
     actions.modify_xml(wipe=ctx.wipe)
 
 
-def _dump_images(ctx: TaskContext) -> Tuple[bool, str, str]:
-    skip_dp_workflow = ctx.wipe == 0
+def _dump_images(ctx: TaskContext) -> None:
+    ctx.skip_dp_workflow = ctx.wipe == 0
 
     suffix = ctx.active_slot_suffix if ctx.active_slot_suffix else ""
-    boot_target = f"boot{suffix}"
-    vbmeta_target = f"vbmeta_system{suffix}"
+    ctx.boot_target = f"boot{suffix}"
+    ctx.vbmeta_target = f"vbmeta_system{suffix}"
     extra_dumps = []
     if not ctx.skip_rollback:
-        extra_dumps = [boot_target, vbmeta_target]
+        extra_dumps = [ctx.boot_target, ctx.vbmeta_target]
 
-    if (not skip_dp_workflow) or extra_dumps:
+    if (not ctx.skip_dp_workflow) or extra_dumps:
         actions.dump_partitions(
             dev=ctx.dev,
             skip_reset=False,
             additional_targets=extra_dumps,
-            default_targets=not skip_dp_workflow,
+            default_targets=not ctx.skip_dp_workflow,
         )
 
-    return skip_dp_workflow, boot_target, vbmeta_target
 
-
-def _patch_devinfo(ctx: TaskContext, skip_dp_workflow: bool) -> Optional[str]:
-    if not skip_dp_workflow:
-        return actions.edit_devinfo_persist(
+def _patch_devinfo(ctx: TaskContext) -> None:
+    if not ctx.skip_dp_workflow:
+        ctx.backup_dir_name = actions.edit_devinfo_persist(
             on_log=ctx.on_log,
             on_confirm=lambda msg: (
                 utils.ui.prompt(msg + " (y/n) ").lower().strip() == "y"
             ),
         )
-    return None
 
 
-def _check_and_patch_arb(boot_target: str, vbmeta_target: str) -> None:
-    if not boot_target or not vbmeta_target:
+def _check_and_patch_arb(ctx: TaskContext) -> None:
+    if not ctx.boot_target or not ctx.vbmeta_target:
         raise LTBoxError(get_string("wf_err_halted"))
 
-    dumped_boot = const.BACKUP_DIR / f"{boot_target}.img"
-    dumped_vbmeta = const.BACKUP_DIR / f"{vbmeta_target}.img"
+    dumped_boot = const.BACKUP_DIR / f"{ctx.boot_target}.img"
+    dumped_vbmeta = const.BACKUP_DIR / f"{ctx.vbmeta_target}.img"
 
     arb_status_result = actions.read_anti_rollback(
         dumped_boot_path=dumped_boot, dumped_vbmeta_path=dumped_vbmeta
@@ -120,9 +109,9 @@ def _check_and_patch_arb(boot_target: str, vbmeta_target: str) -> None:
     actions.patch_anti_rollback(comparison_result=arb_status_result)
 
 
-def _flash_images(ctx: TaskContext, skip_dp_workflow: bool) -> None:
+def _flash_images(ctx: TaskContext) -> None:
     actions.flash_full_firmware(
-        dev=ctx.dev, skip_reset_edl=True, skip_dp=skip_dp_workflow
+        dev=ctx.dev, skip_reset_edl=True, skip_dp=ctx.skip_dp_workflow
     )
 
 
@@ -150,34 +139,29 @@ def _run_steps(ctx: TaskContext, steps: list[WorkflowStep]) -> None:
         _run_step(ctx, step)
 
 
-def _run_dump_step(ctx: TaskContext, state: WorkflowState) -> None:
-    skip_dp_workflow, boot_target, vbmeta_target = _dump_images(ctx)
-    state.skip_dp_workflow = skip_dp_workflow
-    state.boot_target = boot_target
-    state.vbmeta_target = vbmeta_target
+def _run_dump_step(ctx: TaskContext) -> None:
+    _dump_images(ctx)
 
 
-def _run_patch_dp_step(ctx: TaskContext, state: WorkflowState) -> None:
-    if state.skip_dp_workflow:
+def _run_patch_dp_step(ctx: TaskContext) -> None:
+    if ctx.skip_dp_workflow:
         ctx.on_log(get_string("wf_step7_skipped"))
         return
 
     ctx.on_log(get_string("wf_step7_patch_dp"))
-    state.backup_dir_name = _patch_devinfo(ctx, state.skip_dp_workflow)
+    _patch_devinfo(ctx)
 
 
-def _run_arb_step(ctx: TaskContext, state: WorkflowState) -> None:
+def _run_arb_step(ctx: TaskContext) -> None:
     if ctx.skip_rollback:
         ctx.on_log(get_string("wf_step8_skipped"))
         return
 
     ctx.on_log(get_string("wf_step8_check_arb"))
-    if state.boot_target is None or state.vbmeta_target is None:
-        raise LTBoxError(get_string("wf_err_halted"))
-    _check_and_patch_arb(state.boot_target, state.vbmeta_target)
+    _check_and_patch_arb(ctx)
 
 
-def _build_steps(ctx: TaskContext, state: WorkflowState) -> list[WorkflowStep]:
+def _build_steps(ctx: TaskContext) -> list[WorkflowStep]:
     return [
         WorkflowStep("wf_step1_clean", lambda: _cleanup_previous_outputs(ctx)),
         WorkflowStep("wf_step2_device_info", lambda: _populate_device_info(ctx)),
@@ -189,12 +173,10 @@ def _build_steps(ctx: TaskContext, state: WorkflowState) -> list[WorkflowStep]:
         ),
         WorkflowStep("wf_step4_convert", lambda: _convert_region_images(ctx)),
         WorkflowStep("wf_step5_modify_xml", lambda: _decrypt_and_modify_xml(ctx)),
-        WorkflowStep("wf_step6_dump", lambda: _run_dump_step(ctx, state)),
-        WorkflowStep(None, lambda: _run_patch_dp_step(ctx, state)),
-        WorkflowStep(None, lambda: _run_arb_step(ctx, state)),
-        WorkflowStep(
-            "wf_step9_flash", lambda: _flash_images(ctx, state.skip_dp_workflow)
-        ),
+        WorkflowStep("wf_step6_dump", lambda: _run_dump_step(ctx)),
+        WorkflowStep(None, lambda: _run_patch_dp_step(ctx)),
+        WorkflowStep(None, lambda: _run_arb_step(ctx)),
+        WorkflowStep("wf_step9_flash", lambda: _flash_images(ctx)),
     ]
 
 
@@ -220,7 +202,6 @@ def patch_all(
         target_region=target_region,
         on_log=lambda s: utils.ui.info(s),
     )
-    state = WorkflowState()
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = f"log_{timestamp}.txt"
@@ -240,13 +221,13 @@ def patch_all(
                 ctx.on_log(get_string("wf_wipe_mode_start"))
             else:
                 ctx.on_log(get_string("wf_nowipe_mode_start"))
-            _run_steps(ctx, _build_steps(ctx, state))
+            _run_steps(ctx, _build_steps(ctx))
 
             success_msg = get_string("wf_process_complete")
             success_msg += f"\n{get_string('wf_process_complete_info')}"
 
-            if state.backup_dir_name:
-                success_msg += f"\n\n{get_string('wf_backup_notice').format(dir=state.backup_dir_name)}"
+            if ctx.backup_dir_name:
+                success_msg += f"\n\n{get_string('wf_backup_notice').format(dir=ctx.backup_dir_name)}"
 
             success_msg += f"\n\n{get_string('wf_notice_widevine')}"
             return success_msg
