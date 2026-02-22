@@ -4,14 +4,15 @@ import platform
 import subprocess
 import sys
 import webbrowser
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from . import downloader, i18n, utils
 from .i18n import get_string
 from .logger import logging_context
+from .registry import CommandRegistry
 from .utils import ui
 
 APP_DIR = Path(__file__).parent.resolve()
@@ -26,68 +27,6 @@ except ImportError:
     print(get_string("err_ensure_errors"), file=sys.stderr)
     input(get_string("press_enter_to_exit"))
     sys.exit(1)
-
-# --- Command Registry ---
-
-
-@dataclass(frozen=True)
-class CommandSpec:
-    func: Callable[..., Any]
-    title: str
-    require_dev: bool = True
-    default_kwargs: Dict[str, Any] = field(default_factory=dict)
-    result_handler: Optional[Callable[[Any], None]] = None
-
-    def __getitem__(self, key: str) -> Any:
-        try:
-            return getattr(self, key)
-        except AttributeError as exc:
-            raise KeyError(key) from exc
-
-
-class CommandRegistry:
-    def __init__(self):
-        self._commands: Dict[str, CommandSpec] = {}
-
-    def register(
-        self,
-        name: str,
-        title: str,
-        require_dev: bool = True,
-        result_handler: Optional[Callable[[Any], None]] = None,
-        **default_kwargs,
-    ):
-        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-            self._commands[name] = CommandSpec(
-                func=func,
-                title=title,
-                require_dev=require_dev,
-                default_kwargs=default_kwargs,
-                result_handler=result_handler,
-            )
-            return func
-
-        return decorator
-
-    def add(
-        self,
-        name: str,
-        func: Callable[..., Any],
-        title: str,
-        require_dev: bool = True,
-        result_handler: Optional[Callable[[Any], None]] = None,
-        **default_kwargs: Any,
-    ):
-        self.register(
-            name,
-            title,
-            require_dev=require_dev,
-            result_handler=result_handler,
-            **default_kwargs,
-        )(func)
-
-    def get(self, name: str) -> Optional[CommandSpec]:
-        return self._commands.get(name)
 
 
 # --- UI Helper Class ---
@@ -106,17 +45,6 @@ def _format_command_failure_messages(
     if error.stderr:
         messages.append(f"{get_string('err_cmd_stderr_header')}\n{error.stderr}")
     return messages
-
-
-def _handle_read_anti_rollback_result(result: Any) -> None:
-    if not isinstance(result, tuple):
-        if result:
-            ui.echo(get_string("act_unhandled_success_result").format(res=result))
-        return
-
-    ui.echo(get_string("act_arb_complete").format(status=result[0]))
-    ui.echo(get_string("act_curr_boot_idx").format(idx=result[1]))
-    ui.echo(get_string("act_curr_vbmeta_idx").format(idx=result[2]))
 
 
 # --- Settings & Init ---
@@ -491,204 +419,21 @@ def _initialize_runtime(lang_code: str) -> Tuple[type, CommandRegistry, Any, Any
     downloader.install_base_tools(lang_code)
     utils.check_dependencies()
 
-    from . import actions, constants, device, workflow
+    from . import constants, device
     from .patch import avb
     from .menu_router import prompt_for_language
+    from .registry import REGISTRY
+    from .commands import register_all_commands
 
-    registry = CommandRegistry()
-
-    @registry.register("change_language", get_string("lang_changed"), require_dev=False)
+    @REGISTRY.register("change_language", get_string("lang_changed"), require_dev=False)
     def change_language_task(breadcrumbs: Optional[str] = None):
         new_lang = prompt_for_language(force_prompt=True, breadcrumbs=breadcrumbs)
         i18n.load_lang(new_lang)
         return get_string("lang_changed")
 
-    command_specs: List[Tuple[str, Callable[..., Any], str, bool, Dict[str, Any]]] = [
-        (
-            "convert",
-            actions.convert_region_images,
-            get_string("task_title_convert_rom"),
-            True,
-            {},
-        ),
-        (
-            "root_device_gki",
-            actions.root_device,
-            get_string("task_title_root_gki"),
-            True,
-            {"gki": True},
-        ),
-        (
-            "patch_root_image_file_gki",
-            actions.patch_root_image_file,
-            get_string("task_title_root_file_gki"),
-            False,
-            {"gki": True},
-        ),
-        (
-            "patch_root_image_file_flash_gki",
-            actions.patch_root_image_file_and_flash,
-            get_string("task_title_root_file_gki"),
-            True,
-            {"gki": True},
-        ),
-        (
-            "root_device_lkm",
-            actions.root_device,
-            get_string("task_title_root_lkm"),
-            True,
-            {"gki": False},
-        ),
-        (
-            "patch_root_image_file_lkm",
-            actions.patch_root_image_file,
-            get_string("task_title_root_file_lkm"),
-            False,
-            {"gki": False},
-        ),
-        (
-            "patch_root_image_file_flash_lkm",
-            actions.patch_root_image_file_and_flash,
-            get_string("task_title_root_file_lkm"),
-            True,
-            {"gki": False},
-        ),
-        (
-            "unroot_device",
-            actions.unroot_device,
-            get_string("task_title_unroot"),
-            True,
-            {},
-        ),
-        (
-            "sign_and_flash_twrp",
-            actions.sign_and_flash_twrp,
-            get_string("task_title_rec_flash"),
-            True,
-            {},
-        ),
-        (
-            "disable_ota",
-            actions.disable_ota,
-            get_string("task_title_disable_ota"),
-            True,
-            {},
-        ),
-        (
-            "rescue_ota",
-            actions.rescue_after_ota,
-            get_string("task_title_rescue"),
-            True,
-            {},
-        ),
-        (
-            "edit_dp",
-            actions.edit_devinfo_persist,
-            get_string("task_title_patch_devinfo"),
-            False,
-            {},
-        ),
-        (
-            "dump_partitions",
-            actions.dump_partitions,
-            get_string("task_title_dump_devinfo"),
-            True,
-            {},
-        ),
-        (
-            "flash_partitions",
-            actions.flash_partitions,
-            get_string("task_title_write_devinfo"),
-            True,
-            {},
-        ),
-        (
-            "read_anti_rollback",
-            actions.read_anti_rollback_from_device,
-            get_string("task_title_read_arb"),
-            True,
-            {},
-        ),
-        (
-            "patch_anti_rollback",
-            actions.patch_anti_rollback_in_rom,
-            get_string("task_title_patch_arb"),
-            False,
-            {},
-        ),
-        (
-            "write_anti_rollback",
-            actions.write_anti_rollback,
-            get_string("task_title_write_arb"),
-            True,
-            {},
-        ),
-        (
-            "decrypt_xml",
-            actions.decrypt_x_files,
-            get_string("task_title_decrypt_xml"),
-            False,
-            {},
-        ),
-        (
-            "modify_xml",
-            actions.modify_xml,
-            get_string("task_title_modify_xml_nowipe"),
-            False,
-            {"wipe": 0},
-        ),
-        (
-            "modify_xml_wipe",
-            actions.modify_xml,
-            get_string("task_title_modify_xml_wipe"),
-            False,
-            {"wipe": 1},
-        ),
-        (
-            "flash_full_firmware",
-            actions.flash_full_firmware,
-            get_string("task_title_flash_full_firmware"),
-            True,
-            {},
-        ),
-        (
-            "flash_partition_labels",
-            actions.flash_partition_labels,
-            get_string("task_title_flash_partitions_label"),
-            True,
-            {},
-        ),
-        (
-            "patch_all",
-            workflow.patch_all,
-            get_string("task_title_install_nowipe"),
-            True,
-            {"wipe": 0},
-        ),
-        (
-            "patch_all_wipe",
-            workflow.patch_all,
-            get_string("task_title_install_wipe"),
-            True,
-            {"wipe": 1},
-        ),
-    ]
+    register_all_commands()
 
-    result_handlers = {
-        "read_anti_rollback": _handle_read_anti_rollback_result,
-    }
-
-    for name, func, title, require_dev, extra_kwargs in command_specs:
-        registry.add(
-            name,
-            func,
-            title,
-            require_dev=require_dev,
-            result_handler=result_handlers.get(name),
-            **extra_kwargs,
-        )
-
-    return device.DeviceController, registry, constants, avb
+    return device.DeviceController, REGISTRY, constants, avb
 
 
 def _run_entry_mode(
