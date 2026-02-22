@@ -480,7 +480,10 @@ class LkmRootStrategy(InitBootRootStrategy):
                 root_name, str(self.repo_config.get("workflow", ""))
             )
         else:
-            menu = TerminalMenu(get_string("menu_root_subtype_title"))
+            menu = TerminalMenu(
+                get_string("menu_root_subtype_title"),
+                breadcrumbs=get_string("menu_root_type_title"),
+            )
             menu.add_option("1", get_string("menu_root_subtype_release"))
             menu.add_option("2", get_string("menu_root_subtype_nightly"))
 
@@ -1098,7 +1101,10 @@ def unroot_device(dev: device.DeviceController) -> None:
     selected_strategy: Optional[RootStrategy] = None
 
     if len(available_strategies) > 1:
-        menu = TerminalMenu(get_string("act_unroot_menu_title"))
+        menu = TerminalMenu(
+            get_string("act_unroot_menu_title"),
+            breadcrumbs=get_string("menu_main_title"),
+        )
         for s in available_strategies:
             menu.add_option(s.menu_shortcut, get_string(s.unroot_menu_msg_key))
 

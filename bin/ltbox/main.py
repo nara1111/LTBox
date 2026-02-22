@@ -465,9 +465,10 @@ def _run_task_menu(
     registry: CommandRegistry,
     menu_items: List[Any],
     title_key: str,
+    breadcrumbs: Optional[str] = None,
     extra_kwargs_factory: Optional[Callable[[str], Dict[str, Any]]] = None,
 ) -> Optional[str]:
-    action = select_menu_action(menu_items, title_key)
+    action = select_menu_action(menu_items, title_key, breadcrumbs=breadcrumbs)
     navigation = _handle_menu_navigation(action)
     if navigation:
         return navigation
@@ -481,6 +482,7 @@ def _run_task_menu(
 
 
 def advanced_menu(dev, registry: CommandRegistry, target_region: str):
+    main_title = get_string("menu_main_title")
     while True:
         menu_items = get_advanced_menu_data(target_region)
 
@@ -494,6 +496,7 @@ def advanced_menu(dev, registry: CommandRegistry, target_region: str):
             registry,
             menu_items,
             "menu_adv_title",
+            breadcrumbs=main_title,
             extra_kwargs_factory=_extra_kwargs,
         )
         if action in ("back", "return"):
@@ -502,7 +505,9 @@ def advanced_menu(dev, registry: CommandRegistry, target_region: str):
             sys.exit()
 
 
-def _root_action_menu(dev, registry: CommandRegistry, gki: bool, root_type: str):
+def _root_action_menu(
+    dev, registry: CommandRegistry, gki: bool, root_type: str, breadcrumbs: str
+):
     while True:
         menu_items = menu_data.get_root_menu_data(gki)
 
@@ -516,6 +521,7 @@ def _root_action_menu(dev, registry: CommandRegistry, gki: bool, root_type: str)
             registry,
             menu_items,
             "menu_root_title",
+            breadcrumbs=breadcrumbs,
             extra_kwargs_factory=_extra_kwargs,
         )
         if action == "back":
@@ -526,14 +532,19 @@ def _root_action_menu(dev, registry: CommandRegistry, gki: bool, root_type: str)
             sys.exit()
 
 
-def _select_root_mode_action() -> Optional[str]:
+def _select_root_mode_action(breadcrumbs: str) -> Optional[str]:
     menu_items = menu_data.get_root_mode_menu_data()
-    return select_menu_action(menu_items, "menu_root_mode_title")
+    return select_menu_action(
+        menu_items, "menu_root_mode_title", breadcrumbs=breadcrumbs
+    )
 
 
 def root_menu(dev, registry: CommandRegistry):
+    main_title = get_string("menu_main_title")
     while True:
-        mode_menu = TerminalMenu(get_string("menu_root_type_title"))
+        mode_menu = TerminalMenu(
+            get_string("menu_root_type_title"), breadcrumbs=main_title
+        )
         mode_menu.add_option("1", get_string("menu_root_type_magisk"))
         mode_menu.add_option("2", get_string("menu_root_type_ksu_next"))
         mode_menu.add_option("3", get_string("menu_root_type_sukisu"))
@@ -546,19 +557,40 @@ def root_menu(dev, registry: CommandRegistry):
             get_string("prompt_select"), get_string("err_invalid_selection")
         )
 
+        type_breadcrumbs = f"{main_title} > {get_string('menu_root_type_title')}"
+
         if choice == "1":
-            result = _root_action_menu(dev, registry, gki=False, root_type="magisk")
+            result = _root_action_menu(
+                dev,
+                registry,
+                gki=False,
+                root_type="magisk",
+                breadcrumbs=type_breadcrumbs,
+            )
         elif choice == "2":
             result = None
             while True:
-                mode_action = _select_root_mode_action()
+                mode_action = _select_root_mode_action(breadcrumbs=type_breadcrumbs)
+                mode_breadcrumbs = (
+                    f"{type_breadcrumbs} > {get_string('menu_root_mode_title')}"
+                )
                 if mode_action == "lkm":
                     result = _root_action_menu(
-                        dev, registry, gki=False, root_type="ksu"
+                        dev,
+                        registry,
+                        gki=False,
+                        root_type="ksu",
+                        breadcrumbs=mode_breadcrumbs,
                     )
                     break
                 if mode_action == "gki":
-                    result = _root_action_menu(dev, registry, gki=True, root_type="ksu")
+                    result = _root_action_menu(
+                        dev,
+                        registry,
+                        gki=True,
+                        root_type="ksu",
+                        breadcrumbs=mode_breadcrumbs,
+                    )
                     break
                 if mode_action == "back":
                     result = None
@@ -568,9 +600,21 @@ def root_menu(dev, registry: CommandRegistry):
                 if mode_action == "exit":
                     sys.exit()
         elif choice == "3":
-            result = _root_action_menu(dev, registry, gki=False, root_type="sukisu")
+            result = _root_action_menu(
+                dev,
+                registry,
+                gki=False,
+                root_type="sukisu",
+                breadcrumbs=type_breadcrumbs,
+            )
         elif choice == "4":
-            result = _root_action_menu(dev, registry, gki=False, root_type="resukisu")
+            result = _root_action_menu(
+                dev,
+                registry,
+                gki=False,
+                root_type="resukisu",
+                breadcrumbs=type_breadcrumbs,
+            )
         elif choice == "b":
             return
         elif choice == "x":
@@ -590,6 +634,7 @@ def settings_menu(
     target_region: str,
     settings_store: SettingsStore = SETTINGS_STORE,
 ) -> Tuple[bool, bool, str]:
+    main_title = get_string("menu_main_title")
     while True:
         skip_adb_state = "ON" if skip_adb else "OFF"
         skip_rb_state = "ON" if skip_rollback else "OFF"
@@ -597,7 +642,9 @@ def settings_menu(
         menu_items = get_settings_menu_data(
             skip_adb_state, skip_rb_state, target_region
         )
-        action = select_menu_action(menu_items, "menu_settings_title")
+        action = select_menu_action(
+            menu_items, "menu_settings_title", breadcrumbs=main_title
+        )
 
         if action == "back":
             return skip_adb, skip_rollback, target_region
@@ -614,7 +661,10 @@ def settings_menu(
         elif action == "change_lang":
             cmd_info = registry.get("change_language")
             if cmd_info:
-                cmd_info.func()
+                settings_breadcrumbs = (
+                    f"{main_title} > {get_string('menu_settings_title')}"
+                )
+                cmd_info.func(breadcrumbs=settings_breadcrumbs)
         elif action == "check_update":
             ui.clear()
             ui.echo(get_string("act_update_checking"))
@@ -649,7 +699,9 @@ def settings_menu(
 
 
 def prompt_for_language(
-    force_prompt: bool = False, settings_store: SettingsStore = SETTINGS_STORE
+    force_prompt: bool = False,
+    settings_store: SettingsStore = SETTINGS_STORE,
+    breadcrumbs: Optional[str] = None,
 ) -> str:
     if not force_prompt:
         settings = settings_store.load()
@@ -674,7 +726,7 @@ def prompt_for_language(
         input(get_string("press_enter_to_continue"))
         raise e
 
-    menu = TerminalMenu(get_string("menu_lang_title"))
+    menu = TerminalMenu(get_string("menu_lang_title"), breadcrumbs=breadcrumbs)
     lang_map = {}
 
     for i, (lang_code, lang_name) in enumerate(available_languages, 1):
@@ -768,8 +820,8 @@ def _initialize_runtime(lang_code: str) -> Tuple[type, CommandRegistry, Any, Any
     registry = CommandRegistry()
 
     @registry.register("change_language", get_string("lang_changed"), require_dev=False)
-    def change_language_task():
-        new_lang = prompt_for_language(force_prompt=True)
+    def change_language_task(breadcrumbs: Optional[str] = None):
+        new_lang = prompt_for_language(force_prompt=True, breadcrumbs=breadcrumbs)
         i18n.load_lang(new_lang)
         return get_string("lang_changed")
 

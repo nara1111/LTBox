@@ -128,7 +128,8 @@ def convert_region_images(
 
 
 def _default_select_callback(options: List[Tuple[str, str]], prompt_msg: str) -> str:
-    menu = TerminalMenu(prompt_msg)
+    breadcrumbs = f"{get_string('menu_main_title')} > {get_string('menu_adv_title')}"
+    menu = TerminalMenu(prompt_msg, breadcrumbs=breadcrumbs)
     for idx, (code, name) in enumerate(options):
         menu.add_option(str(idx + 1), f"{name} ({code})")
 
