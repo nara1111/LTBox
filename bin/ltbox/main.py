@@ -486,65 +486,68 @@ def _acquire_single_instance_mutex() -> Optional[Any]:
 # --- Entry Point ---
 
 
-def entry_point():
+def _prepare_environment() -> Any:
+    _check_platform()
+    setup_console()
+    return _acquire_single_instance_mutex()
+
+
+def _setup_language(is_info_mode: bool) -> str:
+    lang_code = _resolve_language_code(is_info_mode, settings_store=SETTINGS_STORE)
+    i18n.load_lang(lang_code)
+    return lang_code
+
+
+def _check_updates() -> None:
+    ui.clear()
+    current_version = _read_current_version()
+    latest_version, _, _ = _get_latest_version(current_version)
+    _prompt_for_update(current_version, latest_version)
+
+
+def _init_and_run(is_info_mode: bool, lang_code: str) -> None:
     try:
-        _check_platform()
-        setup_console()
+        (
+            device_controller_class,
+            registry,
+            constants_module,
+            avb_patch_module,
+        ) = _initialize_runtime(lang_code)
 
+        _run_entry_mode(
+            is_info_mode,
+            device_controller_class,
+            registry,
+            constants_module,
+            avb_patch_module,
+            settings_store=SETTINGS_STORE,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, ToolError) as e:
+        ui.error(get_string("critical_err_base_tools").format(e=e))
+        ui.error(get_string("err_run_install_manually"))
+        input(get_string("press_enter_to_exit"))
+        sys.exit(1)
+    except ImportError as e:
+        ui.error(get_string("err_import_ltbox"))
+        ui.error(get_string("err_details").format(e=e))
+        ui.error(get_string("err_ensure_ltbox_present"))
+        input(get_string("press_enter_to_exit"))
+        sys.exit(1)
+
+
+def entry_point() -> None:
+    try:
         is_info_mode = len(sys.argv) > 1 and sys.argv[1].lower() == "info"
-        lang_code = _resolve_language_code(is_info_mode, settings_store=SETTINGS_STORE)
-
-        i18n.load_lang(lang_code)
-
-        singleton_mutex = _acquire_single_instance_mutex()
+        singleton_mutex = _prepare_environment()
+        lang_code = _setup_language(is_info_mode)
         if not singleton_mutex:
             ui.clear()
             ui.error(get_string("err_already_running"))
             input()
             sys.exit(0)
 
-        ui.clear()
-
-        current_version = _read_current_version()
-        latest_version, _, _ = _get_latest_version(current_version)
-
-        _prompt_for_update(current_version, latest_version)
-
-        try:
-            (
-                device_controller_class,
-                registry,
-                constants_module,
-                avb_patch_module,
-            ) = _initialize_runtime(lang_code)
-        except (subprocess.CalledProcessError, FileNotFoundError, ToolError) as e:
-            ui.error(get_string("critical_err_base_tools").format(e=e))
-            ui.error(get_string("err_run_install_manually"))
-            input(get_string("press_enter_to_exit"))
-            sys.exit(1)
-
-        except ImportError as e:
-            ui.error(get_string("err_import_ltbox"))
-            ui.error(get_string("err_details").format(e=e))
-            ui.error(get_string("err_ensure_ltbox_present"))
-            input(get_string("press_enter_to_exit"))
-            sys.exit(1)
-
-        try:
-            _run_entry_mode(
-                is_info_mode,
-                device_controller_class,
-                registry,
-                constants_module,
-                avb_patch_module,
-                settings_store=SETTINGS_STORE,
-            )
-        except ImportError as e:
-            ui.error(get_string("err_import_ltbox"))
-            ui.error(get_string("err_details").format(e=e))
-            ui.error(get_string("err_ensure_ltbox_present"))
-            input(get_string("press_enter_to_exit"))
-            sys.exit(1)
+        _check_updates()
+        _init_and_run(is_info_mode, lang_code)
 
     except (LTBoxError, RuntimeError) as e:
         ui.error(get_string("err_fatal_abort"))
