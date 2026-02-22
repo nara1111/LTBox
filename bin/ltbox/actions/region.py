@@ -120,10 +120,11 @@ def convert_region_images(
     utils.move_existing_files(const.BASE_DIR.glob("*.bak.img"), const.BACKUP_DIR)
     on_log("")
 
-    on_log("  " + "=" * 78)
+    width = utils.ui.get_term_width()
+    on_log("  " + "=" * width)
     on_log(get_string("act_success"))
     on_log(get_string("act_final_saved").format(dir=const.OUTPUT_DIR.name))
-    on_log("  " + "=" * 78)
+    on_log("  " + "=" * width)
 
 
 def _default_select_callback(options: List[Tuple[str, str]], prompt_msg: str) -> str:
@@ -257,10 +258,11 @@ def edit_devinfo_persist(
     devinfo_img.unlink(missing_ok=True)
     persist_img.unlink(missing_ok=True)
 
-    on_log("\n  " + "=" * 78)
+    width = utils.ui.get_term_width()
+    on_log("\n  " + "=" * width)
     on_log(get_string("act_success"))
     on_log(get_string("act_dp_ready").format(dir=const.OUTPUT_DP_DIR.name))
-    on_log("  " + "=" * 78)
+    on_log("  " + "=" * width)
 
     return backup_critical_dir.name
 

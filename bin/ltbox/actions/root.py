@@ -449,10 +449,11 @@ class LkmRootStrategy(InitBootRootStrategy):
         display_id = default_id if default_id else get_string("act_root_auto_detect")
         msg_default = get_string("prompt_workflow_default").replace("{id}", display_id)
 
-        utils.ui.echo("-" * 60)
+        width = utils.ui.get_term_width()
+        utils.ui.echo("-" * width)
         utils.ui.echo(msg_enter)
         utils.ui.echo(msg_default)
-        utils.ui.echo("-" * 60)
+        utils.ui.echo("-" * width)
 
         val = input(get_string("prompt_input_arrow")).strip()
         if not val:
@@ -719,7 +720,8 @@ def _patch_root_image_from_image_folder(
             shutil.move(bak_file, const.BACKUP_DIR / bak_file.name)
         utils.ui.echo("")
 
-        utils.ui.echo("  " + "=" * 78)
+        width = utils.ui.get_term_width()
+        utils.ui.echo("  " + "=" * width)
         utils.ui.echo(get_string("act_success"))
 
         utils.ui.echo(
@@ -736,7 +738,7 @@ def _patch_root_image_from_image_folder(
 
         if show_manual_flash_notice:
             utils.ui.echo("\n" + get_string("act_root_manual_flash_notice"))
-        utils.ui.echo("  " + "=" * 78)
+        utils.ui.echo("  " + "=" * width)
         return True
     else:
         fail_image = "boot" if gki else "init_boot"
@@ -1076,9 +1078,10 @@ def root_device(
 
     _flash_root_image(dev, strategy, partition_map, gki)
 
-    utils.ui.echo("\n" + "!" * 78)
+    width = utils.ui.get_term_width()
+    utils.ui.echo("\n" + "!" * width)
     utils.ui.error(get_string("act_root_warn_brick"))
-    utils.ui.echo("!" * 78 + "\n")
+    utils.ui.echo("!" * width + "\n")
     utils.ui.echo(get_string("act_root_finish"))
 
 
@@ -1309,7 +1312,8 @@ def _cleanup_manager_apk(show_message: bool = True):
 def _install_manager_apk(dev: device.DeviceController):
     manager_apk = const.TOOLS_DIR / "manager.apk"
 
-    utils.ui.echo("\n" + "-" * 30)
+    width = utils.ui.get_term_width()
+    utils.ui.echo("\n" + "-" * width)
     utils.ui.echo(get_string("act_install_ksu").format(name="Manager App"))
 
     if not manager_apk.exists():
@@ -1328,4 +1332,4 @@ def _install_manager_apk(dev: device.DeviceController):
         utils.ui.echo(get_string("act_ksu_ok"))
     except Exception as e:
         utils.ui.error(get_string("act_err_ksu").format(e=e))
-    utils.ui.echo("-" * 30 + "\n")
+    utils.ui.echo("-" * width + "\n")

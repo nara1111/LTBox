@@ -1,4 +1,3 @@
-import shutil
 from typing import List, Optional, Tuple
 
 from .i18n import get_string
@@ -39,7 +38,7 @@ class TerminalMenu:
                 self.add_option(str(item.key), item.text)
 
     def show(self) -> None:
-        width = min(78, shutil.get_terminal_size((80, 24)).columns)
+        width = ui.get_term_width()
         ui.clear()
         ui.echo("\n" + "=" * width)
         display_title = (
@@ -61,7 +60,7 @@ class TerminalMenu:
 
     def ask(self, prompt_msg: str, error_msg: str) -> str:
         if questionary:
-            width = min(78, shutil.get_terminal_size((80, 24)).columns)
+            width = ui.get_term_width()
             ui.clear()
             ui.echo("\n" + "=" * width)
 

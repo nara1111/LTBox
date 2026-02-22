@@ -280,12 +280,13 @@ def check_path_encoding():
     current_path = str(Path(__file__).parent.parent.resolve())
     if not current_path.isascii():
         ui.clear()
+        width = ui.get_term_width()
         ui.box_output(
             [
                 get_string("critical_error_path_encoding"),
-                "-" * 75,
+                "-" * width,
                 get_string("current_path").format(current_path=current_path),
-                "-" * 75,
+                "-" * width,
                 get_string("path_encoding_details_1"),
                 get_string("path_encoding_details_2"),
                 "",
@@ -440,7 +441,7 @@ def run_info_scan(paths, constants, avb_patch):
                         )
                     )
 
-                logger.info("\n" + "=" * 78 + "\n")
+                logger.info("\n" + "=" * ui.get_term_width() + "\n")
             except Exception as e:
                 error_msg = get_string("scan_failed").format(filename=f.name, e=e)
                 print(error_msg, file=sys.stderr)

@@ -74,9 +74,10 @@ def _prompt_partition_selection(labels: List[str]) -> List[str]:
 
     while True:
         utils.ui.clear()
-        utils.ui.echo("\n" + "=" * 78)
+        width = utils.ui.get_term_width()
+        utils.ui.echo("\n" + "=" * width)
         utils.ui.echo(f"   {get_string('act_flash_partitions_label_title')}")
-        utils.ui.echo("=" * 78 + "\n")
+        utils.ui.echo("=" * width + "\n")
 
         count = len(labels)
         for i in range(0, count, 2):
@@ -93,7 +94,7 @@ def _prompt_partition_selection(labels: List[str]) -> List[str]:
                 utils.ui.echo(f"  {item1}")
 
         utils.ui.echo(f"   f. {get_string('act_flash_partitions_select_done')}")
-        utils.ui.echo("\n" + "=" * 78 + "\n")
+        utils.ui.echo("\n" + "=" * width + "\n")
 
         choice = (
             utils.ui.prompt(get_string("act_flash_partitions_select_prompt"))
@@ -144,9 +145,10 @@ def flash_partition_labels(
     slot_suffix = ""
     if needs_slot:
         while True:
-            utils.ui.echo("\n" + "=" * 78)
+            width = utils.ui.get_term_width()
+            utils.ui.echo("\n" + "=" * width)
             utils.ui.echo("   Select Slot")
-            utils.ui.echo("=" * 78 + "\n")
+            utils.ui.echo("=" * width + "\n")
             utils.ui.echo("   1. Slot A")
             utils.ui.echo("   2. Slot B\n")
 
@@ -688,11 +690,12 @@ def flash_full_firmware(
     ensure_loader_file()
 
     if not skip_reset_edl:
-        utils.ui.echo("\n" + "=" * 61)
+        width = utils.ui.get_term_width()
+        utils.ui.echo("\n" + "=" * width)
         utils.ui.echo(get_string("act_warn_overwrite_1"))
         utils.ui.echo(get_string("act_warn_overwrite_2"))
         utils.ui.echo(get_string("act_warn_overwrite_3"))
-        utils.ui.echo("=" * 61 + "\n")
+        utils.ui.echo("=" * width + "\n")
 
         choice = ""
         while choice not in ["y", "n"]:

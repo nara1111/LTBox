@@ -107,7 +107,8 @@ def auto_decrypt_if_needed() -> None:
     xml_files = list(const.IMAGE_DIR.glob("rawprogram*.xml"))
     if xml_files:
         _clean_existing_files(xml_files, get_string("xml_cleaning_pollution"))
-        utils.ui.info("-" * 60)
+        width = utils.ui.get_term_width()
+        utils.ui.info("-" * width)
 
     utils.ui.info(get_string("img_xml_scan"))
 
@@ -115,7 +116,8 @@ def auto_decrypt_if_needed() -> None:
 
     if decrypted_count > 0:
         utils.ui.info(get_string("act_xml_ready").format(dir=const.IMAGE_DIR.name))
-        utils.ui.info("-" * 60)
+        width = utils.ui.get_term_width()
+        utils.ui.info("-" * width)
 
 
 def ensure_xml_files() -> None:
@@ -192,10 +194,11 @@ def decrypt_x_files() -> None:
             get_string("img_xml_no_files").format(dir=const.IMAGE_DIR.name)
         )
 
-    utils.ui.info("\n  " + "=" * 78)
+    width = utils.ui.get_term_width()
+    utils.ui.info("\n  " + "=" * width)
     utils.ui.info(get_string("act_success"))
     utils.ui.info(get_string("act_xml_ready").format(dir=const.OUTPUT_XML_DIR.name))
-    utils.ui.info("  " + "=" * 78)
+    utils.ui.info("  " + "=" * width)
 
 
 def _is_garbage_file(path: Path) -> bool:
@@ -467,7 +470,8 @@ def modify_xml(wipe: int = 0, skip_dp: bool = False) -> None:
 
         utils.ui.info(get_string("act_clean_temp").format(dir=const.WORKING_DIR.name))
 
-    utils.ui.info("\n  " + "=" * 78)
+    width = utils.ui.get_term_width()
+    utils.ui.info("\n  " + "=" * width)
     utils.ui.info(get_string("act_success"))
     utils.ui.info(get_string("act_xml_ready").format(dir=const.OUTPUT_XML_DIR.name))
-    utils.ui.info("  " + "=" * 78)
+    utils.ui.info("  " + "=" * width)

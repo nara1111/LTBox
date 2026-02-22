@@ -564,9 +564,10 @@ class DeviceController:
         if slot:
             return slot
 
-        ui.echo("\n" + "=" * 60)
+        width = ui.get_term_width()
+        ui.echo("\n" + "=" * width)
         ui.echo(get_string("act_manual_fastboot"))
-        ui.echo("=" * 60 + "\n")
+        ui.echo("=" * width + "\n")
 
         self.ensure_fastboot_mode()
         return self.fastboot.get_slot_suffix()
@@ -595,9 +596,10 @@ class DeviceController:
             ui.info(get_string("device_wait_10s_edl"))
             time.sleep(10)
         else:
-            ui.echo("\n" + "=" * 60)
+            width = ui.get_term_width()
+            ui.echo("\n" + "=" * width)
             ui.echo(get_string("act_manual_edl"))
-            ui.echo("=" * 60 + "\n")
+            ui.echo("=" * width + "\n")
 
     def setup_edl_connection(self) -> str:
         self.ensure_edl_mode()

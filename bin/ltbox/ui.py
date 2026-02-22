@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import List
 
 from .logger import get_logger
@@ -7,6 +8,9 @@ logger = get_logger()
 
 
 class ConsoleUI:
+    def get_term_width(self, max_width: int = 78) -> int:
+        return min(max_width, shutil.get_terminal_size((80, 24)).columns)
+
     def echo(self, message: str = "", err: bool = False) -> None:
         if err:
             logger.error(message)

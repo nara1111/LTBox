@@ -49,9 +49,10 @@ def read_anti_rollback(
         current_vbmeta_rb = int(vbmeta_info.get("rollback", "0"))
 
     except Exception as e:
-        utils.ui.error("\n" + "!" * 61)
+        width = utils.ui.get_term_width()
+        utils.ui.error("\n" + "!" * width)
         utils.ui.error(get_string("act_err_arb_early_fw"))
-        utils.ui.error("!" * 61 + "\n")
+        utils.ui.error("!" * width + "\n")
 
         utils.ui.error(get_string("act_err_avb_info").format(e=e))
         utils.ui.echo(get_string("act_arb_error"))
@@ -139,14 +140,15 @@ def patch_anti_rollback(comparison_result: Tuple[ArbStatus, int, int]) -> None:
             ),
         )
 
-        utils.ui.echo("\n  " + "=" * 78)
+        width = utils.ui.get_term_width()
+        utils.ui.echo("\n  " + "=" * width)
         utils.ui.echo(get_string("act_success"))
         utils.ui.echo(
             get_string("act_arb_patched_ready").format(
                 dir=const.OUTPUT_ANTI_ROLLBACK_DIR.name
             )
         )
-        utils.ui.echo("  " + "=" * 78)
+        utils.ui.echo("  " + "=" * width)
 
     except Exception as e:
         utils.ui.error(get_string("act_err_arb_patch").format(e=e))
