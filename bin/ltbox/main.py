@@ -9,15 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from . import downloader, i18n, menu_data, utils
+from . import downloader, i18n, utils
 from .i18n import get_string
 from .logger import logging_context
-from .menu import TerminalMenu, select_menu_action
-from .menu_data import (
-    get_advanced_menu_data,
-    get_main_menu_data,
-    get_settings_menu_data,
-)
 from .utils import ui
 
 APP_DIR = Path(__file__).parent.resolve()
@@ -466,340 +460,11 @@ def run_info_scan(paths, constants, avb_patch):
 # --- Menus ---
 
 
-def _handle_menu_navigation(action: Optional[str]) -> Optional[str]:
-    if action in ("back", "return", "exit"):
-        return action
-    return None
-
-
-def _run_task_menu(
-    dev: Any,
-    registry: CommandRegistry,
-    menu_items: List[Any],
-    title_key: str,
-    breadcrumbs: Optional[str] = None,
-    extra_kwargs_factory: Optional[Callable[[str], Dict[str, Any]]] = None,
-) -> Optional[str]:
-    action = select_menu_action(menu_items, title_key, breadcrumbs=breadcrumbs)
-    navigation = _handle_menu_navigation(action)
-    if navigation:
-        return navigation
-
-    if action:
-        extras: Dict[str, Any] = {}
-        if extra_kwargs_factory:
-            extras = extra_kwargs_factory(action)
-        run_task(action, dev, registry, extra_kwargs=extras)
-    return None
-
-
-def advanced_menu(dev, registry: CommandRegistry, target_region: str):
-    main_title = get_string("menu_main_title")
-    while True:
-        menu_items = get_advanced_menu_data(target_region)
-
-        def _extra_kwargs(action: str) -> Dict[str, Any]:
-            if action == "convert":
-                return {"target_region": target_region}
-            return {}
-
-        action = _run_task_menu(
-            dev,
-            registry,
-            menu_items,
-            "menu_adv_title",
-            breadcrumbs=main_title,
-            extra_kwargs_factory=_extra_kwargs,
-        )
-        if action in ("back", "return"):
-            return
-        if action == "exit":
-            sys.exit()
-
-
-def _root_action_menu(
-    dev, registry: CommandRegistry, gki: bool, root_type: str, breadcrumbs: str
-):
-    while True:
-        menu_items = menu_data.get_root_menu_data(gki)
-
-        def _extra_kwargs(action: str) -> Dict[str, Any]:
-            if not gki:
-                return {"root_type": root_type}
-            return {}
-
-        action = _run_task_menu(
-            dev,
-            registry,
-            menu_items,
-            "menu_root_title",
-            breadcrumbs=breadcrumbs,
-            extra_kwargs_factory=_extra_kwargs,
-        )
-        if action == "back":
-            return
-        if action == "return":
-            return "main"
-        if action == "exit":
-            sys.exit()
-
-
-def _select_root_mode_action(breadcrumbs: str) -> Optional[str]:
-    menu_items = menu_data.get_root_mode_menu_data()
-    return select_menu_action(
-        menu_items, "menu_root_mode_title", breadcrumbs=breadcrumbs
-    )
-
-
-def root_menu(dev, registry: CommandRegistry):
-    main_title = get_string("menu_main_title")
-    while True:
-        mode_menu = TerminalMenu(
-            get_string("menu_root_type_title"), breadcrumbs=main_title
-        )
-        mode_menu.add_option("1", get_string("menu_root_type_magisk"))
-        mode_menu.add_option("2", get_string("menu_root_type_ksu_next"))
-        mode_menu.add_option("3", get_string("menu_root_type_sukisu"))
-        mode_menu.add_option("4", get_string("menu_root_type_resukisu"))
-        mode_menu.add_separator()
-        mode_menu.add_option("b", get_string("menu_back"))
-        mode_menu.add_option("x", get_string("menu_main_exit"))
-
-        choice = mode_menu.ask(
-            get_string("prompt_select"), get_string("err_invalid_selection")
-        )
-
-        type_breadcrumbs = f"{main_title} > {get_string('menu_root_type_title')}"
-
-        if choice == "1":
-            result = _root_action_menu(
-                dev,
-                registry,
-                gki=False,
-                root_type="magisk",
-                breadcrumbs=type_breadcrumbs,
-            )
-        elif choice == "2":
-            result = None
-            while True:
-                mode_action = _select_root_mode_action(breadcrumbs=type_breadcrumbs)
-                mode_breadcrumbs = (
-                    f"{type_breadcrumbs} > {get_string('menu_root_mode_title')}"
-                )
-                if mode_action == "lkm":
-                    result = _root_action_menu(
-                        dev,
-                        registry,
-                        gki=False,
-                        root_type="ksu",
-                        breadcrumbs=mode_breadcrumbs,
-                    )
-                    break
-                if mode_action == "gki":
-                    result = _root_action_menu(
-                        dev,
-                        registry,
-                        gki=True,
-                        root_type="ksu",
-                        breadcrumbs=mode_breadcrumbs,
-                    )
-                    break
-                if mode_action == "back":
-                    result = None
-                    break
-                if mode_action == "return":
-                    return
-                if mode_action == "exit":
-                    sys.exit()
-        elif choice == "3":
-            result = _root_action_menu(
-                dev,
-                registry,
-                gki=False,
-                root_type="sukisu",
-                breadcrumbs=type_breadcrumbs,
-            )
-        elif choice == "4":
-            result = _root_action_menu(
-                dev,
-                registry,
-                gki=False,
-                root_type="resukisu",
-                breadcrumbs=type_breadcrumbs,
-            )
-        elif choice == "b":
-            return
-        elif choice == "x":
-            sys.exit()
-        else:
-            result = None
-
-        if result == "main":
-            return
-
-
-def settings_menu(
-    dev,
-    registry: CommandRegistry,
-    skip_adb: bool,
-    skip_rollback: bool,
-    target_region: str,
-    settings_store: SettingsStore = SETTINGS_STORE,
-) -> Tuple[bool, bool, str]:
-    main_title = get_string("menu_main_title")
-    while True:
-        skip_adb_state = "ON" if skip_adb else "OFF"
-        skip_rb_state = "ON" if skip_rollback else "OFF"
-
-        menu_items = get_settings_menu_data(
-            skip_adb_state, skip_rb_state, target_region
-        )
-        action = select_menu_action(
-            menu_items, "menu_settings_title", breadcrumbs=main_title
-        )
-
-        if action == "back":
-            return skip_adb, skip_rollback, target_region
-        elif action == "return":
-            return skip_adb, skip_rollback, target_region
-        elif action == "toggle_region":
-            target_region = "ROW" if target_region == "PRC" else "PRC"
-            settings_store.update(target_region=target_region)
-        elif action == "toggle_adb":
-            skip_adb = not skip_adb
-            dev.skip_adb = skip_adb
-        elif action == "toggle_rollback":
-            skip_rollback = not skip_rollback
-        elif action == "change_lang":
-            cmd_info = registry.get("change_language")
-            if cmd_info:
-                settings_breadcrumbs = (
-                    f"{main_title} > {get_string('menu_settings_title')}"
-                )
-                cmd_info.func(breadcrumbs=settings_breadcrumbs)
-        elif action == "check_update":
-            ui.clear()
-            ui.echo(get_string("act_update_checking"))
-
-            current_version = _read_current_version()
-            latest_version, latest_release, latest_prerelease = _get_latest_version(
-                current_version
-            )
-
-            if latest_version:
-                ui.echo(get_string("update_avail_title"))
-                prompt_msg = get_string("update_avail_prompt").format(
-                    curr=current_version, new=latest_version
-                )
-                choice = input(prompt_msg).strip().lower()
-                if choice == "y":
-                    ui.echo(get_string("update_open_web"))
-                    webbrowser.open("https://github.com/miner7222/LTBox/releases")
-                    sys.exit(0)
-            else:
-                if latest_release or latest_prerelease:
-                    ui.echo(
-                        get_string("act_update_not_found").format(
-                            version=current_version
-                        )
-                    )
-                else:
-                    ui.echo(get_string("act_update_error").format(e="Unknown version"))
-
-            ui.echo("")
-            input(get_string("press_enter_to_continue"))
-
-
-def prompt_for_language(
-    force_prompt: bool = False,
-    settings_store: SettingsStore = SETTINGS_STORE,
-    breadcrumbs: Optional[str] = None,
-) -> str:
-    if not force_prompt:
-        settings = settings_store.load()
-        saved_lang = settings.language
-
-        if saved_lang:
-            try:
-                available_languages = i18n.get_available_languages()
-                avail_codes = [code for code, _ in available_languages]
-
-                if saved_lang in avail_codes:
-                    return saved_lang
-            except Exception:
-                pass
-
-    i18n.load_lang("en")
-
-    try:
-        available_languages = i18n.get_available_languages()
-    except RuntimeError as e:
-        print(get_string("err_lang_generic").format(e=e), file=sys.stderr)
-        input(get_string("press_enter_to_continue"))
-        raise e
-
-    menu = TerminalMenu(get_string("menu_lang_title"), breadcrumbs=breadcrumbs)
-    lang_map = {}
-
-    for i, (lang_code, lang_name) in enumerate(available_languages, 1):
-        key = str(i)
-        lang_map[key] = lang_code
-        menu.add_option(key, lang_name)
-
-    prompt = get_string("prompt_select").format(len=len(lang_map))
-    error_msg = get_string("err_invalid_selection").format(len=len(lang_map))
-
-    choice = menu.ask(prompt, error_msg)
-    selected_lang = lang_map[choice]
-
-    settings_store.update(language=selected_lang)
-
-    return selected_lang
-
-
-def main_loop(
-    device_controller_class,
-    registry: CommandRegistry,
-    settings_store: SettingsStore = SETTINGS_STORE,
-):
-    settings = settings_store.load()
-
-    skip_adb = False
-    skip_rollback = False
-    target_region = settings.target_region
-
-    dev = device_controller_class(skip_adb=skip_adb)
-
-    while True:
-        menu_items = get_main_menu_data(target_region)
-        action = select_menu_action(menu_items, "menu_main_title")
-
-        if action == "exit":
-            break
-        elif action == "menu_settings":
-            skip_adb, skip_rollback, target_region = settings_menu(
-                dev,
-                registry,
-                skip_adb,
-                skip_rollback,
-                target_region,
-                settings_store=settings_store,
-            )
-        elif action == "menu_root":
-            root_menu(dev, registry)
-        elif action == "menu_advanced":
-            advanced_menu(dev, registry, target_region)
-        elif action:
-            extras: Dict[str, Any] = {}
-            if action in ["patch_all", "patch_all_wipe"]:
-                extras["skip_rollback"] = skip_rollback
-                extras["target_region"] = target_region
-            run_task(action, dev, registry, extra_kwargs=extras)
-
-
 def _resolve_language_code(
     is_info_mode: bool, settings_store: SettingsStore = SETTINGS_STORE
 ) -> str:
+    from .menu_router import prompt_for_language
+
     return "en" if is_info_mode else prompt_for_language(settings_store=settings_store)
 
 
@@ -828,6 +493,7 @@ def _initialize_runtime(lang_code: str) -> Tuple[type, CommandRegistry, Any, Any
 
     from . import actions, constants, device, workflow
     from .patch import avb
+    from .menu_router import prompt_for_language
 
     registry = CommandRegistry()
 
@@ -1046,6 +712,9 @@ def _run_entry_mode(
     else:
         if settings_store is None:
             settings_store = SETTINGS_STORE
+
+        from .menu_router import main_loop
+
         main_loop(device_controller_class, registry, settings_store=settings_store)
 
 
